@@ -1,0 +1,32 @@
+.app-shell {
+  --ink: #253247;
+  --muted: #617083;
+  --line: #d8e0e8;
+  --accent: #157a8a;
+  --accent-strong: #0d5f6d;
+  --surface: #ffffff;
+  --surface-raised: #f4f8fa;
+  --page: #eef4f6;
+  --shadow: rgba(31, 63, 75, 0.14);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+  background: var(--page);
+  transition: background-color .25s ease, color .25s ease;
+}
+
+.theme-dark {
+  --ink: #d7e2e7;
+  --muted: #9aaeb7;
+  --line: #2c4149;
+  --accent: #2dd4bf;
+  --accent-strong: #1e9d91;
+  --surface: #18262d;
+  --surface-raised: #202f36;
+  --page: #0d171b;
+  --shadow: rgba(1, 7, 10, 0.42);
+}
+
+.app-footer { margin-top: auto; padding: 18px 24px; color: var(--muted); text-align: center; font-size: 12px; border-top: 1px solid var(--line); }
+.footer-dot { width: 6px; height: 6px; margin-right: 7px; display: inline-block; border-radius: 50%; background: #58a579; }
