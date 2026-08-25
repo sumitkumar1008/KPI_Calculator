@@ -1,0 +1,16 @@
+# AGENT and IDE metadata
+.agent/
+.pydeps/
+agent.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+.venv
+env/
+venv/
