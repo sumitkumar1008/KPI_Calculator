@@ -3,6 +3,9 @@
 .pydeps/
 agent.md
 
+# Markdown Documentation
+*.md
+
 # Python
 __pycache__/
 *.py[cod]
