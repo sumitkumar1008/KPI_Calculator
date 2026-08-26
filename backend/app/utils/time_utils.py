@@ -153,6 +153,22 @@ def safe_timediff(end_dt: datetime | None, start_dt: datetime | None) -> timedel
     return end_dt - start_dt
 
 
+def get_timedelta_seconds(td: timedelta | None) -> float | int | None:
+    """
+    Returns total non-negative seconds for a timedelta object.
+    Returns integer if whole seconds, or float if fractional seconds exist.
+    Returns None if td is None, not a timedelta, or negative.
+    """
+    if td is None or not isinstance(td, timedelta):
+        return None
+    sec_float = td.total_seconds()
+    if sec_float < 0:
+        return None
+    if sec_float.is_integer():
+        return int(sec_float)
+    return round(sec_float, 2)
+
+
 def format_timedelta(td: timedelta | None) -> str | None:
     """
     Formats a non-negative timedelta object into standardized string output per Q1 policy:
@@ -169,10 +185,11 @@ def format_timedelta(td: timedelta | None) -> str | None:
     if sec_float < 0:
         raise ValueError("format_timedelta does not accept negative timedeltas; caller must handle per policy (Q2: null + warning)")
     
-    total_seconds = int(sec_float)
+    total_seconds = round(sec_float)
     days, rem = divmod(total_seconds, 86400)
     hours, rem = divmod(rem, 3600)
     minutes, seconds = divmod(rem, 60)
     if days > 0:
         return f"{days}d {hours:02d}:{minutes:02d}:{seconds:02d}"
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+

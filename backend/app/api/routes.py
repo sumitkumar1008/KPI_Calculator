@@ -15,6 +15,7 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 
 from app.services.excel_parser import parse_excel_file
+from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.kpi_calculator import compute_row_kpis
 from app.utils.time_utils import parse_datetime
 
@@ -83,7 +84,7 @@ def upload_kpi_excel():
 
     # 4. Calculate KPIs for each row in the Excel sheet
     for idx, row in enumerate(raw_rows):
-        computed = compute_row_kpis(row)
+        computed = compute_row_kpis(row)     
         
         # Build clean frontend row object containing SRNUMBER, SRCREATIONTIME, and 5 KPI results
         formatted_row = {
@@ -110,3 +111,68 @@ def upload_kpi_excel():
         ),
         200,
     )
+
+
+@api_bp.route("/kpi/summary", methods=["POST"], strict_slashes=False)
+def calculate_kpi_summary():
+    """
+    Sub-Millisecond Period-Wise KPI Summary Endpoint
+    -------------------------------------------------
+    Accepts:
+    - JSON payload containing the calculated rows from API 1:
+      Either {"rows": [...]} or direct array of rows [...].
+    - Query parameter 'group_by': 'daily', 'weekly', or 'monthly' (default 'monthly').
+    
+    Processing Steps:
+    1. Validates query parameter 'group_by' (must be 'daily', 'weekly', or 'monthly').
+    2. Validates JSON payload presence.
+    3. Extracts rows list.
+    4. Calls kpi_aggregator.aggregate_kpi_averages() using pre-calculated row KPI seconds.
+    5. Returns period summary JSON containing AVG_MTTI, AVG_MTTA, AVG_MTTAck, AVG_MTTR, AVG_MTTr.
+    """
+    # 1. Validate query parameter 'group_by'
+    group_by = request.args.get("group_by", "monthly").lower().strip()
+    valid_group_bys = {"daily", "weekly", "monthly"}
+    if group_by not in valid_group_bys:
+        return (
+            jsonify(
+                {
+                    "error": f"Invalid group_by parameter '{group_by}'. Must be one of: daily, weekly, monthly"
+                }
+            ),
+            400,
+        )
+
+    # 2. Extract JSON payload from request body (force=True allows flexible header handling in Postman/curl)
+    data = request.get_json(silent=True, force=True)
+    if data is None:
+        return (
+            jsonify(
+                {
+                    "error": "Request body must contain valid JSON. Ensure Body is set to raw JSON."
+                }
+            ),
+            400,
+        )
+
+    # Extract rows list from payload (handles {"rows": [...]} or direct list [...])
+    if isinstance(data, dict):
+        rows = data.get("rows")
+    elif isinstance(data, list):
+        rows = data
+    else:
+        rows = None
+
+    if rows is None or not isinstance(rows, list):
+        return (
+            jsonify(
+                {
+                    "error": "JSON payload must contain a 'rows' array or be a list of row objects"
+                }
+            ),
+            400,
+        )
+
+    # 3. Compute period averages using kpi_aggregator service
+    summary_result = aggregate_kpi_averages(rows, group_by=group_by)
+    return jsonify(summary_result), 200

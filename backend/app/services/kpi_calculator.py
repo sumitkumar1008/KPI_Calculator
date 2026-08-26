@@ -18,7 +18,12 @@ Handles Business Data Policies:
 from datetime import datetime
 from typing import Any
 
-from app.utils.time_utils import format_timedelta, parse_datetime, safe_timediff
+from app.utils.time_utils import (
+    format_timedelta,
+    get_timedelta_seconds,
+    parse_datetime,
+    safe_timediff,
+)
 
 # KPI Formula Definitions: Maps KPI_Name -> (End_Timestamp_Column, Start_Timestamp_Column)
 KPI_FORMULAS: dict[str, tuple[str, str]] = {
@@ -51,9 +56,11 @@ def compute_row_kpis(row: dict[str, Any]) -> dict[str, Any]:
     Returns:
         dict containing:
         - "kpis": Dictionary mapping KPI_Name -> formatted string ("HH:MM:SS" or "Xd HH:MM:SS") or None
+        - "kpi_seconds": Dictionary mapping KPI_Name -> total seconds (numeric float/int) or None
         - "warnings": List of string warnings for missing data cells or negative durations.
     """
     kpis: dict[str, str | None] = {}
+    kpi_seconds: dict[str, float | int | None] = {}
     warnings: list[str] = []
 
     # Iterate over each defined KPI formula
@@ -64,18 +71,21 @@ def compute_row_kpis(row: dict[str, Any]) -> dict[str, Any]:
         # Q3 Policy Check: Handle missing or unparseable date cells
         if end_dt is None and start_dt is None:
             kpis[kpi_name] = None
+            kpi_seconds[kpi_name] = None
             warnings.append(
                 f"{kpi_name}: required columns '{end_col}' and '{start_col}' are missing/null; KPI set to null"
             )
             continue
         if end_dt is None:
             kpis[kpi_name] = None
+            kpi_seconds[kpi_name] = None
             warnings.append(
                 f"{kpi_name}: end column '{end_col}' is null/missing; KPI set to null"
             )
             continue
         if start_dt is None:
             kpis[kpi_name] = None
+            kpi_seconds[kpi_name] = None
             warnings.append(
                 f"{kpi_name}: start column '{start_col}' is null/missing; KPI set to null"
             )
@@ -85,22 +95,27 @@ def compute_row_kpis(row: dict[str, Any]) -> dict[str, Any]:
         td = safe_timediff(end_dt, start_dt)
         if td is None:
             kpis[kpi_name] = None
+            kpi_seconds[kpi_name] = None
             warnings.append(f"{kpi_name}: unable to compute time difference; KPI set to null")
             continue
 
         # Q2 Policy Check: Handle negative duration (End timestamp < Start timestamp)
         if td.total_seconds() < 0:
             kpis[kpi_name] = None
+            kpi_seconds[kpi_name] = None
             warnings.append(
                 f"{kpi_name}: {end_col} ({end_dt.isoformat()}) is before {start_col} ({start_dt.isoformat()}); invalid negative duration; KPI set to null"
             )
             continue
 
-        # Format timedelta into HH:MM:SS or Xd HH:MM:SS format
+        # Format timedelta into HH:MM:SS or Xd HH:MM:SS format & store numeric seconds
         try:
             kpis[kpi_name] = format_timedelta(td)
+            kpi_seconds[kpi_name] = get_timedelta_seconds(td)
         except Exception as exc:
             kpis[kpi_name] = None
+            kpi_seconds[kpi_name] = None
             warnings.append(f"{kpi_name}: format error: {exc}; KPI set to null")
 
-    return {"kpis": kpis, "warnings": warnings}
+    return {"kpis": kpis, "kpi_seconds": kpi_seconds, "warnings": warnings}
+

@@ -105,3 +105,72 @@ def test_upload_kpi_payload_too_large_413(app, client):
     assert response.status_code == 413
     res_json = response.get_json()
     assert "Uploaded file is too large" in res_json["error"]
+
+
+def test_kpi_summary_monthly_success(client):
+    payload = {
+        "rows": [
+            {
+                "SRNUMBER": "SR-101",
+                "SRCREATIONTIME": "2025-01-10T10:00:00",
+                "MTTI": "00:06:00",
+                "MTTI_seconds": 360,
+                "MTTA": "00:01:00",
+                "MTTA_seconds": 60,
+                "MTTAck": "00:02:00",
+                "MTTAck_seconds": 120,
+                "MTTR": "1d 04:00:00",
+                "MTTR_seconds": 100800,
+                "MTTr": "2d 02:00:00",
+                "MTTr_seconds": 180000,
+            },
+            {
+                "SRNUMBER": "SR-102",
+                "SRCREATIONTIME": "2025-01-20T14:00:00",
+                "MTTI": "00:04:00",
+                "MTTI_seconds": 240,
+                "MTTA": "00:02:00",
+                "MTTA_seconds": 120,
+                "MTTAck": "00:02:00",
+                "MTTAck_seconds": 120,
+                "MTTR": "1d 02:00:00",
+                "MTTR_seconds": 93600,
+                "MTTr": "1d 10:00:00",
+                "MTTr_seconds": 122400,
+            },
+        ]
+    }
+
+    response = client.post("/api/v1/kpi/summary?group_by=monthly", json=payload)
+    assert response.status_code == 200
+    res_json = response.get_json()
+
+    assert res_json["group_by"] == "monthly"
+    assert res_json["total_records"] == 2
+    assert res_json["periods_count"] == 1
+    summary = res_json["summary"][0]
+
+    assert summary["period"] == "2025-01"
+    assert summary["period_label"] == "January 2025"
+    assert summary["record_count"] == 2
+    assert summary["AVG_MTTI"] == "00:05:00"
+    assert summary["AVG_MTTA"] == "00:01:30"
+    assert summary["AVG_MTTAck"] == "00:02:00"
+    assert summary["AVG_MTTR"] == "1d 03:00:00"
+    assert summary["AVG_MTTr"] == "1d 18:00:00"
+
+
+def test_kpi_summary_invalid_group_by(client):
+    response = client.post("/api/v1/kpi/summary?group_by=yearly", json={"rows": []})
+    assert response.status_code == 400
+    res_json = response.get_json()
+    assert "Invalid group_by parameter" in res_json["error"]
+
+
+def test_kpi_summary_non_json_payload(client):
+    response = client.post("/api/v1/kpi/summary", data="not json")
+    assert response.status_code == 400
+    res_json = response.get_json()
+    assert "Request body must contain valid JSON" in res_json["error"]
+
+
