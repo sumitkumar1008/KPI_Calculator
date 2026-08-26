@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import FileIcon from './FileIcon'
+import ResultsTable from './MasterTable'
+import AvgTable from './AvgTable'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
 import './FileUpload.css'
 
@@ -9,6 +11,11 @@ function FileUpload() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState(null)
   const [resultRows, setResultRows] = useState([])
+  const [uploadResponse, setUploadResponse] = useState(null)
+  const [summaryRows, setSummaryRows] = useState([])
+  const [summaryPeriod, setSummaryPeriod] = useState('daily')
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState(null)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
   const [error, setError] = useState(null)
@@ -19,6 +26,10 @@ function FileUpload() {
     setError(null)
     setUploadStatus(null)
     setResultRows([])
+    setUploadResponse(null)
+    setSummaryRows([])
+    setSummaryPeriod('daily')
+    setSummaryError(null)
     setCurrentPage(1)
     setIsUploading(false)
     if (inputRef.current) inputRef.current.value = ''
@@ -49,6 +60,7 @@ function FileUpload() {
     setIsUploading(true)
     setError(null)
     setUploadStatus(null)
+    setSummaryError(null)
 
     try {
       const formData = new FormData()
@@ -64,14 +76,50 @@ function FileUpload() {
       }
 
       setResultRows(Array.isArray(responseData.rows) ? responseData.rows : [])
+      setUploadResponse(responseData)
       setCurrentPage(1)
       setUploadStatus('success')
+      await loadSummary(responseData, summaryPeriod)
     } catch (uploadError) {
       setError(uploadError.message || 'Something went wrong while uploading the file.')
       setUploadStatus(null)
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const loadSummary = async (sourceResponse, period) => {
+    setIsSummaryLoading(true)
+    setSummaryError(null)
+
+    try {
+      const endpoint = new URL(import.meta.env.VITE_SUMMARY_API_ENDPOINT || '/api/v1/kpi/summary?group_by=monthly', window.location.origin)
+      endpoint.searchParams.set('group_by', period)
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sourceResponse),
+      })
+      const responseData = await response.json()
+      if (!response.ok) {
+        throw new Error(responseData.detail || responseData.message || 'The summary could not be loaded.')
+      }
+      setSummaryRows(Array.isArray(responseData.summary) ? responseData.summary : [])
+      if (!Array.isArray(responseData.summary)) {
+        throw new Error(`The summary API returned no summary array for group_by=${period}.`)
+      }
+    } catch (summaryLoadError) {
+      setSummaryRows([])
+      setSummaryError(summaryLoadError.message || 'Something went wrong while loading the summary.')
+    } finally {
+      setIsSummaryLoading(false)
+    }
+  }
+
+  const changeSummaryPeriod = async (event) => {
+    const nextPeriod = event.target.value
+    setSummaryPeriod(nextPeriod)
+    await loadSummary(uploadResponse, nextPeriod)
   }
 
   const extension = selectedFile?.name.split('.').pop()?.toUpperCase()
@@ -136,55 +184,24 @@ function FileUpload() {
             <p className="section-label">Step 02</p>
             <h2 id="results-heading">KPI results</h2>
           </div>
-          {resultRows.length > 0 ? (
-            <div className="results-table-wrap">
-              <table className="results-table">
-                <thead>
-                  <tr>
-                    <th scope="col">SRNUMBER</th>
-                    <th scope="col">MTTI</th>
-                    <th scope="col">MTTA</th>
-                    <th scope="col">MTTAck</th>
-                    <th scope="col">MTTR</th>
-                    <th scope="col">MTTr</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleRows.map((row, index) => (
-                    <tr key={`${row.SRNUMBER || 'row'}-${pageStartIndex + index}`}>
-                      <td>{row.SRNUMBER || '—'}</td>
-                      <td>{row.MTTI || '—'}</td>
-                      <td>{row.MTTA || '—'}</td>
-                      <td>{row.MTTAck || '—'}</td>
-                      <td>{row.MTTR || '—'}</td>
-                      <td>{row.MTTr || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="empty-results">The response did not contain any result rows.</p>
-          )}
-          {resultRows.length > 0 && (
-            <div className="pagination-controls" aria-label="Table pagination">
-              <label className="rows-per-page">
-                Rows per page
-                <select value={rowsPerPage} onChange={changeRowsPerPage}>
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
-                </select>
-              </label>
-              <span className="pagination-status">Showing {pageStartIndex + 1}-{Math.min(pageStartIndex + rowsPerPage, resultRows.length)} of {resultRows.length}</span>
-              <div className="pagination-buttons">
-                <button type="button" onClick={() => setCurrentPage((page) => page - 1)} disabled={currentPage === 1}>Previous</button>
-                <span>Page {currentPage} of {totalPages}</span>
-                <button type="button" onClick={() => setCurrentPage((page) => page + 1)} disabled={currentPage === totalPages}>Next</button>
-              </div>
-            </div>
-          )}
+          <ResultsTable
+            rows={resultRows}
+            visibleRows={visibleRows}
+            rowsPerPage={rowsPerPage}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageStartIndex={pageStartIndex}
+            onRowsPerPageChange={changeRowsPerPage}
+            onPrevious={() => setCurrentPage((page) => page - 1)}
+            onNext={() => setCurrentPage((page) => page + 1)}
+          />
+          <AvgTable
+            rows={summaryRows}
+            period={summaryPeriod}
+            isLoading={isSummaryLoading}
+            error={summaryError}
+            onPeriodChange={changeSummaryPeriod}
+          />
         </section>
       )}
     </>
