@@ -56,14 +56,21 @@ function FileUpload() {
 
   const safeParseJson = async (response) => {
     const text = await response.text()
+    let data = null
     try {
-      return JSON.parse(text)
+      data = JSON.parse(text)
     } catch {
       if (!response.ok) {
-        throw new Error(`Server error HTTP ${response.status} (${response.statusText}). Please check backend service logs.`)
+        throw new Error(`Server error HTTP ${response.status} (${response.statusText || 'Error'}). Please check backend service logs.`)
       }
       throw new Error('Server returned an invalid non-JSON response.')
     }
+
+    if (!response.ok) {
+      const serverMsg = data?.error || data?.detail || data?.message || `Server error HTTP ${response.status}.`
+      throw new Error(serverMsg)
+    }
+    return data
   }
 
   const uploadFile = async () => {

@@ -1,13 +1,5 @@
-"""
-Flask Application Factory
-==========================
-Creates and configures the Flask application instance.
-Registers API blueprints, root landing routes, health checks,
-and custom error handlers for file size limits (HTTP 413).
-"""
-
 import os
-from flask import Flask, send_from_directory
+from flask import Flask, jsonify, send_from_directory
 
 from app.api.routes import api_bp
 from app.core.config import Config
@@ -43,22 +35,22 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         """Serves built React static assets from frontend/dist if present, else fallback to index.html or API welcome message."""
         # Never return HTML for API requests
         if path.startswith("api/") or path == "api":
-            return {"error": f"API endpoint '/{path}' not found"}, 404
+            return jsonify({"error": f"API endpoint '/{path}' not found"}), 404
 
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
         index_file = os.path.join(app.static_folder, "index.html")
         if os.path.exists(index_file):
             return send_from_directory(app.static_folder, "index.html")
-        return {
+        return jsonify({
             "message": f"Welcome to {app.config['PROJECT_NAME']}",
             "version": app.config["VERSION"],
-        }
+        })
 
     @app.route("/health")
     def health():
         """Health check endpoint for monitoring uptime and service status."""
-        return {"status": "healthy"}
+        return jsonify({"status": "healthy"})
 
     @app.errorhandler(413)
     def request_entity_too_large(error):
@@ -67,15 +59,15 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         Triggered automatically when an uploaded Excel file exceeds MAX_CONTENT_LENGTH (50MB).
         """
         max_mb = app.config.get("MAX_CONTENT_LENGTH", 0) // (1024 * 1024)
-        return {
+        return jsonify({
             "error": f"Uploaded file is too large. Maximum allowed size is {max_mb} MB."
-        }, 413
+        }), 413
 
     @app.errorhandler(500)
     @app.errorhandler(Exception)
     def handle_global_exception(error):
         """Global fallback error handler ensuring 500 server errors always return JSON instead of HTML."""
         err_msg = str(error) if error else "Internal server error"
-        return {"error": f"Server Error: {err_msg}"}, 500
+        return jsonify({"error": f"Server Error: {err_msg}"}), 500
 
     return app
