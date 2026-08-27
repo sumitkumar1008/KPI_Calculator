@@ -162,6 +162,8 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
     if "CREATIONTIME" not in df_subset.columns and "SRCREATIONTIME" in df_subset.columns:
         df_subset["CREATIONTIME"] = df_subset["SRCREATIONTIME"]
 
+    # Convert all pandas NaN, NaT, and null values to clean Python None objects
+    df_subset = df_subset.where(pd.notnull(df_subset), None)
     rows = df_subset.to_dict(orient="records")
 
     return {
