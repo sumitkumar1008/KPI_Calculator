@@ -100,6 +100,26 @@ def validate_and_map_headers(columns: list[Any]) -> tuple[dict[str, str], list[s
     return column_map, missing_columns
 
 
+import datetime
+
+
+def _sanitize_cell(val: Any) -> Any:
+    """
+    Sanitizes raw pandas cell values into 100% JSON-serializable Python types.
+    Converts:
+    - pd.isna / pd.NaT / np.nan / None -> None
+    - datetime / pd.Timestamp -> ISO format string ("YYYY-MM-DDTHH:MM:SS")
+    - numpy scalars -> native Python int/float
+    """
+    if val is None or pd.isna(val):
+        return None
+    if isinstance(val, (datetime.datetime, datetime.date, pd.Timestamp)):
+        return val.isoformat()
+    if hasattr(val, "item"):
+        return val.item()
+    return val
+
+
 def parse_excel_file(file_input: Any) -> dict[str, Any]:
     """
     Multi-engine Excel parser supporting modern (.xlsx via openpyxl) and legacy binary (.xls via xlrd).
@@ -162,12 +182,14 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
     if "CREATIONTIME" not in df_subset.columns and "SRCREATIONTIME" in df_subset.columns:
         df_subset["CREATIONTIME"] = df_subset["SRCREATIONTIME"]
 
-    # Convert all pandas NaN, NaT, and null values to clean Python None objects
-    df_subset = df_subset.where(pd.notnull(df_subset), None)
-    rows = df_subset.to_dict(orient="records")
+    raw_records = df_subset.to_dict(orient="records")
+    clean_rows = [
+        {k: _sanitize_cell(v) for k, v in record.items()}
+        for record in raw_records
+    ]
 
     return {
         "success": True,
-        "rows": rows,
-        "row_count": len(rows),
+        "rows": clean_rows,
+        "row_count": len(clean_rows),
     }
