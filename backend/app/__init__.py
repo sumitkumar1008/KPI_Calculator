@@ -71,4 +71,11 @@ def create_app(config_class: type[Config] = Config) -> Flask:
             "error": f"Uploaded file is too large. Maximum allowed size is {max_mb} MB."
         }, 413
 
+    @app.errorhandler(500)
+    @app.errorhandler(Exception)
+    def handle_global_exception(error):
+        """Global fallback error handler ensuring 500 server errors always return JSON instead of HTML."""
+        err_msg = str(error) if error else "Internal server error"
+        return {"error": f"Server Error: {err_msg}"}, 500
+
     return app

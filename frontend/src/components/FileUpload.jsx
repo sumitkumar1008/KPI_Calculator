@@ -54,6 +54,18 @@ function FileUpload() {
     selectFile(event.dataTransfer.files?.[0])
   }
 
+  const safeParseJson = async (response) => {
+    const text = await response.text()
+    try {
+      return JSON.parse(text)
+    } catch {
+      if (!response.ok) {
+        throw new Error(`Server error HTTP ${response.status} (${response.statusText}). Please check backend service logs.`)
+      }
+      throw new Error('Server returned an invalid non-JSON response.')
+    }
+  }
+
   const uploadFile = async () => {
     if (!selectedFile) return
 
@@ -70,7 +82,7 @@ function FileUpload() {
         body: formData,
       })
 
-      const responseData = await response.json()
+      const responseData = await safeParseJson(response)
       if (!response.ok) {
         throw new Error(responseData.error || responseData.detail || responseData.message || 'The file could not be processed.')
       }
@@ -100,7 +112,7 @@ function FileUpload() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sourceResponse),
       })
-      const responseData = await response.json()
+      const responseData = await safeParseJson(response)
       if (!response.ok) {
         throw new Error(responseData.error || responseData.detail || responseData.message || 'The summary could not be loaded.')
       }
