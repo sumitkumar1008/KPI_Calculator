@@ -60,10 +60,10 @@ function FileUpload() {
     try {
       data = JSON.parse(text)
     } catch {
-      if (!response.ok) {
-        throw new Error(`Server error HTTP ${response.status} (${response.statusText || 'Error'}). Please check backend service logs.`)
-      }
-      throw new Error('Server returned an invalid non-JSON response.')
+      // Strip HTML tags to extract raw server error text (e.g. 502 Bad Gateway / Memory Limit)
+      const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+      const preview = cleanText ? cleanText.slice(0, 150) : (response.statusText || 'Server Error')
+      throw new Error(`Server Error HTTP ${response.status}: ${preview}`)
     }
 
     if (!response.ok) {
