@@ -117,6 +117,7 @@ def aggregate_kpi_averages(
             "period": bucket["period"],
             "period_label": bucket["period_label"],
             "record_count": len(period_rows),
+            "valid_counts": {},
         }
 
         # Calculate average for each of the 5 KPIs
@@ -126,14 +127,16 @@ def aggregate_kpi_averages(
             valid_seconds: list[float] = []
 
             for r in period_rows:
-                # 1. Prefer numeric pre-calculated seconds
+                # 1. Prefer numeric pre-calculated seconds if present
                 val = r.get(sec_key)
                 if val is not None and isinstance(val, (int, float)) and val >= 0:
                     valid_seconds.append(float(val))
                 elif kpi in r and r[kpi] is not None:
-                    # Fallback string parsing if seconds key is absent
+                    # Fallback string parsing (e.g. "00:05:00" or "1d 04:00:00")
+                    part = str(r[kpi]).strip()
+                    if part.lower() in ("none", "null", "", "n/a", "nan"):
+                        continue
                     try:
-                        part = str(r[kpi]).strip()
                         days = 0
                         if "d " in part:
                             d_str, part = part.split("d ", 1)
@@ -141,11 +144,15 @@ def aggregate_kpi_averages(
                         parts = [int(p) for p in part.split(":")]
                         if len(parts) == 3:
                             tot_sec = days * 86400 + parts[0] * 3600 + parts[1] * 60 + parts[2]
-                            valid_seconds.append(float(tot_sec))
+                            if tot_sec >= 0:
+                                valid_seconds.append(float(tot_sec))
                     except Exception:
                         pass
 
+            period_summary["valid_counts"][kpi] = len(valid_seconds)
+
             if valid_seconds:
+                # Average = sum of valid durations / count of valid non-null records only
                 avg_sec = sum(valid_seconds) / len(valid_seconds)
                 td = timedelta(seconds=round(avg_sec))
                 period_summary[avg_key] = format_timedelta(td)
@@ -161,3 +168,4 @@ def aggregate_kpi_averages(
         "summary": summary,
         "global_warnings": global_warnings,
     }
+

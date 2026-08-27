@@ -11,6 +11,14 @@ coverage/
 .env.*
 !.env.example
 
+# Markdown Documentation
+*.md
+
+# AGENT and IDE metadata
+.agent/
+.pydeps/
+agent.md
+
 # Logs
 logs/
 *.log

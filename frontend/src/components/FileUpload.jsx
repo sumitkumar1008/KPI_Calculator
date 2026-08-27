@@ -72,7 +72,7 @@ function FileUpload() {
 
       const responseData = await response.json()
       if (!response.ok) {
-        throw new Error(responseData.detail || responseData.message || 'The file could not be processed.')
+        throw new Error(responseData.error || responseData.detail || responseData.message || 'The file could not be processed.')
       }
 
       setResultRows(Array.isArray(responseData.rows) ? responseData.rows : [])
@@ -102,7 +102,7 @@ function FileUpload() {
       })
       const responseData = await response.json()
       if (!response.ok) {
-        throw new Error(responseData.detail || responseData.message || 'The summary could not be loaded.')
+        throw new Error(responseData.error || responseData.detail || responseData.message || 'The summary could not be loaded.')
       }
       setSummaryRows(Array.isArray(responseData.summary) ? responseData.summary : [])
       if (!Array.isArray(responseData.summary)) {

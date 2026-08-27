@@ -28,6 +28,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     # Register the main KPI calculation API blueprint under /api/v1 prefix
     app.register_blueprint(api_bp)
 
+    # Enable CORS for production deployments (e.g. Render)
+    try:
+        from flask_cors import CORS
+        CORS(app)
+    except ImportError:
+        pass
+
     @app.route("/")
     def root():
         """Root landing endpoint returning API project details and current version."""
