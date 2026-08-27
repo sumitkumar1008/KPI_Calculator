@@ -41,6 +41,10 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     @app.route("/<path:path>")
     def serve_frontend(path: str):
         """Serves built React static assets from frontend/dist if present, else fallback to index.html or API welcome message."""
+        # Never return HTML for API requests
+        if path.startswith("api/") or path == "api":
+            return {"error": f"API endpoint '/{path}' not found"}, 404
+
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
         index_file = os.path.join(app.static_folder, "index.html")
