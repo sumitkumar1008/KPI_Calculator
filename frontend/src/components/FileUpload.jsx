@@ -54,6 +54,24 @@ function FileUpload() {
     selectFile(event.dataTransfer.files?.[0])
   }
 
+  const safeParseJson = async (response) => {
+    const text = await response.text()
+    let data = null
+    try {
+      data = JSON.parse(text)
+    } catch {
+      const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+      const preview = cleanText ? cleanText.slice(0, 150) : (response.statusText || 'Server Error')
+      throw new Error(`Server Error HTTP ${response.status}: ${preview}`)
+    }
+
+    if (!response.ok) {
+      const serverMsg = data?.error || data?.detail || data?.message || `Server error HTTP ${response.status}.`
+      throw new Error(serverMsg)
+    }
+    return data
+  }
+
   const uploadFile = async () => {
     if (!selectedFile) return
 
@@ -70,9 +88,9 @@ function FileUpload() {
         body: formData,
       })
 
-      const responseData = await response.json()
+      const responseData = await safeParseJson(response)
       if (!response.ok) {
-        throw new Error(responseData.detail || responseData.message || 'The file could not be processed.')
+        throw new Error(responseData.error || responseData.detail || responseData.message || 'The file could not be processed.')
       }
 
       setResultRows(Array.isArray(responseData.rows) ? responseData.rows : [])
@@ -100,9 +118,9 @@ function FileUpload() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sourceResponse),
       })
-      const responseData = await response.json()
+      const responseData = await safeParseJson(response)
       if (!response.ok) {
-        throw new Error(responseData.detail || responseData.message || 'The summary could not be loaded.')
+        throw new Error(responseData.error || responseData.detail || responseData.message || 'The summary could not be loaded.')
       }
       setSummaryRows(Array.isArray(responseData.summary) ? responseData.summary : [])
       if (!Array.isArray(responseData.summary)) {
