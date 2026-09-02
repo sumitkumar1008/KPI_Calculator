@@ -1,9 +1,0 @@
-{
-  "name": "kpi-calculator",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "build": "npm --prefix frontend install && npm --prefix frontend run build && pip install -r backend/requirements.txt",
-    "start": "gunicorn --timeout 120 --chdir backend app.main:app"
-  }
-}
