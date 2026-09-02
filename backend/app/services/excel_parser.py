@@ -108,12 +108,12 @@ def _sanitize_cell(val: Any) -> Any:
     Sanitizes raw pandas cell values into 100% JSON-serializable Python types.
     Converts:
     - pd.isna / pd.NaT / np.nan / None -> None
-    - datetime / pd.Timestamp -> ISO format string ("YYYY-MM-DDTHH:MM:SS")
+    - datetime / pd.Timestamp / datetime.time / datetime.date -> ISO format string
     - numpy scalars -> native Python int/float
     """
     if val is None or pd.isna(val):
         return None
-    if isinstance(val, (datetime.datetime, datetime.date, pd.Timestamp)):
+    if isinstance(val, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
         return val.isoformat()
     if hasattr(val, "item"):
         return val.item()
