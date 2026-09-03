@@ -114,3 +114,62 @@ def test_format_timedelta_seconds_precision():
     td = safe_timediff(end, start)
     assert format_timedelta(td) == "00:03:33"
 
+
+def test_parse_duration_to_seconds():
+    from app.utils.time_utils import parse_duration_to_seconds
+    assert parse_duration_to_seconds("03:19:05") == 11945.0
+    assert parse_duration_to_seconds("27:15:30") == 98130.0
+    assert parse_duration_to_seconds("00:01:30.500") == 90.5
+    assert parse_duration_to_seconds("1d 04:00:00") == 100800.0
+    assert parse_duration_to_seconds(120) == 120.0
+    assert parse_duration_to_seconds(120.75) == 120.75
+    assert parse_duration_to_seconds(timedelta(hours=1, minutes=30)) == 5400.0
+    # Error / blank / invalid handling
+    assert parse_duration_to_seconds("#VALUE!") is None
+    assert parse_duration_to_seconds("#N/A") is None
+    assert parse_duration_to_seconds("#REF!") is None
+    assert parse_duration_to_seconds("#DIV/0!") is None
+    assert parse_duration_to_seconds("") is None
+    assert parse_duration_to_seconds("   ") is None
+    assert parse_duration_to_seconds(None) is None
+    assert parse_duration_to_seconds("null") is None
+    assert parse_duration_to_seconds("nan") is None
+    assert parse_duration_to_seconds("-") is None
+    assert parse_duration_to_seconds("-01:00:00") is None
+    assert parse_duration_to_seconds(True) is None
+    assert parse_duration_to_seconds(False) is None
+
+
+def test_format_duration_hhmmss():
+    from app.utils.time_utils import format_duration_hhmmss
+    assert format_duration_hhmmss(11945) == "03:19:05"
+    assert format_duration_hhmmss(98130) == "27:15:30"
+    assert format_duration_hhmmss(360005) == "100:00:05"
+    assert format_duration_hhmmss(0) == "00:00:00"
+    assert format_duration_hhmmss(59) == "00:00:59"
+    assert format_duration_hhmmss(None) is None
+    assert format_duration_hhmmss(-10) is None
+
+
+def test_compute_duration_average_excel_equivalence():
+    from app.utils.time_utils import compute_duration_average
+    # Scenario: 4 valid values, 3 errors/blanks
+    values = [
+        "01:00:00",  # 3600s
+        "#VALUE!",   # ignored
+        "02:00:00",  # 7200s
+        "",          # ignored
+        "03:00:00",  # 10800s
+        None,        # ignored
+        "26:00:00",  # 93600s (greater than 24h)
+    ]
+    # Sum = 3600 + 7200 + 10800 + 93600 = 115200s
+    # Count = 4 (errors and blanks excluded from denominator)
+    # Average = 115200 / 4 = 28800s = 8 hours -> 08:00:00
+    fmt, count, total_sum, avg_sec = compute_duration_average(values)
+    assert count == 4
+    assert total_sum == 115200.0
+    assert avg_sec == 28800.0
+    assert fmt == "08:00:00"
+
+

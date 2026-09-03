@@ -84,6 +84,8 @@ def test_upload_kpi_success_complete_flow(client):
     row1 = res_json["rows"][0]
     assert row1["row_index"] == 2
     assert row1["SRNUMBER"] == "SR-1001"
+    assert "AUTOMATION_RCA_CONCLUSION" in row1
+    assert "AUTOMATION_RUN" in row1
     assert row1["MTTI"] == "06:00:00"
     assert row1["MTTA"] == "01:00:00"
     assert row1["MTTAck"] == "00:30:00"
@@ -92,6 +94,37 @@ def test_upload_kpi_success_complete_flow(client):
 
     row2 = res_json["rows"][1]
     assert row2["SRNUMBER"] == "SR-1002"
+    assert "AUTOMATION_RCA_CONCLUSION" in row2
+    assert "AUTOMATION_RUN" in row2
+
+
+def test_upload_kpi_with_exact_automation_headers(client):
+    sample_excel = {
+        "SRNUMBER": ["SR-3001"],
+        "SRCREATIONTIME": ["2026-08-21 08:00:00"],
+        "AUTOMATION_END_TIME": ["2026-08-21 14:00:00"],
+        "ROSTER_ALLOCATION_TIME": ["2026-08-21 09:00:00"],
+        "FIRST_ACKNOWLEDGEMENT_TIME": ["2026-08-21 09:30:00"],
+        "RESOLVEDTIME": ["2026-08-22 12:00:00"],
+        "CREATIONTIME": ["2026-08-20 10:00:00"],
+        "CIRCUIT_UPTIME": ["2026-08-22 12:00:00"],
+        "AUTOMATION_RUN": ["Yes"],
+        "AUTOMATION_RCA_CONCLUSION": ["Automated Triage Pass"],
+    }
+    excel_buf = create_excel_bytes(sample_excel)
+    data = {"file": (excel_buf, "sample_exact.xlsx")}
+
+    response = client.post(
+        "/api/v1/kpi/upload",
+        data=data,
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 200
+    res_json = response.get_json()
+    row = res_json["rows"][0]
+    assert row["AUTOMATION_RUN"] == "Yes"
+    assert row["AUTOMATION_RCA_CONCLUSION"] == "Automated Triage Pass"
 
 
 def test_upload_kpi_payload_too_large_413(app, client):
@@ -156,8 +189,8 @@ def test_kpi_summary_monthly_success(client):
     assert summary["AVG_MTTI"] == "00:05:00"
     assert summary["AVG_MTTA"] == "00:01:30"
     assert summary["AVG_MTTAck"] == "00:02:00"
-    assert summary["AVG_MTTR"] == "1d 03:00:00"
-    assert summary["AVG_MTTr"] == "1d 18:00:00"
+    assert summary["AVG_MTTR"] == "27:00:00"
+    assert summary["AVG_MTTr"] == "42:00:00"
 
 
 def test_kpi_summary_invalid_group_by(client):

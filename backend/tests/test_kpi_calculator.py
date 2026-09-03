@@ -66,3 +66,25 @@ def test_compute_row_kpis_empty_row():
     for kpi_name in ["MTTI", "MTTA", "MTTAck", "MTTR", "MTTr"]:
         assert kpis[kpi_name] is None
     assert len(warnings) == 5
+
+
+def test_compute_row_kpis_with_raw_sheet_mttr():
+    """Verify that when the Excel sheet has pre-calculated MTTR(raw), it is preserved exactly."""
+    # Data directly from user's Excel sheet
+    rows = [
+        {"SRNUMBER": "40884557", "SRCREATIONTIME": "04-08-2026 15:28", "RESOLVEDTIME": "05-08-2026 16:47", "MTTR_RAW": "01:19:32"},
+        {"SRNUMBER": "40884804", "SRCREATIONTIME": "04-08-2026 16:09", "RESOLVEDTIME": "05-08-2026 17:31", "MTTR_RAW": "01:21:56"},
+        {"SRNUMBER": "40887115", "SRCREATIONTIME": "04-08-2026 18:11", "RESOLVEDTIME": "05-08-2026 18:25", "MTTR_RAW": "00:14:41"},
+    ]
+    r1 = compute_row_kpis(rows[0])
+    assert r1["kpis"]["MTTR"] == "01:19:32"
+    assert r1["kpi_seconds"]["MTTR"] == 4772.0
+
+    r2 = compute_row_kpis(rows[1])
+    assert r2["kpis"]["MTTR"] == "01:21:56"
+    assert r2["kpi_seconds"]["MTTR"] == 4916.0
+
+    r3 = compute_row_kpis(rows[2])
+    assert r3["kpis"]["MTTR"] == "00:14:41"
+    assert r3["kpi_seconds"]["MTTR"] == 881.0
+

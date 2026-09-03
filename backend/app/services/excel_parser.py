@@ -66,6 +66,48 @@ for var in SR_NUMBER_VARIANTS:
     _CANONICAL_LOOKUP[normalize_column_name(var)] = "SRNUMBER"
     _CANONICAL_LOOKUP[re.sub(r"[\s_#]+", "", var.upper())] = "SRNUMBER"
 
+# Optional pre-calculated KPI duration column variants present in some Excel reports
+OPTIONAL_KPI_MAPPINGS: dict[str, str] = {
+    "MTTR(RAW)": "MTTR_RAW",
+    "MTTR (RAW)": "MTTR_RAW",
+    "MTTR_RAW": "MTTR_RAW",
+    "MTTR RAW": "MTTR_RAW",
+    "RAW_MTTR": "MTTR_RAW",
+    "MTTR": "MTTR_RAW",
+    "MTTACK": "MTTACK_RAW",
+    "MTTA_ACK": "MTTACK_RAW",
+    "MTTA CK": "MTTACK_RAW",
+    "MTT ACK": "MTTACK_RAW",
+    "MTTACK(RAW)": "MTTACK_RAW",
+    "MTTACK_RAW": "MTTACK_RAW",
+    "MTTA_RAW": "MTTA_RAW",
+    "MTTA(RAW)": "MTTA_RAW",
+    "MTTA": "MTTA_RAW",
+    "MTTR_CIRCUIT": "MTTr_RAW",
+    "MTTR(CIRCUIT)": "MTTr_RAW",
+    "MTTR (CIRCUIT)": "MTTr_RAW",
+    "MTTR_CIRCUIT_UPTIME": "MTTr_RAW",
+    "MTTr": "MTTr_RAW",
+    "MTTI_RAW": "MTTI_RAW",
+    "MTTI(RAW)": "MTTI_RAW",
+    "MTTI": "MTTI_RAW",
+    "AUTOMATION_RCA_CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
+    "AUTOMATION RCA CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
+    "AUTOMATION_RCA": "AUTOMATION_RCA_CONCLUSION",
+    "AUTOMATION RCA": "AUTOMATION_RCA_CONCLUSION",
+    "RCA_CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
+    "RCA CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
+    "AUTOMATION_RUN": "AUTOMATION_RUN",
+    "AUTOMATION RUN": "AUTOMATION_RUN",
+    "AUTO_RUN": "AUTOMATION_RUN",
+    "AUTO RUN": "AUTOMATION_RUN",
+    "AUTORUN": "AUTOMATION_RUN",
+}
+for k, canonical in OPTIONAL_KPI_MAPPINGS.items():
+    _CANONICAL_LOOKUP[normalize_column_name(k)] = canonical
+    _CANONICAL_LOOKUP[re.sub(r"[\s_#()]+", "", k.upper())] = canonical
+    _CANONICAL_LOOKUP[k.upper()] = canonical
+
 
 def validate_and_map_headers(columns: list[Any]) -> tuple[dict[str, str], list[str]]:
     """
@@ -83,10 +125,15 @@ def validate_and_map_headers(columns: list[Any]) -> tuple[dict[str, str], list[s
     found_canonicals: set[str] = set()
 
     for raw_col in columns:
-        norm = normalize_column_name(raw_col)
-        norm_no_underscore = re.sub(r"[\s_#]+", "", str(raw_col).strip().upper())
+        raw_str = str(raw_col).strip()
+        norm = normalize_column_name(raw_str)
+        norm_no_underscore = re.sub(r"[\s_#()]+", "", raw_str.upper())
 
-        canonical = _CANONICAL_LOOKUP.get(norm) or _CANONICAL_LOOKUP.get(norm_no_underscore)
+        canonical = (
+            _CANONICAL_LOOKUP.get(norm)
+            or _CANONICAL_LOOKUP.get(norm_no_underscore)
+            or _CANONICAL_LOOKUP.get(raw_str.upper())
+        )
         if canonical and canonical not in found_canonicals:
             column_map[raw_col] = canonical
             found_canonicals.add(canonical)
@@ -215,15 +262,19 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
     ts_cols = [c for c in REQUIRED_COLUMNS if c in df_subset.columns]
     for c in ts_cols:
         try:
-            df_subset[c] = pd.to_datetime(df_subset[c], errors="coerce")
+            df_subset[c] = pd.to_datetime(df_subset[c], dayfirst=True, errors="coerce")
         except Exception:
             pass
 
     raw_records = df_subset.to_dict(orient="records")
-    clean_rows = [
-        {k: _sanitize_cell(v) for k, v in record.items()}
-        for record in raw_records
-    ]
+    clean_rows = []
+    for record in raw_records:
+        r = {k: _sanitize_cell(v) for k, v in record.items()}
+        if "AUTOMATION_RCA_CONCLUSION" not in r:
+            r["AUTOMATION_RCA_CONCLUSION"] = None
+        if "AUTOMATION_RUN" not in r:
+            r["AUTOMATION_RUN"] = None
+        clean_rows.append(r)
 
     return {
         "success": True,

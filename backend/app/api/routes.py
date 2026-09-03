@@ -122,6 +122,8 @@ def upload_kpi_excel():
                 "row_index": idx + 2,  # Header row is index 1; data rows start at row 2
                 "SRNUMBER": _format_str(row.get("SRNUMBER")),
                 "SRCREATIONTIME": _format_date(row.get("SRCREATIONTIME")),
+                "AUTOMATION_RCA_CONCLUSION": _format_str(row.get("AUTOMATION_RCA_CONCLUSION")),
+                "AUTOMATION_RUN": _format_str(row.get("AUTOMATION_RUN")),
                 "MTTI": computed["kpis"]["MTTI"],
                 "MTTA": computed["kpis"]["MTTA"],
                 "MTTAck": computed["kpis"]["MTTAck"],
