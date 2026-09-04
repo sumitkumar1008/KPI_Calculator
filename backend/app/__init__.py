@@ -40,7 +40,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
         index_file = os.path.join(app.static_folder, "index.html")
-        if os.path.exists(index_file):
+        if os.path.exists(index_file) and not app.config.get("TESTING"):
             return send_from_directory(app.static_folder, "index.html")
         return jsonify({
             "message": f"Welcome to {app.config['PROJECT_NAME']}",

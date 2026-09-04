@@ -233,6 +233,8 @@ def parse_duration_to_seconds(val: Any) -> float | None:
     if isinstance(val, (int, float)):
         if math.isnan(val) or math.isinf(val) or val < 0:
             return None
+        if isinstance(val, float) and 0 < val < 1.0:
+            return float(val * 86400.0)
         return float(val)
 
     if not isinstance(val, str):
@@ -334,6 +336,32 @@ def format_duration_hhmmss(seconds: float | int | timedelta | None) -> str | Non
     minutes = rem // 60
     secs = rem % 60
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def format_duration_series(sec_series: Any) -> Any:
+    """
+    Vectorized conversion of a pandas Series of numeric seconds into 'HH:MM:SS' string format.
+    Supports NaN/None handling cleanly at C-speed.
+    """
+    if not _HAS_PANDAS or not isinstance(sec_series, _pd.Series):
+        return [format_duration_hhmmss(s) for s in sec_series]
+    
+    s_numeric = _pd.to_numeric(sec_series, errors="coerce")
+    valid_mask = s_numeric.notna() & (s_numeric >= 0)
+    
+    res = _pd.Series(index=sec_series.index, dtype=object)
+    if not valid_mask.any():
+        return res
+    
+    sec_vals = s_numeric[valid_mask].round().astype("int64")
+    hours = (sec_vals // 3600).astype(str).str.zfill(2)
+    rem = sec_vals % 3600
+    minutes = (rem // 60).astype(str).str.zfill(2)
+    secs = (rem % 60).astype(str).str.zfill(2)
+    
+    formatted = hours + ":" + minutes + ":" + secs
+    res.loc[valid_mask] = formatted
+    return res
 
 
 def compute_duration_average(values: list[Any]) -> tuple[str | None, int, float | None, float | None]:

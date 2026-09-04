@@ -10,7 +10,7 @@ Reuses pre-calculated KPI seconds from API 1 response for sub-millisecond perfor
 from datetime import datetime, timedelta
 from typing import Any
 
-from app.utils.time_utils import format_timedelta, parse_datetime
+from app.utils.time_utils import format_duration_hhmmss, format_timedelta, parse_datetime
 
 # The 5 KPI metrics to aggregate
 KPI_KEYS: list[str] = ["MTTI", "MTTA", "MTTAck", "MTTR", "MTTr"]
@@ -154,8 +154,7 @@ def aggregate_kpi_averages(
             if valid_seconds:
                 # Average = sum of valid durations / count of valid non-null records only
                 avg_sec = sum(valid_seconds) / len(valid_seconds)
-                td = timedelta(seconds=round(avg_sec))
-                period_summary[avg_key] = format_timedelta(td)
+                period_summary[avg_key] = format_duration_hhmmss(avg_sec)
             else:
                 period_summary[avg_key] = None
 

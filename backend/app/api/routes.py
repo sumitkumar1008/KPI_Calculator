@@ -4,12 +4,14 @@ import sys
 import time
 import tracemalloc
 from typing import Any
+import numpy as np
+import pandas as pd
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 from app.services.excel_parser import parse_excel_file
 from app.services.kpi_aggregator import aggregate_kpi_averages
-from app.services.kpi_calculator import compute_row_kpis
+from app.services.kpi_calculator import compute_df_kpis, compute_row_kpis
 from app.utils.time_utils import parse_datetime
 
 # Configure structured stdout logger for Render live console logs
@@ -93,45 +95,82 @@ def upload_kpi_excel():
         filename = file.filename.lower()
         logger.info(f"📄 [API 1: FILE RECEIVED] Filename: '{file.filename}'")
 
-        # 2. Validate file extension
-        if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
-            logger.warning(f"❌ [API 1: INVALID FILE TYPE] Filename '{file.filename}' is not .xlsx or .xls.")
-            return jsonify({"error": "File must be an .xlsx or .xls Excel file"}), 400
+        # 2. Validate file extension (.xlsx, .xls, .csv)
+        if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv")):
+            logger.warning(f"❌ [API 1: INVALID FILE TYPE] Filename '{file.filename}' is not .xlsx, .xls, or .csv.")
+            return jsonify({"error": "File must be an .xlsx, .xls, or .csv file"}), 400
 
-        # 3. Parse Excel file into normalized dictionary rows using multi-engine fallback
-        logger.info("🔄 [API 1: PARSING EXCEL] Ingesting sheet headers and extracting data rows...")
-        parse_result = parse_excel_file(file)
+        # 3. Parse file into normalized dictionary rows using multi-engine fallback
+        logger.info("🔄 [API 1: PARSING FILE] Ingesting headers and extracting data rows...")
+        parse_result = parse_excel_file(file, filename=file.filename)
         if not parse_result["success"]:
             logger.error(f"❌ [API 1: PARSE ERROR] Excel parsing failed: {parse_result['error']}")
             return jsonify({"error": parse_result["error"]}), 400
 
-        raw_rows = parse_result["rows"]
-        row_count = len(raw_rows)
-        logger.info(f"✅ [API 1: EXCEL PARSED SUCCESSFULLY] Extracted {row_count} data rows.")
+        df = parse_result.get("df")
+        global_warnings: list[str] = []
 
-        # 4. Calculate KPIs for each row in the Excel sheet
-        processed_rows: list[dict[str, Any]] = []
-        total_warnings = 0
+        if df is not None and not df.empty:
+            df_kpi, global_warnings = compute_df_kpis(df)
+            row_count = len(df_kpi)
+            df_kpi["row_index"] = list(range(2, row_count + 2))
 
-        for idx, row in enumerate(raw_rows):
-            computed = compute_row_kpis(row)
-            warnings_list = computed.get("warnings", [])
-            total_warnings += len(warnings_list)
+            for col in ["SRNUMBER", "SRCREATIONTIME", "AUTOMATION_RCA_CONCLUSION", "AUTOMATION_RUN"]:
+                if col not in df_kpi.columns:
+                    df_kpi[col] = None
 
-            formatted_row = {
-                "row_index": idx + 2,  # Header row is index 1; data rows start at row 2
-                "SRNUMBER": _format_str(row.get("SRNUMBER")),
-                "SRCREATIONTIME": _format_date(row.get("SRCREATIONTIME")),
-                "AUTOMATION_RCA_CONCLUSION": _format_str(row.get("AUTOMATION_RCA_CONCLUSION")),
-                "AUTOMATION_RUN": _format_str(row.get("AUTOMATION_RUN")),
-                "MTTI": computed["kpis"]["MTTI"],
-                "MTTA": computed["kpis"]["MTTA"],
-                "MTTAck": computed["kpis"]["MTTAck"],
-                "MTTR": computed["kpis"]["MTTR"],
-                "MTTr": computed["kpis"]["MTTr"],
-                "warnings": warnings_list,
-            }
-            processed_rows.append(formatted_row)
+            df_kpi["SRNUMBER"] = df_kpi["SRNUMBER"].apply(_format_str)
+            df_kpi["SRCREATIONTIME"] = df_kpi["SRCREATIONTIME"].apply(_format_date)
+            df_kpi["AUTOMATION_RCA_CONCLUSION"] = df_kpi["AUTOMATION_RCA_CONCLUSION"].apply(_format_str)
+            df_kpi["AUTOMATION_RUN"] = df_kpi["AUTOMATION_RUN"].apply(_format_str)
+
+            if "warnings" not in df_kpi.columns:
+                df_kpi["warnings"] = [[] for _ in range(row_count)]
+
+            out_cols = [
+                "row_index",
+                "SRNUMBER",
+                "SRCREATIONTIME",
+                "AUTOMATION_RCA_CONCLUSION",
+                "AUTOMATION_RUN",
+                "MTTI",
+                "MTTA",
+                "MTTAck",
+                "MTTR",
+                "MTTr",
+                "warnings",
+            ]
+            
+            df_kpi_out = df_kpi[out_cols].where(pd.notna(df_kpi[out_cols]), None)
+            processed_rows = df_kpi_out.to_dict(orient="records")
+            total_warnings = sum(len(r.get("warnings") or []) for r in processed_rows)
+        else:
+            raw_rows = parse_result["rows"]
+            row_count = len(raw_rows)
+            logger.info(f"✅ [API 1: FILE PARSED SUCCESSFULLY] Extracted {row_count} data rows.")
+
+            processed_rows = []
+            total_warnings = 0
+
+            for idx, row in enumerate(raw_rows):
+                computed = compute_row_kpis(row)
+                warnings_list = computed.get("warnings", [])
+                total_warnings += len(warnings_list)
+
+                formatted_row = {
+                    "row_index": idx + 2,
+                    "SRNUMBER": _format_str(row.get("SRNUMBER")),
+                    "SRCREATIONTIME": _format_date(row.get("SRCREATIONTIME")),
+                    "AUTOMATION_RCA_CONCLUSION": _format_str(row.get("AUTOMATION_RCA_CONCLUSION")),
+                    "AUTOMATION_RUN": _format_str(row.get("AUTOMATION_RUN")),
+                    "MTTI": computed["kpis"]["MTTI"],
+                    "MTTA": computed["kpis"]["MTTA"],
+                    "MTTAck": computed["kpis"]["MTTAck"],
+                    "MTTR": computed["kpis"]["MTTR"],
+                    "MTTr": computed["kpis"]["MTTr"],
+                    "warnings": warnings_list,
+                }
+                processed_rows.append(formatted_row)
 
         current_mem, peak_mem = tracemalloc.get_traced_memory()
         tracemalloc.stop()
@@ -153,7 +192,7 @@ def upload_kpi_excel():
                 {
                     "row_count": len(processed_rows),
                     "rows": processed_rows,
-                    "global_warnings": [],
+                    "global_warnings": global_warnings,
                 }
             ),
             200,

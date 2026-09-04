@@ -6,10 +6,14 @@ Normalizes incoming column names (handling case variations, spaces, underscores,
 maps them to canonical internal names, and validates the presence of required KPI columns.
 """
 
+import datetime
 import io
 import re
 from typing import Any
+import openpyxl
 import pandas as pd
+
+from app.services.csv_parser import parse_csv_file
 
 # Standard required timestamp columns for KPI calculations
 REQUIRED_COLUMNS: list[str] = [
@@ -147,8 +151,6 @@ def validate_and_map_headers(columns: list[Any]) -> tuple[dict[str, str], list[s
     return column_map, missing_columns
 
 
-import datetime
-
 
 def _sanitize_cell(val: Any) -> Any:
     """
@@ -166,8 +168,6 @@ def _sanitize_cell(val: Any) -> Any:
         return val.item()
     return val
 
-
-import openpyxl
 
 
 def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
@@ -191,12 +191,15 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
         return None
 
 
-def parse_excel_file(file_input: Any) -> dict[str, Any]:
+
+def parse_excel_file(file_input: Any, filename: str = "") -> dict[str, Any]:
     """
-    Multi-engine Excel parser supporting modern (.xlsx via openpyxl) and legacy binary (.xls via xlrd).
+    Multi-engine file parser supporting CSV (.csv), modern Excel (.xlsx via openpyxl),
+    and legacy binary Excel (.xls via xlrd).
     
     Args:
         file_input: File Storage object, BytesIO buffer, or filepath string.
+        filename: Optional filename string to hint parser selection.
         
     Returns:
         Dictionary result:
@@ -204,6 +207,8 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
         - Success: {"success": True, "rows": [dict, ...], "row_count": int}
     """
     try:
+        is_csv = str(filename).lower().endswith(".csv")
+        
         if hasattr(file_input, "read"):
             # Handle File Storage or BytesIO streams
             content = file_input.read()
@@ -211,8 +216,14 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
                 file_input.seek(0)
             bytes_io = io.BytesIO(content)
             
-            # 1. Try SAX streaming parser (read_only=True) first for minimum memory footprint
-            df = _parse_read_only_openpyxl(bytes_io)
+            df = None
+            if is_csv:
+                df = parse_csv_file(bytes_io)
+
+            if df is None:
+                bytes_io.seek(0)
+                df = _parse_read_only_openpyxl(bytes_io)
+
             if df is None:
                 bytes_io.seek(0)
                 try:
@@ -223,9 +234,17 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
                         df = pd.read_excel(bytes_io, engine="xlrd")
                     except Exception:
                         bytes_io.seek(0)
-                        df = pd.read_excel(bytes_io)
+                        try:
+                            df = pd.read_excel(bytes_io)
+                        except Exception:
+                            bytes_io.seek(0)
+                            df = parse_csv_file(bytes_io)
         else:
-            df = _parse_read_only_openpyxl(file_input)
+            df = None
+            if is_csv:
+                df = parse_csv_file(file_input)
+            if df is None:
+                df = _parse_read_only_openpyxl(file_input)
             if df is None:
                 try:
                     df = pd.read_excel(file_input, engine="openpyxl")
@@ -233,11 +252,14 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
                     try:
                         df = pd.read_excel(file_input, engine="xlrd")
                     except Exception:
-                        df = pd.read_excel(file_input)
+                        try:
+                            df = pd.read_excel(file_input)
+                        except Exception:
+                            df = parse_csv_file(file_input)
     except Exception as exc:
         return {
             "success": False,
-            "error": f"Failed to read Excel file: {str(exc)}",
+            "error": f"Failed to read file: {str(exc)}",
             "missing_columns": [],
         }
 
@@ -249,7 +271,7 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
         missing_str = ", ".join(missing_cols)
         return {
             "success": False,
-            "error": f"Missing required Excel columns: {missing_str}",
+            "error": f"Failed to read Excel file: Missing required Excel columns: {missing_str}",
             "missing_columns": missing_cols,
         }
 
@@ -280,4 +302,5 @@ def parse_excel_file(file_input: Any) -> dict[str, Any]:
         "success": True,
         "rows": clean_rows,
         "row_count": len(clean_rows),
+        "df": df_subset,
     }

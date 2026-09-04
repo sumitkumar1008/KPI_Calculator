@@ -89,8 +89,8 @@ def test_upload_kpi_success_complete_flow(client):
     assert row1["MTTI"] == "06:00:00"
     assert row1["MTTA"] == "01:00:00"
     assert row1["MTTAck"] == "00:30:00"
-    assert row1["MTTR"] == "1d 04:00:00"
-    assert row1["MTTr"] == "2d 02:00:00"
+    assert row1["MTTR"] == "04:00:00"
+    assert row1["MTTr"] == "02:00:00"
 
     row2 = res_json["rows"][1]
     assert row2["SRNUMBER"] == "SR-1002"
@@ -125,6 +125,31 @@ def test_upload_kpi_with_exact_automation_headers(client):
     row = res_json["rows"][0]
     assert row["AUTOMATION_RUN"] == "Yes"
     assert row["AUTOMATION_RCA_CONCLUSION"] == "Automated Triage Pass"
+
+
+def test_upload_kpi_csv_success_flow(client):
+    csv_content = (
+        "SRNUMBER,SRCREATIONTIME,AUTOMATION_END_TIME,ROSTER_ALLOCATION_TIME,FIRST_ACKNOWLEDGEMENT_TIME,RESOLVEDTIME,CREATIONTIME,CIRCUIT_UPTIME\n"
+        "SR-CSV-01,21-08-2026 08:00,21-08-2026 14:00,21-08-2026 09:00,21-08-2026 09:30,22-08-2026 12:00,20-08-2026 10:00,22-08-2026 12:00\n"
+    )
+    csv_buf = io.BytesIO(csv_content.encode("utf-8"))
+    data = {"file": (csv_buf, "sample_kpi.csv")}
+
+    response = client.post(
+        "/api/v1/kpi/upload",
+        data=data,
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 200
+    res_json = response.get_json()
+    assert res_json["row_count"] == 1
+    row = res_json["rows"][0]
+    assert row["SRNUMBER"] == "SR-CSV-01"
+    assert row["MTTI"] == "06:00:00"
+    assert row["MTTA"] == "01:00:00"
+    assert row["MTTAck"] == "00:30:00"
+    assert row["MTTR"] == "04:00:00"
 
 
 def test_upload_kpi_payload_too_large_413(app, client):

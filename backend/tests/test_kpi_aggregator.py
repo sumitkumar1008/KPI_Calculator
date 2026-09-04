@@ -76,7 +76,7 @@ def test_aggregate_kpi_averages_monthly_success():
     assert jan["AVG_MTTI"] == "00:04:30"  # (300+240)/2 = 270s = 4m 30s
     assert jan["AVG_MTTA"] == "00:01:15"  # (60+90)/2 = 75s = 1m 15s
     assert jan["AVG_MTTAck"] == "00:02:00"
-    assert jan["AVG_MTTR"] == "1d 02:30:00" # (91800+99000)/2 = 95400s = 26.5h = 1d 02:30:00
+    assert jan["AVG_MTTR"] == "26:30:00" # (91800+99000)/2 = 95400s = 26.5h = 26:30:00
     assert jan["AVG_MTTr"] == "18:20:00"   # (72000+60000)/2 = 66000s = 18.33h = 18:20:00
 
     # Feb 2025 summary
@@ -100,4 +100,4 @@ def test_aggregate_kpi_averages_string_fallback():
     res = aggregate_kpi_averages(sample_rows, group_by="monthly")
     jan = res["summary"][0]
     assert jan["AVG_MTTI"] == "00:05:00"
-    assert jan["AVG_MTTR"] == "1d 01:30:00"
+    assert jan["AVG_MTTR"] == "25:30:00"

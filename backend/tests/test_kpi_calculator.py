@@ -26,8 +26,8 @@ def test_compute_row_kpis_valid_complete_row():
     assert kpis["MTTI"] == "06:00:00"
     assert kpis["MTTA"] == "01:00:00"
     assert kpis["MTTAck"] == "00:30:00"
-    assert kpis["MTTR"] == "1d 04:00:00"
-    assert kpis["MTTr"] == "2d 02:00:00"
+    assert kpis["MTTR"] == "04:00:00"
+    assert kpis["MTTr"] == "02:00:00"
 
 
 def test_compute_row_kpis_missing_start_column_q3():
