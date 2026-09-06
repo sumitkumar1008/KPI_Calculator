@@ -24,22 +24,22 @@ function AvgTable({ rows, period, isLoading, error, onPeriodChange }) {
             <thead>
               <tr>
                 <th scope="col">TIME PERIOD</th>
-                <th scope="col">AVG MTTA</th>
-                <th scope="col">AVG MTTR</th>
-                <th scope="col">AVG MTTAck</th>
-                <th scope="col">AVG MTTI</th>
-                <th scope="col">AVG MTTr</th>
+                <th scope="col">MTTI</th>
+                <th scope="col">MTTA</th>
+                <th scope="col">MTTAck</th>
+                <th scope="col">MTTR</th>
+                <th scope="col">MTTr</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.period}>
                   <td>{row.period_label || row.period || '—'}</td>
-                  <td>{row.AVG_MTTA || '—'}</td>
-                  <td>{row.AVG_MTTR || '—'}</td>
-                  <td>{row.AVG_MTTAck || '—'}</td>
-                  <td>{row.AVG_MTTI || '—'}</td>
-                  <td>{row.AVG_MTTr || '—'}</td>
+                  <td>{row.AVG_MTTI ?? '—'}</td>
+                  <td>{row.AVG_MTTA ?? '—'}</td>
+                  <td>{row.AVG_MTTAck ?? '—'}</td>
+                  <td>{row.AVG_MTTR ?? '—'}</td>
+                  <td>{row.AVG_MTTr ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

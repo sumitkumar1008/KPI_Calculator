@@ -10,6 +10,7 @@ from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 from app.services.excel_parser import parse_excel_file
+from app.services.automation_run import automation_run_answer, aggregate_automation_runs
 from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.kpi_calculator import compute_df_kpis, compute_row_kpis
 from app.utils.time_utils import parse_datetime
@@ -122,7 +123,7 @@ def upload_kpi_excel():
             df_kpi["SRNUMBER"] = df_kpi["SRNUMBER"].apply(_format_str)
             df_kpi["SRCREATIONTIME"] = df_kpi["SRCREATIONTIME"].apply(_format_date)
             df_kpi["AUTOMATION_RCA_CONCLUSION"] = df_kpi["AUTOMATION_RCA_CONCLUSION"].apply(_format_str)
-            df_kpi["AUTOMATION_RUN"] = df_kpi["AUTOMATION_RUN"].apply(_format_str)
+            df_kpi["AUTOMATION_RUN"] = df_kpi["AUTOMATION_RUN"].apply(automation_run_answer)
 
             if "warnings" not in df_kpi.columns:
                 df_kpi["warnings"] = [[] for _ in range(row_count)]
@@ -162,7 +163,7 @@ def upload_kpi_excel():
                     "SRNUMBER": _format_str(row.get("SRNUMBER")),
                     "SRCREATIONTIME": _format_date(row.get("SRCREATIONTIME")),
                     "AUTOMATION_RCA_CONCLUSION": _format_str(row.get("AUTOMATION_RCA_CONCLUSION")),
-                    "AUTOMATION_RUN": _format_str(row.get("AUTOMATION_RUN")),
+                    "AUTOMATION_RUN": automation_run_answer(row.get("AUTOMATION_RUN")),
                     "MTTI": computed["kpis"]["MTTI"],
                     "MTTA": computed["kpis"]["MTTA"],
                     "MTTAck": computed["kpis"]["MTTAck"],
@@ -214,6 +215,24 @@ def upload_kpi_excel():
             exc_info=True,
         )
         return jsonify({"error": f"Upload Processing Error: {str(exc)}"}), 500
+
+
+@api_bp.route("/kpi/automation-run", methods=["POST"], strict_slashes=False)
+def check_automation_run():
+    """Count automation Y/N values from the JSON returned by the upload API."""
+    group_by = request.args.get("group_by", "daily").lower().strip()
+    if group_by not in {"daily", "weekly", "monthly"}:
+        return jsonify({"error": "group_by must be one of: daily, weekly, monthly"}), 400
+
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Request body must contain the JSON response from /kpi/upload"}), 400
+
+    rows = data.get("rows") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return jsonify({"error": "JSON payload must contain a 'rows' array"}), 400
+
+    return jsonify(aggregate_automation_runs(rows, group_by)), 200
 
 
 @api_bp.route("/kpi/summary", methods=["POST"], strict_slashes=False)

@@ -108,7 +108,7 @@ def test_upload_kpi_with_exact_automation_headers(client):
         "RESOLVEDTIME": ["2026-08-22 12:00:00"],
         "CREATIONTIME": ["2026-08-20 10:00:00"],
         "CIRCUIT_UPTIME": ["2026-08-22 12:00:00"],
-        "AUTOMATION_RUN": ["Yes"],
+        "AUTOMATION_RUN": ["Y"],
         "AUTOMATION_RCA_CONCLUSION": ["Automated Triage Pass"],
     }
     excel_buf = create_excel_bytes(sample_excel)
@@ -123,8 +123,126 @@ def test_upload_kpi_with_exact_automation_headers(client):
     assert response.status_code == 200
     res_json = response.get_json()
     row = res_json["rows"][0]
-    assert row["AUTOMATION_RUN"] == "Yes"
+    assert row["AUTOMATION_RUN"] == "Y"
     assert row["AUTOMATION_RCA_CONCLUSION"] == "Automated Triage Pass"
+    assert "automation_run_count" not in res_json
+
+
+def test_automation_run_returns_y_or_n_counts(client):
+    sample_excel = {
+        "SRNUMBER": ["SR-4001", "SR-4002"],
+        "SRCREATIONTIME": ["2026-08-21 08:00:00", "2026-08-21 09:00:00"],
+        "AUTOMATION_END_TIME": ["2026-08-21 14:00:00", "2026-08-21 15:00:00"],
+        "ROSTER_ALLOCATION_TIME": ["2026-08-21 09:00:00", "2026-08-21 10:00:00"],
+        "FIRST_ACKNOWLEDGEMENT_TIME": ["2026-08-21 09:30:00", "2026-08-21 10:30:00"],
+        "RESOLVEDTIME": ["2026-08-22 12:00:00", "2026-08-22 13:00:00"],
+        "CREATIONTIME": ["2026-08-20 10:00:00", "2026-08-20 11:00:00"],
+        "CIRCUIT_UPTIME": ["2026-08-22 12:00:00", "2026-08-22 13:00:00"],
+        "AUTOMATION_RUN": ["Yes", "No"],
+    }
+    response = client.post(
+        "/api/v1/kpi/automation-run?group_by=weekly",
+        json={
+            "row_count": 2,
+            "rows": [
+                {"row_index": 2, "SRNUMBER": "SR-4001", "SRCREATIONTIME": "2026-08-21T08:00:00", "AUTOMATION_RUN": "Y"},
+                {"row_index": 3, "SRNUMBER": "SR-4002", "SRCREATIONTIME": "2026-08-28T09:00:00", "AUTOMATION_RUN": "N"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "group_by": "weekly",
+        "total_records": 2,
+        "periods_count": 2,
+        "summary": [
+            {
+                "period": "2026-08-W3",
+                "period_label": "August 2026 - Week 3",
+                "Y_count": 1,
+                "N_count": 0,
+                "total_count": 1,
+            },
+            {
+                "period": "2026-08-W4",
+                "period_label": "August 2026 - Week 4",
+                "Y_count": 0,
+                "N_count": 1,
+                "total_count": 1,
+            },
+        ],
+        "omitted_records": 0,
+    }
+
+
+def test_automation_run_filters_by_sr_creation_time(client):
+    payload = {
+        "rows": [
+            {"SRCREATIONTIME": "2026-08-21T08:00:00", "AUTOMATION_RUN": "Y"},
+            {"SRCREATIONTIME": "2026-08-21T09:00:00", "AUTOMATION_RUN": "N"},
+            {"SRCREATIONTIME": "2026-09-01T09:00:00", "AUTOMATION_RUN": "Y"},
+        ],
+    }
+
+    daily_response = client.post("/api/v1/kpi/automation-run?group_by=daily", json=payload)
+    monthly_response = client.post("/api/v1/kpi/automation-run?group_by=monthly", json=payload)
+
+    assert daily_response.status_code == 200
+    assert monthly_response.status_code == 200
+    assert [period["period"] for period in daily_response.get_json()["summary"]] == [
+        "2026-08-21",
+        "2026-09-01",
+    ]
+    assert [period["period"] for period in monthly_response.get_json()["summary"]] == [
+        "2026-08",
+        "2026-09",
+    ]
+    assert monthly_response.get_json()["summary"][0]["Y_count"] == 1
+    assert monthly_response.get_json()["summary"][0]["N_count"] == 1
+
+
+def test_automation_run_groups_same_sr_creation_day(client):
+    response = client.post(
+        "/api/v1/kpi/automation-run?group_by=daily",
+        json={
+            "rows": [
+                {
+                    "AUTOMATION_RUN": "Y",
+                    "SRCREATIONTIME": "2026-04-08T15:28:07",
+                    "SRNUMBER": "40884557",
+                },
+                {
+                    "AUTOMATION_RUN": "Y",
+                    "SRCREATIONTIME": "2026-04-08T16:09:41",
+                    "SRNUMBER": "40884804",
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["summary"] == [{
+        "period": "2026-04-08",
+        "period_label": "Apr 08, 2026",
+        "Y_count": 2,
+        "N_count": 0,
+        "total_count": 2,
+    }]
+
+
+def test_automation_run_parses_month_first_sr_creation_date(client):
+    response = client.post(
+        "/api/v1/kpi/automation-run?group_by=monthly",
+        json={
+            "rows": [
+                {"AUTOMATION_RUN": "Y", "SRCREATIONTIME": "08/04/2026 15:28:07"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["summary"][0]["period"] == "2026-08"
 
 
 def test_upload_kpi_csv_success_flow(client):
