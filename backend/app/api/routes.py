@@ -14,6 +14,7 @@ from app.services.automation_run import automation_run_answer, aggregate_automat
 from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.kpi_calculator import compute_df_kpis, compute_row_kpis
 from app.utils.time_utils import parse_datetime
+from app.services.automation_rca_conclusion import summarize_automation_rca_conclusion
 
 # Configure structured stdout logger for Render live console logs
 logger = logging.getLogger("kpi_logger")
@@ -233,6 +234,23 @@ def check_automation_run():
         return jsonify({"error": "JSON payload must contain a 'rows' array"}), 400
 
     return jsonify(aggregate_automation_runs(rows, group_by)), 200
+
+@api_bp.route("/kpi/automation-rca-conclusion", methods=["POST"], strict_slashes=False)
+def check_automation_rca_conclusion():
+    """Count automation RCA conclusion Y/N values from the JSON returned by the upload API."""
+    group_by = request.args.get("group_by", "daily").lower().strip()
+    if group_by not in {"daily", "weekly", "monthly"}:
+        return jsonify({"error": "group_by must be one of: daily, weekly, monthly"}), 400
+
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Request body must contain the JSON response from /kpi/upload"}), 400
+
+    rows = data.get("rows") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return jsonify({"error": "JSON payload must contain a 'rows' array"}), 400
+
+    return jsonify(summarize_automation_rca_conclusion(rows, group_by)), 200
 
 
 @api_bp.route("/kpi/summary", methods=["POST"], strict_slashes=False)
