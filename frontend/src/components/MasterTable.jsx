@@ -1,4 +1,21 @@
-function ResultsTable({ rows, visibleRows, rowsPerPage, currentPage, totalPages, pageStartIndex, onRowsPerPageChange, onPrevious, onNext }) {
+import { useEffect, useState } from 'react'
+
+function ResultsTable({ rows }) {
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [currentPage, setCurrentPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage))
+  const pageStartIndex = (currentPage - 1) * rowsPerPage
+  const visibleRows = rows.slice(pageStartIndex, pageStartIndex + rowsPerPage)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [rows])
+
+  const changeRowsPerPage = (event) => {
+    setRowsPerPage(Number(event.target.value))
+    setCurrentPage(1)
+  }
+
   return (
     <>
       {rows.length > 0 ? (
@@ -33,9 +50,9 @@ function ResultsTable({ rows, visibleRows, rowsPerPage, currentPage, totalPages,
       )}
       {rows.length > 0 && (
         <div className="pagination-controls" aria-label="Table pagination">
-          <label className="rows-per-page">
+            <label className="rows-per-page">
             Rows per page
-            <select value={rowsPerPage} onChange={onRowsPerPageChange}>
+            <select value={rowsPerPage} onChange={changeRowsPerPage}>
               <option value="5">5</option>
               <option value="10">10</option>
               <option value="25">25</option>
@@ -44,9 +61,9 @@ function ResultsTable({ rows, visibleRows, rowsPerPage, currentPage, totalPages,
           </label>
           <span className="pagination-status">Showing {pageStartIndex + 1}-{Math.min(pageStartIndex + rowsPerPage, rows.length)} of {rows.length}</span>
           <div className="pagination-buttons">
-            <button type="button" onClick={onPrevious} disabled={currentPage === 1}>Previous</button>
+            <button type="button" onClick={() => setCurrentPage((page) => page - 1)} disabled={currentPage === 1}>Previous</button>
             <span>Page {currentPage} of {totalPages}</span>
-            <button type="button" onClick={onNext} disabled={currentPage === totalPages}>Next</button>
+            <button type="button" onClick={() => setCurrentPage((page) => page + 1)} disabled={currentPage === totalPages}>Next</button>
           </div>
         </div>
       )}

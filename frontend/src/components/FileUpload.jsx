@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import FileIcon from './FileIcon'
 import ResultsTable from './MasterTable'
 import AvgTable from './AvgTable'
+import AutomationRunTable from './AutomationRunTable'
+import AutomationRcaConclusionTable from './AutomationRcaConclusionTable'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
 import './FileUpload.css'
 
@@ -16,8 +18,6 @@ function FileUpload() {
   const [summaryPeriod, setSummaryPeriod] = useState('daily')
   const [isSummaryLoading, setIsSummaryLoading] = useState(false)
   const [summaryError, setSummaryError] = useState(null)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
-  const [currentPage, setCurrentPage] = useState(1)
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
 
@@ -30,7 +30,6 @@ function FileUpload() {
     setSummaryRows([])
     setSummaryPeriod('daily')
     setSummaryError(null)
-    setCurrentPage(1)
     setIsUploading(false)
     if (inputRef.current) inputRef.current.value = ''
   }
@@ -95,7 +94,6 @@ function FileUpload() {
 
       setResultRows(Array.isArray(responseData.rows) ? responseData.rows : [])
       setUploadResponse(responseData)
-      setCurrentPage(1)
       setUploadStatus('success')
       await loadSummary(responseData, summaryPeriod)
     } catch (uploadError) {
@@ -143,14 +141,6 @@ function FileUpload() {
   const extension = selectedFile?.name.split('.').pop()?.toUpperCase()
   const hasSelectedFile = Boolean(selectedFile)
   const isSuccess = uploadStatus === 'success'
-  const totalPages = Math.ceil(resultRows.length / rowsPerPage)
-  const pageStartIndex = (currentPage - 1) * rowsPerPage
-  const visibleRows = resultRows.slice(pageStartIndex, pageStartIndex + rowsPerPage)
-
-  const changeRowsPerPage = (event) => {
-    setRowsPerPage(Number(event.target.value))
-    setCurrentPage(1)
-  }
 
   return (
     <>
@@ -198,27 +188,25 @@ function FileUpload() {
 
       {isSuccess && (
         <section className="results-section" aria-labelledby="results-heading">
-          <div className="results-heading">
-            <p className="section-label">Step 02</p>
-            <h2 id="results-heading">KPI results</h2>
-          </div>
-          <ResultsTable
-            rows={resultRows}
-            visibleRows={visibleRows}
-            rowsPerPage={rowsPerPage}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageStartIndex={pageStartIndex}
-            onRowsPerPageChange={changeRowsPerPage}
-            onPrevious={() => setCurrentPage((page) => page - 1)}
-            onNext={() => setCurrentPage((page) => page + 1)}
-          />
           <AvgTable
             rows={summaryRows}
             period={summaryPeriod}
             isLoading={isSummaryLoading}
             error={summaryError}
             onPeriodChange={changeSummaryPeriod}
+          />
+          <AutomationRunTable
+            sourceResponse={uploadResponse}
+          />
+          <AutomationRcaConclusionTable
+            sourceResponse={uploadResponse}
+          />
+          <div className="results-heading">
+            <p className="section-label"></p>
+            <h2 id="results-heading">KPI results</h2>
+          </div>
+          <ResultsTable
+            rows={resultRows}
           />
         </section>
       )}
