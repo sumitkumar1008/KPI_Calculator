@@ -1,3 +1,4 @@
+import GlobalFilter from './GlobalFilter'
 import './Navbar.css'
 
 const airtelLogo = 'https://res.cloudinary.com/i4j3dcjs/image/upload/v1787204293/airtel_logo-removebg-preview.png'
@@ -11,6 +12,7 @@ function Navbar({ theme, onToggleTheme }) {
         <p className="subtitle">Upload your data file to get started</p>
       </div>
       <div className="header-actions">
+        <GlobalFilter />
         <button
           className="theme-toggle"
           type="button"

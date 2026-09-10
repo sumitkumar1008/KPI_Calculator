@@ -15,6 +15,11 @@ from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.kpi_calculator import compute_df_kpis, compute_row_kpis
 from app.utils.time_utils import parse_datetime
 from app.services.automation_rca_conclusion import summarize_automation_rca_conclusion
+from app.services.drilldown_service import get_table_drilldown
+from app.services.global_filter_service import (
+    get_available_filter_options,
+    validate_and_normalize_filters,
+)
 
 # Configure structured stdout logger for Render live console logs
 logger = logging.getLogger("kpi_logger")
@@ -46,6 +51,11 @@ def get_process_ram_mb() -> float:
                         return float(line.split()[1]) / 1024.0
         except Exception:
             pass
+    try:
+        current, _ = tracemalloc.get_traced_memory()
+        return current / (1024.0 * 1024.0)
+    except Exception:
+        pass
     return 0.0
 
 
@@ -253,6 +263,30 @@ def check_automation_rca_conclusion():
     return jsonify(summarize_automation_rca_conclusion(rows, group_by)), 200
 
 
+@api_bp.route("/kpi/drilldown", methods=["POST"], strict_slashes=False)
+def handle_table_drilldown():
+    """
+    2-Level Drill-Down Endpoint
+    ---------------------------
+    Level 1: Month -> 4 Weeks breakdown (when week is omitted)
+    Level 2: Week -> 7 Days Daily breakdown for specified week number
+    """
+    data = request.get_json(silent=True) or {}
+    rows = data.get("rows")
+    if not isinstance(rows, list):
+        return jsonify({"error": "JSON payload must contain a 'rows' array"}), 400
+
+    table_type = request.args.get("table_type") or data.get("table_type", "avg")
+    month = request.args.get("month") or data.get("month")
+    week = request.args.get("week") or data.get("week")
+
+    if not month:
+        return jsonify({"error": "Query parameter or payload field 'month' is required (e.g. '2026-08' or 'August 2026')"}), 400
+
+    drilldown_data = get_table_drilldown(rows=rows, table_type=table_type, month=month, week=week)
+    return jsonify(drilldown_data), 200
+
+
 @api_bp.route("/kpi/summary", methods=["POST"], strict_slashes=False)
 def calculate_kpi_summary():
     """
@@ -363,3 +397,25 @@ def calculate_kpi_summary():
             exc_info=True,
         )
         return jsonify({"error": f"Summary Calculation Error: {str(exc)}"}), 500
+
+
+# ==============================================================================
+# GLOBAL FILTER API ENDPOINTS
+# ==============================================================================
+# Centralized endpoints for fetching available global filter options (e.g. daily,
+# weekly, monthly) and validating active filter payloads across all summary tables.
+# ==============================================================================
+
+@api_bp.route("/kpi/global-filter/options", methods=["GET"], strict_slashes=False)
+def get_global_filter_options():
+    """Returns available filter options and metadata for the top navbar Global Filter UI."""
+    return jsonify(get_available_filter_options()), 200
+
+
+@api_bp.route("/kpi/global-filter/validate", methods=["POST"], strict_slashes=False)
+def validate_global_filters():
+    """Validates and normalizes incoming global filter parameters."""
+    data = request.get_json(silent=True) or {}
+    normalized = validate_and_normalize_filters(data)
+    return jsonify({"success": True, "filters": normalized}), 200
+

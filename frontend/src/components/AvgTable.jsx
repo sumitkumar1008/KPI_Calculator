@@ -1,54 +1,91 @@
-function AvgTable({ rows, period, isLoading, error, onPeriodChange }) {
+import { useEffect, useRef, useState } from 'react'
+import SummaryTableDrillDown from './TablesDrillDown'
+import { useGlobalFilter } from '../context/GlobalFilterContext'
+import { calculatePeriodSummary } from '../utils/drilldownUtils'
+
+function AvgTable({ sourceResponse }) {
+  const { globalPeriod } = useGlobalFilter()
+  const [tablePeriod, setTablePeriod] = useState(globalPeriod || 'monthly')
+  const [rows, setRows] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  // In-memory pre-warmed cache for all periods
+  const cacheRef = useRef({})
+
+  // Pre-calculate and cache all periods immediately upon upload
+  useEffect(() => {
+    if (!sourceResponse || !Array.isArray(sourceResponse.rows)) {
+      cacheRef.current = {}
+      setRows([])
+      return
+    }
+
+    // Pre-compute monthly, weekly, daily summaries in memory
+    const rawRows = sourceResponse.rows
+    cacheRef.current = {
+      monthly: calculatePeriodSummary(rawRows, 'monthly', 'avg'),
+      weekly: calculatePeriodSummary(rawRows, 'weekly', 'avg'),
+      daily: calculatePeriodSummary(rawRows, 'daily', 'avg'),
+    }
+
+    setRows(cacheRef.current[tablePeriod] || [])
+    setIsLoading(false)
+    setError(null)
+  }, [sourceResponse])
+
+  // Sync tablePeriod ONLY when globalPeriod changes (e.g. from top Navbar GlobalFilter)
+  useEffect(() => {
+    if (globalPeriod) {
+      setTablePeriod(globalPeriod)
+    }
+  }, [globalPeriod])
+
+  // Update displayed rows instantly from pre-computed cache
+  useEffect(() => {
+    if (cacheRef.current[tablePeriod]) {
+      setRows(cacheRef.current[tablePeriod])
+    } else if (sourceResponse && Array.isArray(sourceResponse.rows)) {
+      const computed = calculatePeriodSummary(sourceResponse.rows, tablePeriod, 'avg')
+      cacheRef.current[tablePeriod] = computed
+      setRows(computed)
+    }
+  }, [tablePeriod, sourceResponse])
+
+  const columns = [
+    { key: 'period', label: 'TIME PERIOD' },
+    { key: 'MTTI', label: 'MTTI' },
+    { key: 'MTTA', label: 'MTTA' },
+    { key: 'MTTAck', label: 'MTTAck' },
+    { key: 'MTTR', label: 'MTTR' },
+    { key: 'MTTr', label: 'MTTr' },
+  ]
+
+  const renderRow = (row) => (
+    <>
+      <td>{row.period_label || row.period || '—'}</td>
+      <td>{row.AVG_MTTI ?? '—'}</td>
+      <td>{row.AVG_MTTA ?? '—'}</td>
+      <td>{row.AVG_MTTAck ?? '—'}</td>
+      <td>{row.AVG_MTTR ?? '—'}</td>
+      <td>{row.AVG_MTTr ?? '—'}</td>
+    </>
+  )
+
   return (
-    <section className="summary-section" aria-labelledby="summary-heading">
-      <div className="summary-heading">
-        <div>
-          <p className="section-label">KPI summary</p>
-          <h3 id="summary-heading">Average response times</h3>
-        </div>
-        <label className="summary-period">
-          <span>Time period</span>
-          <select value={period} onChange={onPeriodChange} disabled={isLoading}>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </label>
-      </div>
-      {error && <p className="message message--error summary-message" role="alert"><span aria-hidden="true">!</span>{error}</p>}
-      {isLoading ? (
-        <p className="empty-results">Loading {period} summary...</p>
-      ) : rows.length > 0 ? (
-        <div className="results-table-wrap">
-          <table className="results-table summary-table">
-            <thead>
-              <tr>
-                <th scope="col">TIME PERIOD</th>
-                <th scope="col">MTTI</th>
-                <th scope="col">MTTA</th>
-                <th scope="col">MTTAck</th>
-                <th scope="col">MTTR</th>
-                <th scope="col">MTTr</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.period}>
-                  <td>{row.period_label || row.period || '—'}</td>
-                  <td>{row.AVG_MTTI ?? '—'}</td>
-                  <td>{row.AVG_MTTA ?? '—'}</td>
-                  <td>{row.AVG_MTTAck ?? '—'}</td>
-                  <td>{row.AVG_MTTR ?? '—'}</td>
-                  <td>{row.AVG_MTTr ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="empty-results">The API returned no summary rows. Confirm that the configured endpoint returns a top-level <code>summary</code> array for <code>group_by={period}</code>.</p>
-      )}
-    </section>
+    <SummaryTableDrillDown
+      title="Average response times"
+      subtitle="KPI summary"
+      tableType="avg"
+      sourceResponse={sourceResponse}
+      columns={columns}
+      renderRow={renderRow}
+      defaultPeriodRows={rows}
+      isLoadingDefault={isLoading}
+      errorDefault={error}
+      period={tablePeriod}
+      onPeriodChange={setTablePeriod}
+    />
   )
 }
 

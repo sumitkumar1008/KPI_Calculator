@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import FileIcon from './FileIcon'
 import ResultsTable from './MasterTable'
 import AvgTable from './AvgTable'
@@ -14,10 +14,6 @@ function FileUpload() {
   const [uploadStatus, setUploadStatus] = useState(null)
   const [resultRows, setResultRows] = useState([])
   const [uploadResponse, setUploadResponse] = useState(null)
-  const [summaryRows, setSummaryRows] = useState([])
-  const [summaryPeriod, setSummaryPeriod] = useState('daily')
-  const [isSummaryLoading, setIsSummaryLoading] = useState(false)
-  const [summaryError, setSummaryError] = useState(null)
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
 
@@ -27,15 +23,11 @@ function FileUpload() {
     setUploadStatus(null)
     setResultRows([])
     setUploadResponse(null)
-    setSummaryRows([])
-    setSummaryPeriod('daily')
-    setSummaryError(null)
     setIsUploading(false)
     if (inputRef.current) inputRef.current.value = ''
   }
 
   const selectFile = (file) => {
-    // Keep invalid files out of state so the upload action can only use valid input.
     const validationError = validateFile(file)
     setError(validationError)
     setUploadStatus(null)
@@ -77,7 +69,6 @@ function FileUpload() {
     setIsUploading(true)
     setError(null)
     setUploadStatus(null)
-    setSummaryError(null)
 
     try {
       const formData = new FormData()
@@ -95,47 +86,12 @@ function FileUpload() {
       setResultRows(Array.isArray(responseData.rows) ? responseData.rows : [])
       setUploadResponse(responseData)
       setUploadStatus('success')
-      await loadSummary(responseData, summaryPeriod)
     } catch (uploadError) {
       setError(uploadError.message || 'Something went wrong while uploading the file.')
       setUploadStatus(null)
     } finally {
       setIsUploading(false)
     }
-  }
-
-  const loadSummary = async (sourceResponse, period) => {
-    setIsSummaryLoading(true)
-    setSummaryError(null)
-
-    try {
-      const endpoint = new URL(import.meta.env.VITE_SUMMARY_API_ENDPOINT || '/api/v1/kpi/summary?group_by=monthly', window.location.origin)
-      endpoint.searchParams.set('group_by', period)
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sourceResponse),
-      })
-      const responseData = await safeParseJson(response)
-      if (!response.ok) {
-        throw new Error(responseData.error || responseData.detail || responseData.message || 'The summary could not be loaded.')
-      }
-      setSummaryRows(Array.isArray(responseData.summary) ? responseData.summary : [])
-      if (!Array.isArray(responseData.summary)) {
-        throw new Error(`The summary API returned no summary array for group_by=${period}.`)
-      }
-    } catch (summaryLoadError) {
-      setSummaryRows([])
-      setSummaryError(summaryLoadError.message || 'Something went wrong while loading the summary.')
-    } finally {
-      setIsSummaryLoading(false)
-    }
-  }
-
-  const changeSummaryPeriod = async (event) => {
-    const nextPeriod = event.target.value
-    setSummaryPeriod(nextPeriod)
-    await loadSummary(uploadResponse, nextPeriod)
   }
 
   const extension = selectedFile?.name.split('.').pop()?.toUpperCase()
@@ -189,11 +145,7 @@ function FileUpload() {
       {isSuccess && (
         <section className="results-section" aria-labelledby="results-heading">
           <AvgTable
-            rows={summaryRows}
-            period={summaryPeriod}
-            isLoading={isSummaryLoading}
-            error={summaryError}
-            onPeriodChange={changeSummaryPeriod}
+            sourceResponse={uploadResponse}
           />
           <AutomationRunTable
             sourceResponse={uploadResponse}

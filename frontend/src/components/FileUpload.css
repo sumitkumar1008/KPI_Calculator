@@ -73,6 +73,25 @@
 .summary-message { width: 100%; margin: 0 0 14px; }
 .summary-table { min-width: 720px; }
 
+/* Drill-Down Feature Styles */
+.summary-title-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.drill-tag { padding: 3px 8px; border-radius: 4px; color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 15%, transparent); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.drill-breadcrumbs { margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.breadcrumb-btn { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+.breadcrumb-btn:hover { color: var(--accent-strong); }
+.breadcrumb-btn.is-active { color: var(--ink); text-decoration: none; font-weight: 700; cursor: default; }
+.breadcrumb-separator { color: var(--muted); opacity: 0.6; }
+.drill-back-btn { margin-left: 10px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); background: var(--surface-raised); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.drill-back-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
+.drill-hint-bar { padding: 8px 14px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); color: var(--muted); font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.drill-icon { font-size: 13px; }
+.interactive-row { cursor: pointer; transition: background-color 0.15s ease; }
+.interactive-row:hover td { background-color: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.drill-col-header { text-align: right !important; width: 130px; }
+.drill-col-cell { text-align: right !important; }
+.drill-action-btn { padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 5px; color: var(--accent-strong); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
+.interactive-row:hover .drill-action-btn { background: var(--accent-strong); color: white; border-color: var(--accent-strong); }
+
 @media (max-width: 600px) {
   .upload-section { width: min(100% - 32px, 920px); padding-top: 28px; }
   .app-header { padding: 32px 0 28px; }

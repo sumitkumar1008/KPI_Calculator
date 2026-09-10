@@ -284,10 +284,10 @@ def parse_excel_file(file_input: Any, filename: str = "") -> dict[str, Any]:
     ts_cols = [c for c in REQUIRED_COLUMNS if c in df_subset.columns]
     for c in ts_cols:
         try:
-            # SR creation dates are supplied as month/day/year.
+            # SR creation dates are supplied in day/month/year format (DD/MM/YYYY).
             df_subset[c] = pd.to_datetime(
                 df_subset[c],
-                dayfirst=False,
+                dayfirst=True,
                 errors="coerce",
             )
         except Exception:

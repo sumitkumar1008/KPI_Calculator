@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import FileUpload from './components/FileUpload'
 import Navbar from './components/Navbar'
 import Login from './components/login'
+import { GlobalFilterProvider } from './context/GlobalFilterContext'
 import './App.css'
 
 function App() {
@@ -18,17 +19,17 @@ function App() {
   }
 
   return (
-    <main className={`app-shell theme-${theme}`}>
-      <Navbar theme={theme} onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')} />
+    <GlobalFilterProvider>
+      <main className={`app-shell theme-${theme}`}>
+        <Navbar theme={theme} onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')} />
 
-      <section className="upload-section" aria-labelledby="upload-heading">
-        <FileUpload />
-      </section>
+        <section className="upload-section" aria-labelledby="upload-heading">
+          <FileUpload />
+        </section>
 
-
-
-      <footer className="app-footer"><span className="footer-dot" aria-hidden="true" /> Files stay in your browser during this demo</footer>
-    </main>
+        <footer className="app-footer"><span className="footer-dot" aria-hidden="true" /> Files stay in your browser during this demo</footer>
+      </main>
+    </GlobalFilterProvider>
   )
 }
 
