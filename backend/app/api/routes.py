@@ -230,7 +230,8 @@ def upload_kpi_excel():
 
 @api_bp.route("/kpi/automation-run", methods=["POST"], strict_slashes=False)
 def check_automation_run():
-    """Count automation Y/N values from the JSON returned by the upload API."""
+    """API 3: Count automation Y/N values from the upload API JSON response."""
+    start_time = time.perf_counter()
     group_by = request.args.get("group_by", "daily").lower().strip()
     if group_by not in {"daily", "weekly", "monthly"}:
         return jsonify({"error": "group_by must be one of: daily, weekly, monthly"}), 400
@@ -243,7 +244,17 @@ def check_automation_run():
     if not isinstance(rows, list):
         return jsonify({"error": "JSON payload must contain a 'rows' array"}), 400
 
-    return jsonify(aggregate_automation_runs(rows, group_by)), 200
+    result = aggregate_automation_runs(rows, group_by)
+    duration = (time.perf_counter() - start_time) * 1000
+    logger.info(
+        "[API 3 PERFORMANCE COUNTER] Automation run completed in %.3f ms "
+        "(group_by='%s', records=%d, periods=%d)",
+        duration,
+        group_by,
+        len(rows),
+        result.get("periods_count", 0),
+    )
+    return jsonify(result), 200
 
 @api_bp.route("/kpi/automation-rca-conclusion", methods=["POST"], strict_slashes=False)
 def check_automation_rca_conclusion():

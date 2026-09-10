@@ -1,0 +1,111 @@
+.line-chart-section {
+  margin-top: 38px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px var(--shadow);
+}
+
+.line-chart-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.line-chart-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.line-chart-filters {
+  display: flex;
+  align-items: end;
+  gap: 14px;
+}
+
+.line-chart-wrap {
+  width: 100%;
+  min-height: 340px;
+}
+
+.line-chart-tooltip {
+  min-width: 120px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #000;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+.line-chart-tooltip p {
+  margin: 3px 0;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.line-chart-tooltip__label {
+  margin-bottom: 7px !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.line-chart-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.line-toggle {
+  min-width: 54px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.line-toggle--yes.is-active {
+  border-color: #269653;
+  color: #269653;
+  background: color-mix(in srgb, #269653 12%, transparent);
+}
+
+.line-toggle--no.is-active {
+  border-color: #c94b4b;
+  color: #c94b4b;
+  background: color-mix(in srgb, #c94b4b 12%, transparent);
+}
+
+.line-toggle--both.is-active {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+@media (max-width: 600px) {
+  .line-chart-section {
+    padding: 16px;
+  }
+
+  .line-chart-heading,
+  .line-chart-filters {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .line-chart-filters {
+    width: 100%;
+    gap: 10px;
+  }
+}

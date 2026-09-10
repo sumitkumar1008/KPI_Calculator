@@ -4,6 +4,8 @@ import ResultsTable from './MasterTable'
 import AvgTable from './AvgTable'
 import AutomationRunTable from './AutomationRunTable'
 import AutomationRcaConclusionTable from './AutomationRcaConclusionTable'
+import AutomationRunLineChart from './AutomationRunLineChart'
+import AutomationRcaConclusionLineChart from './AutomationRcaConclusionLineChart'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
 import './FileUpload.css'
 
@@ -150,7 +152,13 @@ function FileUpload() {
           <AutomationRunTable
             sourceResponse={uploadResponse}
           />
+          <AutomationRunLineChart
+            sourceResponse={uploadResponse}
+          />
           <AutomationRcaConclusionTable
+            sourceResponse={uploadResponse}
+          />
+          <AutomationRcaConclusionLineChart
             sourceResponse={uploadResponse}
           />
           <div className="results-heading">

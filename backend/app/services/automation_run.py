@@ -1,10 +1,14 @@
 """Automation-run decision helpers."""
 
 from datetime import datetime
+import logging
+import time
 from typing import Any
 
 from app.services.kpi_aggregator import get_period_bucket
 from app.utils.time_utils import parse_datetime
+
+logger = logging.getLogger("kpi_logger")
 
 YES_VALUES = {"1", "true", "t", "y", "yes", "on", "automated", "run"}
 
@@ -45,6 +49,7 @@ def count_automation_runs(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 def aggregate_automation_runs(rows: list[dict[str, Any]], group_by: str) -> dict[str, Any]:
 	"""Group upload-response automation values by creation date period."""
+	start_time = time.perf_counter()
 	buckets: dict[str, dict[str, Any]] = {}
 	omitted_count = 0
 
@@ -73,10 +78,18 @@ def aggregate_automation_runs(rows: list[dict[str, Any]], group_by: str) -> dict
 			**counts,
 		})
 
-	return {
+	result = {
 		"group_by": group_by,
 		"total_records": len(rows),
 		"periods_count": len(summary),
 		"summary": summary,
 		"omitted_records": omitted_count,
 	}
+	logger.info(
+		"[AUTOMATION RUN PERFORMANCE COUNTER] Processed %d records into %d '%s' periods in %.3f ms",
+		len(rows),
+		len(summary),
+		group_by,
+		(time.perf_counter() - start_time) * 1000,
+	)
+	return result
