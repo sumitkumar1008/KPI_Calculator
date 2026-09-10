@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { calculateDrillDown } from '../utils/drilldownUtils'
 
 function SummaryTableDrillDown({
@@ -14,11 +14,13 @@ function SummaryTableDrillDown({
   period = 'monthly',
   onPeriodChange = () => {},
 }) {
-  const [drillLevel, setDrillLevel] = useState(0) // 0: default (monthly/global), 1: 4 weeks, 2: 7 days daily
+  const [drillLevel, setDrillLevel] = useState(0) // 0: default (monthly), 1: 4 weeks view
   const [selectedMonth, setSelectedMonth] = useState(null)
   const [selectedMonthLabel, setSelectedMonthLabel] = useState(null)
-  const [selectedWeek, setSelectedWeek] = useState(null)
-  const [selectedWeekLabel, setSelectedWeekLabel] = useState(null)
+
+  // Track expanded week numbers in Level 1 view (e.g. Set containing week 1, 2, etc.)
+  const [expandedWeeks, setExpandedWeeks] = useState(new Set())
+  const [expandedDailyRows, setExpandedDailyRows] = useState({})
 
   const [drillRows, setDrillRows] = useState([])
   const [isDrillLoading, setIsDrillLoading] = useState(false)
@@ -41,16 +43,16 @@ function SummaryTableDrillDown({
     setDrillLevel(0)
     setSelectedMonth(null)
     setSelectedMonthLabel(null)
-    setSelectedWeek(null)
-    setSelectedWeekLabel(null)
+    setExpandedWeeks(new Set())
+    setExpandedDailyRows({})
     setDrillRows([])
   }, [period, sourceResponse])
 
-  // Calculate level 1 or level 2 drill-down data instantly from memory
+  // Calculate Level 1 (Month -> 4 Weeks) drill-down data instantly from memory
   useEffect(() => {
     if (drillLevel === 0 || !sourceResponse || !selectedMonth) return
 
-    const cacheKey = `${tableType}_${selectedMonth}_${drillLevel === 2 ? selectedWeek : 'weeks'}`
+    const cacheKey = `${tableType}_${selectedMonth}_weeks`
     
     // Check drill cache
     if (drillCacheRef.current[cacheKey]) {
@@ -67,7 +69,7 @@ function SummaryTableDrillDown({
         sourceResponse.rows,
         tableType,
         selectedMonth,
-        drillLevel === 2 ? selectedWeek : null
+        null
       )
       drillCacheRef.current[cacheKey] = summary
       setDrillRows(summary)
@@ -85,9 +87,6 @@ function SummaryTableDrillDown({
     )
     endpoint.searchParams.set('table_type', tableType)
     endpoint.searchParams.set('month', selectedMonth)
-    if (drillLevel === 2 && selectedWeek !== null) {
-      endpoint.searchParams.set('week', selectedWeek)
-    }
 
     setIsDrillLoading(true)
     setDrillError(null)
@@ -120,40 +119,52 @@ function SummaryTableDrillDown({
       })
 
     return () => controller.abort()
-  }, [drillLevel, selectedMonth, selectedWeek, tableType, sourceResponse])
+  }, [drillLevel, selectedMonth, tableType, sourceResponse])
+
+  // Extract week number from row (e.g. "Week 1", "2026-08-W1")
+  const getRowWeekNum = (row) => {
+    let weekNum = 1
+    if (typeof row.period === 'string' && row.period.includes('-W')) {
+      const parts = row.period.split('-W')
+      weekNum = parseInt(parts[parts.length - 1], 10) || 1
+    } else if (row.period_label && row.period_label.toLowerCase().includes('week')) {
+      const match = row.period_label.match(/week\s*(\d+)/i)
+      if (match) weekNum = parseInt(match[1], 10)
+    }
+    return weekNum
+  }
 
   const handleRowClick = (row) => {
     if (drillLevel === 0) {
-      // Month -> Weeks
+      // Month -> 4 Weeks
       const monthKey = row.period_label || row.period
       setSelectedMonth(monthKey)
       setSelectedMonthLabel(row.period_label || row.period)
+      setExpandedWeeks(new Set())
+      setExpandedDailyRows({})
       setDrillLevel(1)
     } else if (drillLevel === 1) {
-      // Week -> 7 Days Daily
-      let weekNum = 1
-      if (typeof row.period === 'string' && row.period.includes('-W')) {
-        const parts = row.period.split('-W')
-        weekNum = parseInt(parts[parts.length - 1], 10) || 1
-      } else if (row.period_label && row.period_label.toLowerCase().includes('week')) {
-        const match = row.period_label.match(/week\s*(\d+)/i)
-        if (match) weekNum = parseInt(match[1], 10)
-      }
-      setSelectedWeek(weekNum)
-      setSelectedWeekLabel(row.period_label || `Week ${weekNum}`)
-      setDrillLevel(2)
-    }
-  }
+      // Toggle inline expandable week row (keep rest of weeks visible!)
+      const weekNum = getRowWeekNum(row)
+      
+      setExpandedWeeks((prev) => {
+        const next = new Set(prev)
+        if (next.has(weekNum)) {
+          next.delete(weekNum)
+        } else {
+          next.add(weekNum)
 
-  const goBackLevel = () => {
-    if (drillLevel === 2) {
-      setDrillLevel(1)
-      setSelectedWeek(null)
-      setSelectedWeekLabel(null)
-    } else if (drillLevel === 1) {
-      setDrillLevel(0)
-      setSelectedMonth(null)
-      setSelectedMonthLabel(null)
+          // Compute 7 daily rows for this week if not already computed
+          if (!expandedDailyRows[weekNum] && sourceResponse && Array.isArray(sourceResponse.rows)) {
+            const dailySummary = calculateDrillDown(sourceResponse.rows, tableType, selectedMonth, weekNum)
+            setExpandedDailyRows((prevDaily) => ({
+              ...prevDaily,
+              [weekNum]: dailySummary,
+            }))
+          }
+        }
+        return next
+      })
     }
   }
 
@@ -161,8 +172,8 @@ function SummaryTableDrillDown({
     setDrillLevel(0)
     setSelectedMonth(null)
     setSelectedMonthLabel(null)
-    setSelectedWeek(null)
-    setSelectedWeekLabel(null)
+    setExpandedWeeks(new Set())
+    setExpandedDailyRows({})
   }
 
   // Active dataset
@@ -190,24 +201,9 @@ function SummaryTableDrillDown({
                 Monthly Overview
               </button>
               <span className="breadcrumb-separator">/</span>
-              <button
-                type="button"
-                className={`breadcrumb-btn ${drillLevel === 1 ? 'is-active' : ''}`}
-                onClick={() => {
-                  setDrillLevel(1)
-                  setSelectedWeek(null)
-                }}
-              >
-                {selectedMonthLabel}
-              </button>
-              {drillLevel === 2 && (
-                <>
-                  <span className="breadcrumb-separator">/</span>
-                  <span className="breadcrumb-btn is-active">{selectedWeekLabel}</span>
-                </>
-              )}
+              <span className="breadcrumb-btn is-active">{selectedMonthLabel}</span>
 
-              <button type="button" className="drill-back-btn" onClick={goBackLevel}>
+              <button type="button" className="drill-back-btn" onClick={resetDrill}>
                 ← Back
               </button>
             </div>
@@ -217,7 +213,7 @@ function SummaryTableDrillDown({
         <label className="summary-period">
           <span>Time period</span>
           <select
-            value={drillLevel === 0 ? period : drillLevel === 1 ? 'weekly' : 'daily'}
+            value={drillLevel === 0 ? period : 'weekly'}
             onChange={(e) => {
               setDrillLevel(0)
               onPeriodChange(e.target.value)
@@ -242,9 +238,7 @@ function SummaryTableDrillDown({
         <p className="empty-results">
           {drillLevel === 0
             ? `Loading ${period} summary...`
-            : drillLevel === 1
-            ? `Loading weekly drill-down for ${selectedMonthLabel}...`
-            : `Loading daily drill-down for ${selectedWeekLabel}...`}
+            : `Loading weekly breakdown for ${selectedMonthLabel}...`}
         </p>
       ) : activeRows.length > 0 ? (
         <div className="results-table-wrap">
@@ -259,15 +253,64 @@ function SummaryTableDrillDown({
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((row, idx) => (
-                <tr
-                  key={row.period || idx}
-                  className={drillLevel < 2 ? 'interactive-row' : ''}
-                  onClick={() => drillLevel < 2 && handleRowClick(row)}
-                >
-                  {renderRow(row)}
-                </tr>
-              ))}
+              {visibleRows.map((row, idx) => {
+                const weekNum = drillLevel === 1 ? getRowWeekNum(row) : null
+                const isExpanded = drillLevel === 1 && expandedWeeks.has(weekNum)
+                const dailyData = isExpanded ? (expandedDailyRows[weekNum] || []) : []
+
+                return (
+                  <React.Fragment key={row.period || idx}>
+                    <tr
+                      className={`interactive-row ${isExpanded ? 'expanded-week-row' : ''}`}
+                      onClick={() => handleRowClick(row)}
+                      title={
+                        drillLevel === 0
+                          ? 'Click to view 4 weeks'
+                          : isExpanded
+                          ? 'Click to collapse 7-day daily breakdown'
+                          : 'Click to expand 7-day daily breakdown'
+                      }
+                    >
+                      {renderRowWithIndicator(row, drillLevel, isExpanded, renderRow)}
+                    </tr>
+
+                    {/* Inline Expandable Daily Breakdown Sub-Table (Keep rest of weeks visible!) */}
+                    {isExpanded && (
+                      <tr className="subtable-row">
+                        <td colSpan={columns.length} className="subtable-container-cell">
+                          <div className="daily-subtable-wrap">
+                            <div className="daily-subtable-title">
+                              7-Day Daily Breakdown ({row.period_label || `Week ${weekNum}`})
+                            </div>
+                            {dailyData.length > 0 ? (
+                              <table className="daily-subtable">
+                                <thead>
+                                  <tr>
+                                    {columns.map((col) => (
+                                      <th key={col.key}>{col.label}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {dailyData.map((dailyRow, dIdx) => (
+                                    <tr key={dailyRow.period || dIdx}>
+                                      {renderRow(dailyRow)}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p className="empty-results" style={{ padding: '10px 14px', margin: 0 }}>
+                                No daily records found for this week.
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -312,6 +355,31 @@ function SummaryTableDrillDown({
         </div>
       )}
     </section>
+  )
+}
+
+// Helper to render row with a subtle expand/collapse indicator (▼/▶) for Level 1 weekly rows
+function renderRowWithIndicator(row, drillLevel, isExpanded, renderRow) {
+  const defaultRowContent = renderRow(row)
+  if (drillLevel !== 1) return defaultRowContent
+
+  // Wrap the first cell with expand/collapse arrow
+  const children = React.Children.toArray(defaultRowContent.props.children)
+  if (children.length === 0) return defaultRowContent
+
+  const firstCell = children[0]
+  const modifiedFirstCell = (
+    <td key={firstCell.key || 'first-cell'}>
+      <span className="week-expand-indicator">{isExpanded ? '▼' : '▶'}</span>
+      {firstCell.props.children}
+    </td>
+  )
+
+  return (
+    <>
+      {modifiedFirstCell}
+      {children.slice(1)}
+    </>
   )
 }
 
