@@ -56,12 +56,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     def request_entity_too_large(error):
         """
         Global error handler for HTTP 413 Payload Too Large.
-        Triggered automatically when an uploaded Excel file exceeds MAX_CONTENT_LENGTH (50MB).
+        Triggered automatically when an uploaded Excel file exceeds MAX_CONTENT_LENGTH (500MB).
         """
         max_mb = app.config.get("MAX_CONTENT_LENGTH", 0) // (1024 * 1024)
         return jsonify({
             "error": f"Uploaded file is too large. Maximum allowed size is {max_mb} MB."
         }), 413
+
 
     @app.errorhandler(500)
     @app.errorhandler(Exception)

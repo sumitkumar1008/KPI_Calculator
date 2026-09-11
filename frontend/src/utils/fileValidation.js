@@ -1,5 +1,5 @@
 // Keep upload rules in one place so the UI and future API integration share them.
-export const MAX_FILE_SIZE = 50 * 1024 * 1024
+export const MAX_FILE_SIZE = 500 * 1024 * 1024
 export const ACCEPTED_EXTENSIONS = ['csv', 'xls', 'xlsx']
 
 export function validateFile(file) {
@@ -10,7 +10,7 @@ export function validateFile(file) {
     return 'Unsupported file type. Please select a CSV, XLS, or XLSX file.'
   }
 
-  if (file.size > MAX_FILE_SIZE) return 'File size exceeds the 50 MB limit.'
+  if (file.size > MAX_FILE_SIZE) return `File size exceeds the ${MAX_FILE_SIZE / (1024 * 1024)} MB limit.`
 
   return null
 }
