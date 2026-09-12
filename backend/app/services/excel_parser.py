@@ -1,173 +1,14 @@
 """
-Excel File Ingestion & Flexible Header Parser Service
-=====================================================
-Handles reading both modern (.xlsx) and legacy binary (.xls) Excel files using openpyxl & xlrd.
-Normalizes incoming column names (handling case variations, spaces, underscores, hashes),
-maps them to canonical internal names, and validates the presence of required KPI columns.
+Excel File Parser Service
+=========================
+Handles reading modern (.xlsx via openpyxl) and legacy binary (.xls via xlrd) Excel files.
+Located in app/services/excel_parser.py.
 """
 
-import datetime
 import io
-import re
 from typing import Any
 import openpyxl
 import pandas as pd
-
-from app.services.csv_parser import parse_csv_file
-
-# Standard required timestamp columns for KPI calculations
-REQUIRED_COLUMNS: list[str] = [
-    "SRCREATIONTIME",             # Creation time of ticket/service request
-    "AUTOMATION_END_TIME",        # End time of automated triage/processing (for MTTI)
-    "ROSTER_ALLOCATION_TIME",     # Time engineer was allocated (for MTTA & MTTAck)
-    "FIRST_ACKNOWLEDGEMENT_TIME", # Time engineer acknowledged ticket (for MTTAck)
-    "RESOLVEDTIME",               # Time ticket was resolved (for MTTR)
-    "CREATIONTIME",               # Circuit creation time (for MTTr)
-    "CIRCUIT_UPTIME",             # Circuit uptime restoration time (for MTTr)
-]
-
-# Accepted header name variations for SRNUMBER (Unique Identifier) in Excel sheets
-SR_NUMBER_VARIANTS: list[str] = [
-    "SRNUMBER",
-    "SR_NUMBER",
-    "SR NUMBER",
-    "SRNUM",
-    "SR_NUM",
-    "SR NUM",
-    "SR#",
-    "SR_NO",
-    "SR NO",
-    "SRNO",
-    "INCIDENT_NUMBER",
-    "INCIDENT NUMBER",
-    "INCIDENTNO",
-]
-
-
-def normalize_column_name(col: Any) -> str:
-    """
-    Normalizes raw Excel column header strings by trimming whitespace,
-    converting to UPPERCASE, and replacing spaces/hashes/underscores with a single underscore.
-    Example: ' Automation End Time ' -> 'AUTOMATION_END_TIME'
-    """
-    if col is None:
-        return ""
-    s = str(col).strip().upper()
-    s = re.sub(r"[\s_#]+", "_", s)
-    return s
-
-
-# Build lookup map from normalized string variations -> exact canonical column name
-_CANONICAL_LOOKUP: dict[str, str] = {
-    normalize_column_name(c): c for c in REQUIRED_COLUMNS
-}
-# Add variants without underscores (e.g. AUTOMATIONENDTIME) for maximum parsing flexibility
-for c in REQUIRED_COLUMNS:
-    _CANONICAL_LOOKUP[re.sub(r"_", "", c.upper())] = c
-
-# Register all SRNUMBER variants in the canonical lookup
-for var in SR_NUMBER_VARIANTS:
-    _CANONICAL_LOOKUP[normalize_column_name(var)] = "SRNUMBER"
-    _CANONICAL_LOOKUP[re.sub(r"[\s_#]+", "", var.upper())] = "SRNUMBER"
-
-# Optional pre-calculated KPI duration column variants present in some Excel reports
-OPTIONAL_KPI_MAPPINGS: dict[str, str] = {
-    "MTTR(RAW)": "MTTR_RAW",
-    "MTTR (RAW)": "MTTR_RAW",
-    "MTTR_RAW": "MTTR_RAW",
-    "MTTR RAW": "MTTR_RAW",
-    "RAW_MTTR": "MTTR_RAW",
-    "MTTR": "MTTR_RAW",
-    "MTTACK": "MTTACK_RAW",
-    "MTTA_ACK": "MTTACK_RAW",
-    "MTTA CK": "MTTACK_RAW",
-    "MTT ACK": "MTTACK_RAW",
-    "MTTACK(RAW)": "MTTACK_RAW",
-    "MTTACK_RAW": "MTTACK_RAW",
-    "MTTA_RAW": "MTTA_RAW",
-    "MTTA(RAW)": "MTTA_RAW",
-    "MTTA": "MTTA_RAW",
-    "MTTR_CIRCUIT": "MTTr_RAW",
-    "MTTR(CIRCUIT)": "MTTr_RAW",
-    "MTTR (CIRCUIT)": "MTTr_RAW",
-    "MTTR_CIRCUIT_UPTIME": "MTTr_RAW",
-    "MTTr": "MTTr_RAW",
-    "MTTI_RAW": "MTTI_RAW",
-    "MTTI(RAW)": "MTTI_RAW",
-    "MTTI": "MTTI_RAW",
-    "AUTOMATION_RCA_CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
-    "AUTOMATION RCA CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
-    "AUTOMATION_RCA": "AUTOMATION_RCA_CONCLUSION",
-    "AUTOMATION RCA": "AUTOMATION_RCA_CONCLUSION",
-    "RCA_CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
-    "RCA CONCLUSION": "AUTOMATION_RCA_CONCLUSION",
-    "AUTOMATION_RUN": "AUTOMATION_RUN",
-    "AUTOMATION RUN": "AUTOMATION_RUN",
-    "AUTO_RUN": "AUTOMATION_RUN",
-    "AUTO RUN": "AUTOMATION_RUN",
-    "AUTORUN": "AUTOMATION_RUN",
-}
-for k, canonical in OPTIONAL_KPI_MAPPINGS.items():
-    _CANONICAL_LOOKUP[normalize_column_name(k)] = canonical
-    _CANONICAL_LOOKUP[re.sub(r"[\s_#()]+", "", k.upper())] = canonical
-    _CANONICAL_LOOKUP[k.upper()] = canonical
-
-
-def validate_and_map_headers(columns: list[Any]) -> tuple[dict[str, str], list[str]]:
-    """
-    Scans raw column headers from an Excel file and matches them to internal canonical column names.
-    
-    Args:
-        columns: List of raw header string values from pandas DataFrame.
-        
-    Returns:
-        tuple containing:
-        - column_map: Dictionary mapping raw_header -> canonical_name
-        - missing_columns: List of required canonical column names that were not found in Excel file.
-    """
-    column_map: dict[str, str] = {}
-    found_canonicals: set[str] = set()
-
-    for raw_col in columns:
-        raw_str = str(raw_col).strip()
-        norm = normalize_column_name(raw_str)
-        norm_no_underscore = re.sub(r"[\s_#()]+", "", raw_str.upper())
-
-        canonical = (
-            _CANONICAL_LOOKUP.get(norm)
-            or _CANONICAL_LOOKUP.get(norm_no_underscore)
-            or _CANONICAL_LOOKUP.get(raw_str.upper())
-        )
-        if canonical and canonical not in found_canonicals:
-            column_map[raw_col] = canonical
-            found_canonicals.add(canonical)
-
-    # Fallback Policy: If CREATIONTIME is absent in raw Excel headers but SRCREATIONTIME is present,
-    # fallback CREATIONTIME to use SRCREATIONTIME so MTTr can still be calculated cleanly.
-    if "CREATIONTIME" not in found_canonicals and "SRCREATIONTIME" in found_canonicals:
-        found_canonicals.add("CREATIONTIME")
-
-    missing_columns = [col for col in REQUIRED_COLUMNS if col not in found_canonicals]
-    return column_map, missing_columns
-
-
-
-def _sanitize_cell(val: Any) -> Any:
-    """
-    Sanitizes raw pandas cell values into 100% JSON-serializable Python types.
-    Converts:
-    - pd.isna / pd.NaT / np.nan / None -> None
-    - datetime / pd.Timestamp / datetime.time / datetime.date -> ISO format string
-    - numpy scalars -> native Python int/float
-    """
-    if val is None or pd.isna(val):
-        return None
-    if isinstance(val, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
-        return val.isoformat()
-    if hasattr(val, "item"):
-        return val.item()
-    return val
-
 
 
 def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
@@ -191,121 +32,74 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
         return None
 
 
+def parse_excel_raw(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
+    """
+    Parses Excel (.xlsx or .xls) binary files into a pandas DataFrame using openpyxl or xlrd multi-engine fallbacks.
+    
+    Args:
+        stream_or_path_or_bytes: BytesIO buffer, FileStorage stream, filepath string, or raw bytes.
+
+    Returns:
+        pd.DataFrame if successfully parsed, or None if unparseable.
+    """
+    target: Any
+    if hasattr(stream_or_path_or_bytes, "read"):
+        content = stream_or_path_or_bytes.read()
+        if hasattr(stream_or_path_or_bytes, "seek"):
+            stream_or_path_or_bytes.seek(0)
+        target = io.BytesIO(content)
+    else:
+        target = stream_or_path_or_bytes
+
+    # Attempt 1: openpyxl SAX read-only parser
+    df = _parse_read_only_openpyxl(target)
+    if df is not None and not df.empty:
+        return df
+
+    # Attempt 2: openpyxl standard pandas read_excel
+    if hasattr(target, "seek"):
+        target.seek(0)
+    try:
+        df = pd.read_excel(target, engine="openpyxl")
+        if df is not None and not df.empty:
+            return df
+    except Exception:
+        pass
+
+    # Attempt 3: xlrd for legacy binary .xls files
+    if hasattr(target, "seek"):
+        target.seek(0)
+    try:
+        df = pd.read_excel(target, engine="xlrd")
+        if df is not None and not df.empty:
+            return df
+    except Exception:
+        pass
+
+    # Attempt 4: Default pandas read_excel auto-engine
+    if hasattr(target, "seek"):
+        target.seek(0)
+    try:
+        df = pd.read_excel(target)
+        if df is not None and not df.empty:
+            return df
+    except Exception:
+        pass
+
+    return None
+
 
 def parse_excel_file(file_input: Any, filename: str = "") -> dict[str, Any]:
     """
-    Multi-engine file parser supporting CSV (.csv), modern Excel (.xlsx via openpyxl),
-    and legacy binary Excel (.xls via xlrd).
-    
-    Args:
-        file_input: File Storage object, BytesIO buffer, or filepath string.
-        filename: Optional filename string to hint parser selection.
-        
-    Returns:
-        Dictionary result:
-        - Failure: {"success": False, "error": "...", "missing_columns": [...]}
-        - Success: {"success": True, "rows": [dict, ...], "row_count": int}
+    Backward-compatible entry point delegating to central file_parser.parse_file.
     """
-    try:
-        is_csv = str(filename).lower().endswith(".csv")
-        
-        if hasattr(file_input, "read"):
-            # Handle File Storage or BytesIO streams
-            content = file_input.read()
-            if hasattr(file_input, "seek"):
-                file_input.seek(0)
-            bytes_io = io.BytesIO(content)
-            
-            df = None
-            if is_csv:
-                df = parse_csv_file(bytes_io)
+    from app.services.file_parser import parse_file
+    return parse_file(file_input, filename=filename)
 
-            if df is None:
-                bytes_io.seek(0)
-                df = _parse_read_only_openpyxl(bytes_io)
 
-            if df is None:
-                bytes_io.seek(0)
-                try:
-                    df = pd.read_excel(bytes_io, engine="openpyxl")
-                except Exception:
-                    bytes_io.seek(0)
-                    try:
-                        df = pd.read_excel(bytes_io, engine="xlrd")
-                    except Exception:
-                        bytes_io.seek(0)
-                        try:
-                            df = pd.read_excel(bytes_io)
-                        except Exception:
-                            bytes_io.seek(0)
-                            df = parse_csv_file(bytes_io)
-        else:
-            df = None
-            if is_csv:
-                df = parse_csv_file(file_input)
-            if df is None:
-                df = _parse_read_only_openpyxl(file_input)
-            if df is None:
-                try:
-                    df = pd.read_excel(file_input, engine="openpyxl")
-                except Exception:
-                    try:
-                        df = pd.read_excel(file_input, engine="xlrd")
-                    except Exception:
-                        try:
-                            df = pd.read_excel(file_input)
-                        except Exception:
-                            df = parse_csv_file(file_input)
-    except Exception as exc:
-        return {
-            "success": False,
-            "error": f"Failed to read file: {str(exc)}",
-            "missing_columns": [],
-        }
-
-    raw_headers = list(df.columns)
-    col_map, missing_cols = validate_and_map_headers(raw_headers)
-
-    # Return error response if any required timestamp column is missing
-    if missing_cols:
-        missing_str = ", ".join(missing_cols)
-        return {
-            "success": False,
-            "error": f"Failed to read Excel file: Missing required Excel columns: {missing_str}",
-            "missing_columns": missing_cols,
-        }
-
-    # Extract mapped columns and rename to canonical required names
-    df_subset = df[list(col_map.keys())].rename(columns=col_map)
-    if "CREATIONTIME" not in df_subset.columns and "SRCREATIONTIME" in df_subset.columns:
-        df_subset["CREATIONTIME"] = df_subset["SRCREATIONTIME"]
-
-    # Vectorized C-level date parsing for all timestamp columns (1900x faster, 60ms for 10k rows)
-    ts_cols = [c for c in REQUIRED_COLUMNS if c in df_subset.columns]
-    for c in ts_cols:
-        try:
-            # SR creation dates are supplied in day/month/year format (DD/MM/YYYY).
-            df_subset[c] = pd.to_datetime(
-                df_subset[c],
-                dayfirst=True,
-                errors="coerce",
-            )
-        except Exception:
-            pass
-
-    raw_records = df_subset.to_dict(orient="records")
-    clean_rows = []
-    for record in raw_records:
-        r = {k: _sanitize_cell(v) for k, v in record.items()}
-        if "AUTOMATION_RCA_CONCLUSION" not in r:
-            r["AUTOMATION_RCA_CONCLUSION"] = None
-        if "AUTOMATION_RUN" not in r:
-            r["AUTOMATION_RUN"] = None
-        clean_rows.append(r)
-
-    return {
-        "success": True,
-        "rows": clean_rows,
-        "row_count": len(clean_rows),
-        "df": df_subset,
-    }
+# Re-exports for backward compatibility with existing tests
+def __getattr__(name: str) -> Any:
+    if name in ("REQUIRED_COLUMNS", "SR_NUMBER_VARIANTS", "OPTIONAL_KPI_MAPPINGS", "normalize_column_name", "validate_and_map_headers", "_sanitize_cell"):
+        import app.services.file_parser as fp
+        return getattr(fp, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

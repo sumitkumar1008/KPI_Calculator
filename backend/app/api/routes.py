@@ -9,7 +9,7 @@ import pandas as pd
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import HTTPException
 
-from app.services.excel_parser import parse_excel_file
+from app.services.file_parser import parse_file
 from app.services.automation_run import automation_run_answer, aggregate_automation_runs
 from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.kpi_calculator import compute_df_kpis, compute_row_kpis
@@ -107,14 +107,14 @@ def upload_kpi_excel():
         filename = file.filename.lower()
         logger.info(f"📄 [API 1: FILE RECEIVED] Filename: '{file.filename}'")
 
-        # 2. Validate file extension (.xlsx, .xls, .csv)
-        if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv")):
-            logger.warning(f"❌ [API 1: INVALID FILE TYPE] Filename '{file.filename}' is not .xlsx, .xls, or .csv.")
-            return jsonify({"error": "File must be an .xlsx, .xls, or .csv file"}), 400
+        # 2. Validate file extension (.xlsx, .xls, .csv, .zip)
+        if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv") or filename.endswith(".zip")):
+            logger.warning(f"❌ [API 1: INVALID FILE TYPE] Filename '{file.filename}' is not .xlsx, .xls, .csv, or .zip.")
+            return jsonify({"error": "File must be an .xlsx, .xls, .csv, or .zip file"}), 400
 
         # 3. Parse file into normalized dictionary rows using multi-engine fallback
         logger.info("🔄 [API 1: PARSING FILE] Ingesting headers and extracting data rows...")
-        parse_result = parse_excel_file(file, filename=file.filename)
+        parse_result = parse_file(file, filename=file.filename)
         if not parse_result["success"]:
             logger.error(f"❌ [API 1: PARSE ERROR] Excel parsing failed: {parse_result['error']}")
             return jsonify({"error": parse_result["error"]}), 400

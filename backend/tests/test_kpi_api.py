@@ -350,3 +350,27 @@ def test_kpi_summary_non_json_payload(client):
     assert "Request body must contain valid JSON" in res_json["error"]
 
 
+def test_upload_kpi_zip_file(client):
+    import zipfile
+    csv_content = (
+        "SRNUMBER,SRCREATIONTIME,AUTOMATION_END_TIME,ROSTER_ALLOCATION_TIME,FIRST_ACKNOWLEDGEMENT_TIME,RESOLVEDTIME,CREATIONTIME,CIRCUIT_UPTIME\n"
+        "SR9001,2026-08-01 08:00:00,2026-08-01 08:05:00,2026-08-01 08:10:00,2026-08-01 08:15:00,2026-08-01 10:00:00,2026-08-01 08:00:00,2026-08-01 09:00:00\n"
+    )
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("tickets.csv", csv_content.encode("utf-8"))
+    zip_buf.seek(0)
+
+    data = {"file": (zip_buf, "data_export.zip")}
+    response = client.post(
+        "/api/v1/kpi/upload",
+        data=data,
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    res_json = response.get_json()
+    assert res_json["row_count"] == 1
+    assert res_json["rows"][0]["SRNUMBER"] == "SR9001"
+
+
+
