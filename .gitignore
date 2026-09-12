@@ -6,6 +6,12 @@ agent.md
 # Markdown Documentation
 *.md
 
+# Node / Frontend
+node_modules/
+dist/
+.dist/
+.vite/
+
 # Python
 __pycache__/
 *.py[cod]
