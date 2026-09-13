@@ -112,13 +112,14 @@ function AutomationRcaConclusionLineChart({ sourceResponse }) {
 
   return (
     <LineChartComponent
+      sectionId="automation-conclusion-graph"
       data={chartData}
       period={period}
       onPeriodChange={(event) => setPeriod(event.target.value)}
       isLoading={isLoading}
       error={error}
       label="RCA conclusion trend"
-      title="RCA conclusion Y/N trend"
+      title="AUTOMATION RCA CONCLUSION Y/N GRAPH"
       emptyMessage="No RCA conclusion chart data was returned for this period."
     />
   )

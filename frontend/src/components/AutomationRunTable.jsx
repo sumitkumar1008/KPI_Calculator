@@ -55,6 +55,8 @@ function AutomationRunTable({ sourceResponse }) {
     { key: 'period', label: 'DATE / TIME' },
     { key: 'Y_count', label: 'Y' },
     { key: 'N_count', label: 'N' },
+    { key: 'Y_percentage', label: 'Y %' },
+    { key: 'N_percentage', label: 'N %' },
   ]
 
   const renderRow = (row) => (
@@ -62,12 +64,15 @@ function AutomationRunTable({ sourceResponse }) {
       <td>{row.period_label || row.period || '—'}</td>
       <td>{row.Y_count ?? 0}</td>
       <td>{row.N_count ?? 0}</td>
+      <td>{row.Y_percentage ?? 0}%</td>
+      <td>{row.N_percentage ?? 0}%</td>
     </>
   )
 
   return (
     <SummaryTableDrillDown
-      title="Automation Rca Run counts"
+      sectionId="automation-run-counts"
+      title="AUTOMATION RCA RUN COUNTS"
       subtitle="Automation Rca Run"
       tableType="automation_run"
       sourceResponse={sourceResponse}

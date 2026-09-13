@@ -74,8 +74,8 @@ def compute_df_kpis(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
         # 2. Vectorized timestamp subtraction fallback
         if end_col in df.columns and start_col in df.columns:
-            end_dt = pd.to_datetime(df[end_col], dayfirst=True, errors="coerce")
-            start_dt = pd.to_datetime(df[start_col], dayfirst=True, errors="coerce")
+            end_dt = pd.to_datetime(df[end_col], dayfirst=False, errors="coerce")
+            start_dt = pd.to_datetime(df[start_col], dayfirst=False, errors="coerce")
             
             diff_sec = (end_dt - start_dt).dt.total_seconds()
             

@@ -50,7 +50,21 @@ export function parseDurationToSeconds(val) {
 // Parse creation date into Date object
 export function parseSRDate(val) {
   if (!val) return null
-  const dt = new Date(val)
+
+  const value = String(val).trim()
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s)(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/)
+  if (isoMatch) {
+    const [, year, month, day, hour, minute, second = '0'] = isoMatch
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+  }
+
+  const monthFirstMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (monthFirstMatch) {
+    const [, month, day, year, hour = '0', minute = '0', second = '0'] = monthFirstMatch
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+  }
+
+  const dt = new Date(value)
   return isNaN(dt.getTime()) ? null : dt
 }
 
@@ -110,21 +124,27 @@ export function calculatePeriodSummary(rows, groupBy = 'monthly', tableType = 'a
 
     if (tableType === 'automation_run') {
       const yCount = bucketRows.filter((r) => String(r.AUTOMATION_RUN || '').toUpperCase() === 'Y').length
+      const nCount = bucketRows.length - yCount
       return {
         period: key,
         period_label: buckets[key].period_label,
         Y_count: yCount,
-        N_count: bucketRows.length - yCount,
+        N_count: nCount,
+        Y_percentage: bucketRows.length ? Number(((yCount / bucketRows.length) * 100).toFixed(2)) : 0,
+        N_percentage: bucketRows.length ? Number(((nCount / bucketRows.length) * 100).toFixed(2)) : 0,
         total_count: bucketRows.length,
       }
     } else if (tableType === 'automation_rca') {
       const yesValues = new Set(['1', 'true', 't', 'y', 'yes', 'on'])
       const yCount = bucketRows.filter((r) => yesValues.has(String(r.AUTOMATION_RCA_CONCLUSION || '').trim().toLowerCase())).length
+      const nCount = bucketRows.length - yCount
       return {
         period: key,
         period_label: buckets[key].period_label,
         Y_count: yCount,
-        N_count: bucketRows.length - yCount,
+        N_count: nCount,
+        Y_percentage: bucketRows.length ? Number(((yCount / bucketRows.length) * 100).toFixed(2)) : 0,
+        N_percentage: bucketRows.length ? Number(((nCount / bucketRows.length) * 100).toFixed(2)) : 0,
         total_count: bucketRows.length,
       }
     } else {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import FileIcon from './FileIcon'
 import ResultsTable from './MasterTable'
 import AvgTable from './AvgTable'
@@ -6,10 +6,12 @@ import AutomationRunTable from './AutomationRunTable'
 import AutomationRcaConclusionTable from './AutomationRcaConclusionTable'
 import AutomationRunLineChart from './AutomationRunLineChart'
 import AutomationRcaConclusionLineChart from './AutomationRcaConclusionLineChart'
+import ShortResponseTimeLineChart from './ShortResponseTimeLineChart'
+import LongResponseTimeLineChart from './LongResponseTimeLineChart'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
 import './FileUpload.css'
 
-function FileUpload() {
+function FileUpload({ fileFormat = 'all' }) {
   const [selectedFile, setSelectedFile] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -49,7 +51,7 @@ function FileUpload() {
 
   const safeParseJson = async (response) => {
     const text = await response.text()
-    let data = null
+    let data
     try {
       data = JSON.parse(text)
     } catch {
@@ -99,6 +101,7 @@ function FileUpload() {
   const extension = selectedFile?.name.split('.').pop()?.toUpperCase()
   const hasSelectedFile = Boolean(selectedFile)
   const isSuccess = uploadStatus === 'success'
+  const acceptedFormats = fileFormat === 'all' ? '.csv,.xls,.xlsx' : `.${fileFormat}`
 
   return (
     <>
@@ -115,7 +118,7 @@ function FileUpload() {
         onDragLeave={(event) => { if (event.currentTarget === event.target) setIsDragging(false) }}
         onDrop={handleDrop}
       >
-        <input ref={inputRef} id="file-input" type="file" accept=".csv,.xls,.xlsx,.zip" hidden onChange={(event) => selectFile(event.target.files?.[0])} />
+  <input ref={inputRef} id="file-input" type="file" accept={acceptedFormats} hidden onChange={(event) => selectFile(event.target.files?.[0])} />
         {hasSelectedFile ? (
           <div className="file-state">
             <div className="file-icon-wrap"><FileIcon /></div>
@@ -149,6 +152,14 @@ function FileUpload() {
           <AvgTable
             sourceResponse={uploadResponse}
           />
+          <div id="unified-kpi-graph" className="unified-kpi-graphs">
+            <ShortResponseTimeLineChart
+              sourceResponse={uploadResponse}
+            />
+            <LongResponseTimeLineChart
+              sourceResponse={uploadResponse}
+            />
+          </div>
           <AutomationRunTable
             sourceResponse={uploadResponse}
           />
@@ -161,9 +172,9 @@ function FileUpload() {
           <AutomationRcaConclusionLineChart
             sourceResponse={uploadResponse}
           />
-          <div className="results-heading">
+          <div id="raw-data" className="results-heading">
             <p className="section-label"></p>
-            <h2 id="results-heading">KPI results</h2>
+            <h2 id="results-heading">RAW DATA</h2>
           </div>
           <ResultsTable
             rows={resultRows}

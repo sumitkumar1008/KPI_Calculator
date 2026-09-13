@@ -55,6 +55,8 @@ function AutomationRcaConclusionTable({ sourceResponse }) {
     { key: 'period', label: 'DATE / TIME' },
     { key: 'Y_count', label: 'Y' },
     { key: 'N_count', label: 'N' },
+    { key: 'Y_percentage', label: 'Y %' },
+    { key: 'N_percentage', label: 'N %' },
   ]
 
   const renderRow = (row) => (
@@ -62,12 +64,15 @@ function AutomationRcaConclusionTable({ sourceResponse }) {
       <td>{row.period_label || row.period || '—'}</td>
       <td>{row.Y_count ?? 0}</td>
       <td>{row.N_count ?? 0}</td>
+      <td>{row.Y_percentage ?? 0}%</td>
+      <td>{row.N_percentage ?? 0}%</td>
     </>
   )
 
   return (
     <SummaryTableDrillDown
-      title="Automation Rca Conclusion counts"
+      sectionId="automation-conclusion-counts"
+      title="AUTOMATION RCA CONCLUSION COUNTS"
       subtitle="Automation Rca Conclusion"
       tableType="automation_rca"
       sourceResponse={sourceResponse}

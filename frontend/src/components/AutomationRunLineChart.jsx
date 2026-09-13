@@ -112,13 +112,14 @@ function AutomationRunLineChart({ sourceResponse }) {
 
   return (
     <LineChartComponent
+      sectionId="automation-run-graph"
       data={chartData}
       period={period}
       onPeriodChange={(event) => setPeriod(event.target.value)}
       isLoading={isLoading}
       error={error}
-      label="Automation run trend"
-      title="Automation run Y/N trend"
+      label="RCA RUN TREND"
+      title="AUTOMATION RCA RUN Y/N GRAPH"
       emptyMessage="No automation run chart data was returned for this period."
     />
   )

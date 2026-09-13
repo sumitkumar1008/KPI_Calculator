@@ -74,7 +74,8 @@ function AvgTable({ sourceResponse }) {
 
   return (
     <SummaryTableDrillDown
-      title="Average response times"
+      sectionId="unified-kpi"
+      title="UNIFIED KPI"
       subtitle="KPI summary"
       tableType="avg"
       sourceResponse={sourceResponse}
@@ -84,7 +85,10 @@ function AvgTable({ sourceResponse }) {
       isLoadingDefault={isLoading}
       errorDefault={error}
       period={tablePeriod}
-      onPeriodChange={setTablePeriod}
+      onPeriodChange={(nextPeriod) => {
+        setTablePeriod(nextPeriod)
+        setGlobalPeriod(nextPeriod)
+      }}
     />
   )
 }

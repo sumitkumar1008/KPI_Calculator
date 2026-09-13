@@ -3,6 +3,7 @@ import { calculateDrillDown } from '../utils/drilldownUtils'
 
 function SummaryTableDrillDown({
   title,
+  sectionId,
   subtitle,
   tableType = 'avg',
   sourceResponse,
@@ -186,7 +187,7 @@ function SummaryTableDrillDown({
   const visibleRows = activeRows.slice(pageStartIndex, pageStartIndex + rowsPerPage)
 
   return (
-    <section className="summary-section" aria-label={title}>
+    <section id={sectionId} className="summary-section" aria-label={title}>
       <div className="summary-heading">
         <div>
           <p className="section-label">{subtitle}</p>
