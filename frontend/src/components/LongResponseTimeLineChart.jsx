@@ -43,7 +43,7 @@ function LongResponseTimeLineChart({ sourceResponse }) {
       error={null}
       series={series}
       valueUnit="hr"
-      label="Average response time"
+      label="GRAPH OF MTTR AND MTTr"
       title="UNIFIED KPI GRAPH"
       emptyMessage="No long average response-time data was returned for this period."
     />

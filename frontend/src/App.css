@@ -24,6 +24,8 @@
   flex-direction: column;
 }
 
+.sidebar-collapsed .app-content { margin-left: 0; }
+
 .upload-section,
 .summary-section,
 .line-chart-section,

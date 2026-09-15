@@ -26,8 +26,19 @@ function LineChartComponent({
   ],
   valueUnit = '',
 }) {
-  const [lineFilter, setLineFilter] = useState('both')
+  const [visibleLines, setVisibleLines] = useState(() => series.map((line) => line.key))
   const [hoveredLine, setHoveredLine] = useState(null)
+
+  const toggleLine = (lineKey) => {
+    setVisibleLines((currentLines) => {
+      if (currentLines.includes(lineKey)) {
+        if (currentLines.length === 1) return series.map((line) => line.key)
+        return currentLines.filter((key) => key !== lineKey)
+      }
+
+      return [...currentLines, lineKey]
+    })
+  }
 
   const chartTooltip = ({ active, payload, label: tooltipLabel }) => {
     if (!active || !payload?.length) return null
@@ -35,11 +46,17 @@ function LineChartComponent({
     return (
       <div className="line-chart-tooltip">
         <p className="line-chart-tooltip__label">{tooltipLabel}</p>
-        {payload.map((entry) => (
-          <p key={entry.dataKey} style={{ color: entry.color }}>
-            {entry.name}: {entry.value}{valueUnit ? ` ${valueUnit}` : ''}
-          </p>
-        ))}
+        {payload.map((entry) => {
+          const total = Number(entry.payload?.Y ?? 0) + Number(entry.payload?.N ?? 0)
+          const percentageValue = entry.payload?.[`${entry.dataKey}_percentage`]
+          const percentage = percentageValue ?? (total ? ((Number(entry.value) / total) * 100).toFixed(2) : 0)
+
+          return (
+            <p key={entry.dataKey} style={{ color: entry.color }}>
+              {entry.name}: {entry.value}{valueUnit ? ` ${valueUnit}` : ''} ({percentage}%)
+            </p>
+          )
+        })}
       </div>
     )
   }
@@ -48,7 +65,7 @@ function LineChartComponent({
     <section id={sectionId} className="line-chart-section" aria-labelledby="line-chart-heading">
       <div className="line-chart-heading">
         <div>
-          <p className="section-label">{label}</p>
+          <p className="section-label line-chart-label" style={{ textTransform: 'none' }}>{label}</p>
           <h3 id="line-chart-heading">{title}</h3>
         </div>
         <label className="summary-period">
@@ -72,7 +89,7 @@ function LineChartComponent({
               <YAxis allowDecimals={false} stroke="var(--muted)" tick={{ fontSize: 11 }} />
               <Tooltip content={chartTooltip} />
               {series.map((line) => {
-                if (lineFilter !== 'both' && lineFilter !== line.key) return null
+                if (!visibleLines.includes(line.key)) return null
                 return (
                   <Line
                     key={line.key}
@@ -96,10 +113,10 @@ function LineChartComponent({
               <button
                 key={line.key}
                 type="button"
-                className={`line-toggle ${lineFilter === line.key ? 'is-active' : ''}`}
-                style={lineFilter === line.key ? { borderColor: line.color, color: line.color, background: `${line.color}1f` } : undefined}
-                onClick={() => setLineFilter((currentFilter) => currentFilter === line.key ? 'both' : line.key)}
-                aria-pressed={lineFilter === line.key}
+                className={`line-toggle ${visibleLines.includes(line.key) ? 'is-active' : ''}`}
+                style={visibleLines.includes(line.key) ? { borderColor: line.color, color: line.color, background: `${line.color}1f` } : undefined}
+                onClick={() => toggleLine(line.key)}
+                aria-pressed={visibleLines.includes(line.key)}
               >
                 {line.name}
               </button>

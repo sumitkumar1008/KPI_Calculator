@@ -58,10 +58,15 @@ export function parseSRDate(val) {
     return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
   }
 
-  const monthFirstMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
-  if (monthFirstMatch) {
-    const [, month, day, year, hour = '0', minute = '0', second = '0'] = monthFirstMatch
-    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+  const separatedDateMatch = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (separatedDateMatch) {
+    const [, firstPart, secondPart, year, hour = '0', minute = '0', second = '0'] = separatedDateMatch
+    const firstNumber = Number(firstPart)
+    const secondNumber = Number(secondPart)
+    const isClearMonthFirst = firstNumber <= 12 && secondNumber > 12
+    const month = isClearMonthFirst ? firstNumber : secondNumber
+    const day = isClearMonthFirst ? secondNumber : firstNumber
+    return new Date(Number(year), month - 1, day, Number(hour), Number(minute), Number(second))
   }
 
   const dt = new Date(value)

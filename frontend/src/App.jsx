@@ -8,7 +8,8 @@ import './App.css'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [theme, setTheme] = useState(() => localStorage.getItem('kpi-calculator-theme-v2') || 'light')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [theme, setTheme] = useState('light')
   const [fileFormat, setFileFormat] = useState(() => localStorage.getItem('kpi-calculator-file-format') || 'xlsx')
 
   useEffect(() => {
@@ -26,8 +27,10 @@ function App() {
 
   return (
     <GlobalFilterProvider>
-      <main className={`app-shell theme-${theme}`}>
+      <main className={`app-shell theme-${theme} ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
         <Sidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((open) => !open)}
           theme={theme}
           onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')}
           fileFormat={fileFormat}

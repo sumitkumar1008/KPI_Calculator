@@ -26,6 +26,8 @@ function AutomationRcaConclusionLineChart({ sourceResponse }) {
         date: row.period_label || row.period,
         Y: Number(row.Y_count ?? 0),
         N: Number(row.N_count ?? 0),
+        Y_percentage: Number(row.Y_percentage ?? 0),
+        N_percentage: Number(row.N_percentage ?? 0),
       }))
 
     cacheRef.current = {
@@ -59,6 +61,8 @@ function AutomationRcaConclusionLineChart({ sourceResponse }) {
         date: row.period_label || row.period,
         Y: Number(row.Y_count ?? 0),
         N: Number(row.N_count ?? 0),
+        Y_percentage: Number(row.Y_percentage ?? 0),
+        N_percentage: Number(row.N_percentage ?? 0),
       }))
       cacheRef.current[period] = formatted
       setChartData(formatted)
@@ -93,6 +97,8 @@ function AutomationRcaConclusionLineChart({ sourceResponse }) {
           date: row.period_label || row.period,
           Y: Number(row.Y_count ?? 0),
           N: Number(row.N_count ?? 0),
+          Y_percentage: Number(row.Y_percentage ?? 0),
+          N_percentage: Number(row.N_percentage ?? 0),
         }))
         cacheRef.current[period] = formatted
         setChartData(formatted)

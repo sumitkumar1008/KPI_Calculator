@@ -22,7 +22,7 @@ const settingsItems = [
   { id: 'help-about', label: 'Help & about', icon: '?' },
 ]
 
-function Sidebar({ theme, onToggleTheme, fileFormat, onFileFormatChange }) {
+function Sidebar({ isOpen, onToggle, theme, onToggleTheme, fileFormat, onFileFormatChange }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [activeSetting, setActiveSetting] = useState(null)
   const [alertsEnabled, setAlertsEnabled] = useState(true)
@@ -36,7 +36,17 @@ function Sidebar({ theme, onToggleTheme, fileFormat, onFileFormatChange }) {
   }
 
   return (
-    <aside className="sidebar" aria-label="KPI Calculator navigation">
+    <>
+      <button
+          type="button"
+          className={`sidebar-toggle ${isOpen ? 'is-open' : 'is-closed'}`}
+          onClick={onToggle}
+          aria-label={isOpen ? 'Close sidebar' : 'Open sidebar'}
+          title={isOpen ? 'Close sidebar' : 'Open sidebar'}
+        >
+          <span aria-hidden="true">{isOpen ? '‹' : '›'}</span>
+        </button>
+      <aside className={`sidebar ${isOpen ? 'is-open' : 'is-closed'}`} aria-label="KPI Calculator navigation">
       <div className="sidebar-brand">
         <span className="sidebar-brand-mark" aria-hidden="true">K</span>
         <span>KPI CALCULATOR</span>
@@ -125,7 +135,8 @@ function Sidebar({ theme, onToggleTheme, fileFormat, onFileFormatChange }) {
           </div>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
 

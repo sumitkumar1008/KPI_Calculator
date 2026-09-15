@@ -21,6 +21,8 @@
   font-size: 18px;
 }
 
+.line-chart-label { text-transform: none; }
+
 .line-chart-filters {
   display: flex;
   align-items: end;

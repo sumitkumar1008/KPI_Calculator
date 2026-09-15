@@ -19,6 +19,7 @@ import pandas as pd
 from app.services.csv_parser import parse_csv_file
 from app.services.excel_parser import parse_excel_raw
 from app.services.zip_parser import parse_zip_file
+from app.utils.time_utils import parse_datetime
 
 # Standard required timestamp columns for KPI calculations
 REQUIRED_COLUMNS: list[str] = [
@@ -262,11 +263,7 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
     ts_cols = [c for c in REQUIRED_COLUMNS if c in df_subset.columns]
     for c in ts_cols:
         try:
-            df_subset[c] = pd.to_datetime(
-                df_subset[c],
-                dayfirst=True,
-                errors="coerce",
-            )
+            df_subset[c] = df_subset[c].apply(parse_datetime)
         except Exception:
             pass
 

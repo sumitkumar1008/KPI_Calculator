@@ -45,7 +45,7 @@ function ShortResponseTimeLineChart({ sourceResponse }) {
       error={null}
       series={series}
       valueUnit="min"
-      label="Average response time"
+      label="GRAPH OF MTTI,MTTA,MTTAck"
       title="UNIFIED KPI GRAPH"
       emptyMessage="No short average response-time data was returned for this period."
     />

@@ -10,6 +10,59 @@
   background: linear-gradient(180deg, #ffffff 0%, #f7fbfc 100%);
   color: #253247;
   box-shadow: 12px 0 34px rgba(31, 63, 75, 0.08);
+  transition: transform .25s ease, visibility .25s ease;
+}
+
+.sidebar.is-closed {
+  visibility: hidden;
+  transform: translateX(-100%);
+}
+
+.sidebar-toggle {
+  position: fixed;
+  top: 16px;
+  left: 228px;
+  z-index: 11;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(145deg, #1993a0, #0d5f6d);
+  cursor: pointer;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 5px 14px rgba(13, 95, 109, 0.3);
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.sidebar-toggle span {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  transform: none;
+}
+
+.sidebar-toggle:hover,
+.sidebar-toggle:focus-visible {
+  border-color: #ffffff;
+  color: #ffffff;
+  background: linear-gradient(145deg, #24aab3, #157a8a);
+  box-shadow: 0 7px 18px rgba(13, 95, 109, 0.4);
+  outline: none;
+  transform: scale(1.08);
+}
+
+.sidebar-toggle.is-closed {
+  position: fixed;
+  left: 12px;
+  z-index: 11;
+  box-shadow: 0 5px 14px rgba(13, 95, 109, 0.3);
 }
 
 .sidebar-brand {
@@ -191,6 +244,10 @@
   box-shadow: 10px 0 30px rgba(1, 7, 10, 0.22);
 }
 
+.theme-dark .sidebar-toggle { border-color: #18262d; color: #102123; background: linear-gradient(145deg, #5eead4, #2dd4bf); box-shadow: 0 5px 14px rgba(45, 212, 191, 0.28); }
+.theme-dark .sidebar-toggle:hover,
+.theme-dark .sidebar-toggle:focus-visible { border-color: #18262d; color: #102123; background: linear-gradient(145deg, #8af3e2, #5eead4); box-shadow: 0 7px 18px rgba(45, 212, 191, 0.38); }
+
 .theme-dark .sidebar-brand { color: #d7e2e7; }
 .theme-dark .sidebar-label { color: #8da2ab; }
 .theme-dark .sidebar-item { color: #a9bbc2; }
@@ -230,6 +287,26 @@
     border-right: 0;
     border-bottom: 1px solid #d8e0e8;
     box-shadow: 0 8px 24px rgba(31, 63, 75, 0.06);
+    transform: none;
+  }
+
+  .sidebar.is-closed {
+    display: block;
+    visibility: hidden;
+    transform: translateY(-100%);
+  }
+
+  .sidebar-toggle.is-open {
+    position: fixed;
+    top: 12px;
+    left: auto;
+    right: 22px;
+  }
+
+  .sidebar-toggle.is-closed {
+    position: fixed;
+    top: 12px;
+    left: 12px;
   }
 
   .sidebar-brand { padding: 0 8px 16px; }
