@@ -53,21 +53,46 @@ function AutomationRcaConclusionTable({ sourceResponse }) {
 
   const columns = [
     { key: 'period', label: 'DATE / TIME' },
-    { key: 'Y_count', label: 'Y' },
-    { key: 'N_count', label: 'N' },
-    { key: 'Y_percentage', label: 'Y %' },
-    { key: 'N_percentage', label: 'N %' },
+    { key: 'total_count', label: 'TOTAL COUNT' },
+    { key: 'Y_count', label: 'YES' },
+    { key: 'N_count', label: 'NO' },
+    { key: 'Y_percentage', label: 'YES %' },
+    { key: 'N_percentage', label: 'NO %' },
   ]
 
-  const renderRow = (row) => (
-    <>
-      <td>{row.period_label || row.period || '—'}</td>
-      <td>{row.Y_count ?? 0}</td>
-      <td>{row.N_count ?? 0}</td>
-      <td>{row.Y_percentage ?? 0}%</td>
-      <td>{row.N_percentage ?? 0}%</td>
-    </>
-  )
+  const renderRow = (row) => {
+    const total = row.total_count ?? ((row.Y_count ?? 0) + (row.N_count ?? 0))
+    return (
+      <>
+        <td>{row.period_label || row.period || '—'}</td>
+        <td>{total}</td>
+        <td>{row.Y_count ?? 0}</td>
+        <td>{row.N_count ?? 0}</td>
+        <td>{row.Y_percentage ?? 0}%</td>
+        <td>{row.N_percentage ?? 0}%</td>
+      </>
+    )
+  }
+
+  const activeTotalCount = rows.reduce((sum, r) => sum + (r.total_count ?? ((r.Y_count ?? 0) + (r.N_count ?? 0))), 0)
+  const activeTotalY = rows.reduce((sum, r) => sum + (r.Y_count ?? 0), 0)
+  const activeTotalN = rows.reduce((sum, r) => sum + (r.N_count ?? 0), 0)
+  const activeTotalYPct = activeTotalCount ? Number(((activeTotalY / activeTotalCount) * 100).toFixed(2)) : 0
+  const activeTotalNPct = activeTotalCount ? Number(((activeTotalN / activeTotalCount) * 100).toFixed(2)) : 0
+
+  const headerStats = rows.length > 0 ? (
+    <div className="summary-badge-group">
+      <span className="summary-badge summary-badge-total">
+        Total Records: <strong>{activeTotalCount}</strong>
+      </span>
+      <span className="summary-badge summary-badge-yes">
+        Yes: <strong>{activeTotalY}</strong> ({activeTotalYPct}%)
+      </span>
+      <span className="summary-badge summary-badge-no">
+        No: <strong>{activeTotalN}</strong> ({activeTotalNPct}%)
+      </span>
+    </div>
+  ) : null
 
   return (
     <SummaryTableDrillDown
@@ -78,6 +103,7 @@ function AutomationRcaConclusionTable({ sourceResponse }) {
       sourceResponse={sourceResponse}
       columns={columns}
       renderRow={renderRow}
+      headerStats={headerStats}
       defaultPeriodRows={rows}
       isLoadingDefault={isLoading}
       errorDefault={error}

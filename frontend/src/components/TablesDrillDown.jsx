@@ -14,6 +14,7 @@ function SummaryTableDrillDown({
   errorDefault = null,
   period = 'monthly',
   onPeriodChange = () => {},
+  headerStats = null,
 }) {
   const [expandedMonths, setExpandedMonths] = useState(new Set())
   const [expandedWeeks, setExpandedWeeks] = useState(new Set())
@@ -91,10 +92,12 @@ function SummaryTableDrillDown({
       <div className="summary-heading">
         <div>
           <p className="section-label">{subtitle}</p>
-          <h3 className="summary-title-wrap">
-            {title}
-          </h3>
-
+          <div className="summary-title-row">
+            <h3 className="summary-title-wrap">
+              {title}
+            </h3>
+            {headerStats}
+          </div>
         </div>
 
         <label className="summary-period">

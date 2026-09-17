@@ -147,6 +147,49 @@
   border-bottom: 0;
 }
 
+
+/* Quick KPI Header Badges */
+.summary-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.summary-badge-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.summary-badge strong {
+  font-weight: 800;
+}
+.summary-badge-total {
+  background: color-mix(in srgb, var(--ink) 8%, var(--surface));
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.summary-badge-yes {
+  background: color-mix(in srgb, #10b981 12%, var(--surface));
+  color: #10b981;
+  border: 1px solid color-mix(in srgb, #10b981 30%, transparent);
+}
+.summary-badge-no {
+  background: color-mix(in srgb, #ef4444 12%, var(--surface));
+  color: #ef4444;
+  border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
+}
+
 @media (max-width: 600px) {
   .upload-section { width: min(100% - 32px, 920px); padding-top: 28px; }
   .app-header { padding: 32px 0 28px; }

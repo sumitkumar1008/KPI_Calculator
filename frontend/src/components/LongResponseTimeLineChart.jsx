@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import LineChartComponent from './linechart'
 import { useGlobalFilter } from '../context/GlobalFilterContext'
-import { calculatePeriodSummary, parseDurationToSeconds } from '../utils/drilldownUtils'
+import { calculatePeriodSummary, formatSecondsToHHMMSS, parseDurationToSeconds } from '../utils/drilldownUtils'
 
 const series = [
   { key: 'MTTR', name: 'MTTR', color: '#e75480' },
@@ -26,8 +26,8 @@ function LongResponseTimeLineChart({ sourceResponse }) {
     const summary = calculatePeriodSummary(rows, period, 'avg')
     setChartData(summary.map((row) => ({
       date: row.period_label || row.period,
-      MTTR: toHours(row.AVG_MTTR),
-      MTTr: toHours(row.AVG_MTTr),
+      MTTR: parseDurationToSeconds(row.AVG_MTTR),
+      MTTr: parseDurationToSeconds(row.AVG_MTTr),
     })))
   }, [sourceResponse, period])
 
@@ -42,17 +42,12 @@ function LongResponseTimeLineChart({ sourceResponse }) {
       isLoading={false}
       error={null}
       series={series}
-      valueUnit="hr"
+      valueFormatter={formatSecondsToHHMMSS}
       label="GRAPH OF MTTR AND MTTr"
       title="UNIFIED KPI GRAPH"
       emptyMessage="No long average response-time data was returned for this period."
     />
   )
-}
-
-function toHours(value) {
-  const seconds = parseDurationToSeconds(value)
-  return seconds === null ? null : Number((seconds / 3600).toFixed(2))
 }
 
 export default LongResponseTimeLineChart

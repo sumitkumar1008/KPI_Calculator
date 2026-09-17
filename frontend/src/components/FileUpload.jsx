@@ -8,6 +8,7 @@ import AutomationRunLineChart from './AutomationRunLineChart'
 import AutomationRcaConclusionLineChart from './AutomationRcaConclusionLineChart'
 import ShortResponseTimeLineChart from './ShortResponseTimeLineChart'
 import LongResponseTimeLineChart from './LongResponseTimeLineChart'
+import KpiBucketBarChart from './KpiBucketBarChart'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
 import './FileUpload.css'
 
@@ -160,6 +161,9 @@ function FileUpload({ fileFormat = 'all' }) {
               sourceResponse={uploadResponse}
             />
           </div>
+          <KpiBucketBarChart
+            sourceResponse={uploadResponse}
+          />
           <AutomationRunTable
             sourceResponse={uploadResponse}
           />

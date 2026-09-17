@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import LineChartComponent from './linechart'
 import { useGlobalFilter } from '../context/GlobalFilterContext'
-import { calculatePeriodSummary, parseDurationToSeconds } from '../utils/drilldownUtils'
+import { calculatePeriodSummary, formatSecondsToHHMMSS, parseDurationToSeconds } from '../utils/drilldownUtils'
 
 const series = [
   { key: 'MTTI', name: 'MTTI', color: '#8e44ad' },
@@ -27,9 +27,9 @@ function ShortResponseTimeLineChart({ sourceResponse }) {
     const summary = calculatePeriodSummary(rows, period, 'avg')
     setChartData(summary.map((row) => ({
       date: row.period_label || row.period,
-      MTTI: toMinutes(row.AVG_MTTI),
-      MTTA: toMinutes(row.AVG_MTTA),
-      MTTAck: toMinutes(row.AVG_MTTAck),
+      MTTI: parseDurationToSeconds(row.AVG_MTTI),
+      MTTA: parseDurationToSeconds(row.AVG_MTTA),
+      MTTAck: parseDurationToSeconds(row.AVG_MTTAck),
     })))
   }, [sourceResponse, period])
 
@@ -44,17 +44,12 @@ function ShortResponseTimeLineChart({ sourceResponse }) {
       isLoading={false}
       error={null}
       series={series}
-      valueUnit="min"
+      valueFormatter={formatSecondsToHHMMSS}
       label="GRAPH OF MTTI,MTTA,MTTAck"
       title="UNIFIED KPI GRAPH"
       emptyMessage="No short average response-time data was returned for this period."
     />
   )
-}
-
-function toMinutes(value) {
-  const seconds = parseDurationToSeconds(value)
-  return seconds === null ? null : Number((seconds / 60).toFixed(2))
 }
 
 export default ShortResponseTimeLineChart

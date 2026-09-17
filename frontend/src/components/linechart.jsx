@@ -20,6 +20,7 @@ function LineChartComponent({
   sectionId,
   label = 'Trend',
   emptyMessage = 'No chart data was returned for this period.',
+  valueFormatter,
   series = [
     { key: 'Y', name: 'Yes', color: '#269653' },
     { key: 'N', name: 'No', color: '#c94b4b' },
@@ -53,7 +54,7 @@ function LineChartComponent({
 
           return (
             <p key={entry.dataKey} style={{ color: entry.color }}>
-              {entry.name}: {entry.value}{valueUnit ? ` ${valueUnit}` : ''} ({percentage}%)
+              {entry.name}: {valueFormatter ? valueFormatter(entry.value) : entry.value}{valueUnit ? ` ${valueUnit}` : ''} ({percentage}%)
             </p>
           )
         })}
@@ -86,7 +87,12 @@ function LineChartComponent({
             <LineChart data={data} margin={{ top: 12, right: 20, left: 4, bottom: 12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
               <XAxis dataKey="date" stroke="var(--muted)" tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} stroke="var(--muted)" tick={{ fontSize: 11 }} />
+              <YAxis
+                allowDecimals={false}
+                stroke="var(--muted)"
+                tick={{ fontSize: 11 }}
+                tickFormatter={valueFormatter}
+              />
               <Tooltip content={chartTooltip} />
               {series.map((line) => {
                 if (!visibleLines.includes(line.key)) return null
