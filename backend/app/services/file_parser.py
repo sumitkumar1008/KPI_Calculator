@@ -28,7 +28,6 @@ REQUIRED_COLUMNS: list[str] = [
     "ROSTER_ALLOCATION_TIME",     # Time engineer was allocated (for MTTA & MTTAck)
     "FIRST_ACKNOWLEDGEMENT_TIME", # Time engineer acknowledged ticket (for MTTAck)
     "RESOLVEDTIME",               # Time ticket was resolved (for MTTR)
-    "CREATIONTIME",               # Circuit creation time (for MTTr)
     "CIRCUIT_UPTIME",             # Circuit uptime restoration time (for MTTr)
 ]
 

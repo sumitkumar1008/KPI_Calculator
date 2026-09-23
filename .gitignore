@@ -23,3 +23,11 @@ htmlcov/
 .venv
 env/
 venv/
+
+# Raw Data & Large Uploads
+data/
+backend/data/
+*.zip
+*.xlsx
+*.xls
+*.csv

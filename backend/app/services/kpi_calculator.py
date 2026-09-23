@@ -36,7 +36,7 @@ KPI_FORMULAS: dict[str, tuple[str, str]] = {
     "MTTA": ("ROSTER_ALLOCATION_TIME", "SRCREATIONTIME"),
     "MTTAck": ("FIRST_ACKNOWLEDGEMENT_TIME", "ROSTER_ALLOCATION_TIME"),
     "MTTR": ("RESOLVEDTIME", "SRCREATIONTIME"),
-    "MTTr": ("CIRCUIT_UPTIME", "CREATIONTIME"),
+    "MTTr": ("CIRCUIT_UPTIME", "SRCREATIONTIME"),
 }
 
 
@@ -55,9 +55,6 @@ def compute_df_kpis(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         "MTTr": "MTTr_RAW",
     }
 
-    if "CREATIONTIME" not in df.columns and "SRCREATIONTIME" in df.columns:
-        df["CREATIONTIME"] = df["SRCREATIONTIME"]
-
     row_warnings: list[list[str]] = [[] for _ in range(len(df))]
     
     for kpi_name, (end_col, start_col) in KPI_FORMULAS.items():
@@ -74,17 +71,15 @@ def compute_df_kpis(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
         # 2. Vectorized timestamp subtraction fallback
         if end_col in df.columns and start_col in df.columns:
-            end_dt = pd.to_datetime(df[end_col], dayfirst=False, errors="coerce")
-            start_dt = pd.to_datetime(df[start_col], dayfirst=False, errors="coerce")
+            end_dt = pd.to_datetime(df[end_col], dayfirst=True, errors="coerce")
+            start_dt = pd.to_datetime(df[start_col], dayfirst=True, errors="coerce")
             
             diff_sec = (end_dt - start_dt).dt.total_seconds()
             
             neg_mask = diff_sec.notna() & (diff_sec < 0)
             null_mask = end_dt.isna() | start_dt.isna()
             valid_mask = diff_sec.notna() & (diff_sec >= 0)
-            
-            modulo_sec = np.where(valid_mask, diff_sec % 86400.0, np.nan)
-            df[sec_col] = pd.Series(modulo_sec, index=df.index)
+            df[sec_col] = pd.Series(np.where(valid_mask, diff_sec, np.nan), index=df.index)
             df[kpi_name] = format_duration_series(df[sec_col])
             
             if neg_mask.any():
@@ -198,13 +193,12 @@ def compute_row_kpis(row: dict[str, Any]) -> dict[str, Any]:
             )
             continue
 
-        # 24-Hour Modulo Policy: Apply 24h modulo (duration % 86400) to match Excel hh:mm:ss formulas
+        # Record total non-negative duration seconds
         try:
             total_sec = get_timedelta_seconds(td)
             if total_sec is not None:
-                modulo_sec = total_sec % 86400.0
-                kpis[kpi_name] = format_duration_hhmmss(modulo_sec)
-                kpi_seconds[kpi_name] = modulo_sec
+                kpis[kpi_name] = format_duration_hhmmss(total_sec)
+                kpi_seconds[kpi_name] = total_sec
             else:
                 kpis[kpi_name] = None
                 kpi_seconds[kpi_name] = None

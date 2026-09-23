@@ -44,7 +44,7 @@ def test_validate_and_map_headers_all_present():
     ]
     col_map, missing = validate_and_map_headers(headers)
     assert missing == []
-    assert len(col_map) == 7
+    assert len(col_map) == 6
     assert col_map["srcreationtime"] == "SRCREATIONTIME"
     assert col_map["AUTOMATION END TIME"] == "AUTOMATION_END_TIME"
 

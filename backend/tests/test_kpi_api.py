@@ -89,8 +89,8 @@ def test_upload_kpi_success_complete_flow(client):
     assert row1["MTTI"] == "06:00:00"
     assert row1["MTTA"] == "01:00:00"
     assert row1["MTTAck"] == "00:30:00"
-    assert row1["MTTR"] == "04:00:00"
-    assert row1["MTTr"] == "02:00:00"
+    assert row1["MTTR"] == "28:00:00"
+    assert row1["MTTr"] == "28:00:00"
 
     row2 = res_json["rows"][1]
     assert row2["SRNUMBER"] == "SR-1002"
@@ -267,7 +267,7 @@ def test_upload_kpi_csv_success_flow(client):
     assert row["MTTI"] == "06:00:00"
     assert row["MTTA"] == "01:00:00"
     assert row["MTTAck"] == "00:30:00"
-    assert row["MTTR"] == "04:00:00"
+    assert row["MTTR"] == "28:00:00"
 
 
 def test_upload_kpi_payload_too_large_413(app, client):

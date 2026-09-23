@@ -38,18 +38,16 @@ _DATE_FORMATS = (
     "%d-%m-%Y %H:%M:%S",
     "%d/%m/%Y %H:%M:%S",
     "%m/%d/%Y %H:%M:%S",
+    "%m-%d-%Y %H:%M:%S",
     "%Y-%m-%d %I:%M:%S %p",
-    "%Y/%m/%d %I:%M:%S %p",
     "%d-%m-%Y %I:%M:%S %p",
     "%d/%m/%Y %I:%M:%S %p",
     "%m/%d/%Y %I:%M:%S %p",
     "%Y-%m-%d %H:%M",
-    "%Y/%m/%d %H:%M",
     "%d-%m-%Y %H:%M",
     "%d/%m/%Y %H:%M",
     "%m/%d/%Y %H:%M",
     "%Y-%m-%d %I:%M %p",
-    "%Y/%m/%d %I:%M %p",
     "%d-%m-%Y %I:%M %p",
     "%d/%m/%Y %I:%M %p",
     "%m/%d/%Y %I:%M %p",
@@ -58,6 +56,7 @@ _DATE_FORMATS = (
     "%d-%m-%Y",
     "%d/%m/%Y",
     "%m/%d/%Y",
+    "%m-%d-%Y",
 )
 
 

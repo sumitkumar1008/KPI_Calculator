@@ -38,6 +38,12 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
-*~
 .pydeps/
 *.md
+
+# Data & Spreadsheets
+data/
+*.zip
+*.xlsx
+*.xls
+*.csv

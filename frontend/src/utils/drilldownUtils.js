@@ -6,20 +6,19 @@
  * for zero-latency instant responses.
  */
 
-// Helper to format duration seconds as HH:MM:SS or Xd HH:MM:SS
+// Helper to format duration seconds as cumulative HH:MM:SS (e.g. 20:35:59)
 export function formatSecondsToHHMMSS(totalSec) {
   if (totalSec === null || totalSec === undefined || isNaN(totalSec) || totalSec < 0) {
     return '—'
   }
-  const days = Math.floor(totalSec / 86400)
-  const remSec = totalSec % 86400
-  const hours = Math.floor(remSec / 3600)
-  const minutes = Math.floor((remSec % 3600) / 60)
-  const seconds = Math.floor(remSec % 60)
+  const rounded = Math.round(totalSec)
+  const hours = Math.floor(rounded / 3600)
+  const remSec = rounded % 3600
+  const minutes = Math.floor(remSec / 60)
+  const seconds = remSec % 60
 
   const pad = (n) => String(n).padStart(2, '0')
-  const timeStr = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
-  return days > 0 ? `${days}d ${timeStr}` : timeStr
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
 }
 
 // Parse string duration (HH:MM:SS or Xd HH:MM:SS) to seconds
@@ -63,9 +62,9 @@ export function parseSRDate(val) {
     const [, firstPart, secondPart, year, hour = '0', minute = '0', second = '0'] = separatedDateMatch
     const firstNumber = Number(firstPart)
     const secondNumber = Number(secondPart)
-    const isClearMonthFirst = firstNumber <= 12 && secondNumber > 12
-    const month = isClearMonthFirst ? firstNumber : secondNumber
-    const day = isClearMonthFirst ? secondNumber : firstNumber
+    const isClearDayFirst = firstNumber > 12 && secondNumber <= 12
+    const month = isClearDayFirst ? secondNumber : firstNumber
+    const day = isClearDayFirst ? firstNumber : secondNumber
     return new Date(Number(year), month - 1, day, Number(hour), Number(minute), Number(second))
   }
 
