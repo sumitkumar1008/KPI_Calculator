@@ -6,7 +6,7 @@ import tracemalloc
 from typing import Any
 import numpy as np
 import pandas as pd
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from werkzeug.exceptions import HTTPException
 
 from app.services.file_parser import parse_file
@@ -19,6 +19,12 @@ from app.services.drilldown_service import get_table_drilldown
 from app.services.global_filter_service import (
     get_available_filter_options,
     validate_and_normalize_filters,
+)
+from app.services.export_service import generate_excel_export, generate_csv_export
+from app.services.cache_service import (
+    save_to_cache,
+    get_from_cache,
+    get_cached_export_payload,
 )
 
 # Configure structured stdout logger for Render live console logs
@@ -199,9 +205,12 @@ def upload_kpi_excel():
             f"Process RAM: {end_ram:.2f} MB"
         )
 
+        upload_id = save_to_cache(processed_rows)
+
         return (
             jsonify(
                 {
+                    "upload_id": upload_id,
                     "row_count": len(processed_rows),
                     "rows": processed_rows,
                     "global_warnings": global_warnings,
@@ -429,4 +438,186 @@ def validate_global_filters():
     data = request.get_json(silent=True) or {}
     normalized = validate_and_normalize_filters(data)
     return jsonify({"success": True, "filters": normalized}), 200
+
+
+# ==============================================================================
+# EXPORT API ENDPOINT
+# ==============================================================================
+# Accepts table/chart data and streams back professionally styled Excel or CSV files.
+# ==============================================================================
+
+@api_bp.route("/kpi/export", methods=["POST"], strict_slashes=False)
+@api_bp.route("/export", methods=["POST"], strict_slashes=False)
+def export_table_or_chart_data():
+    """
+    Export Endpoint: Generates and streams back styled Excel (.xlsx) or CSV (.csv) files.
+    JSON Body:
+    {
+        "format": "xlsx" | "csv" (default "xlsx"),
+        "filename": "unified_kpi_summary",
+        "sheet_name": "KPI Summary",
+        "title": "Unified KPI Report",
+        "columns": [{"key": "period", "label": "Time Period"}, ...],
+        "data": [...]
+    }
+    """
+    import re
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Request body must contain valid JSON object"}), 400
+
+    export_format = str(data.get("format", "xlsx")).lower().strip()
+    if export_format not in {"xlsx", "csv"}:
+        return jsonify({"error": f"Invalid export format '{export_format}'. Supported formats are: 'xlsx', 'csv'"}), 400
+
+    raw_filename = str(data.get("filename") or "kpi_export").strip()
+    # Sanitize filename
+    safe_filename = re.sub(r'[\\/*?:"<>|]', "", raw_filename) or "kpi_export"
+    if safe_filename.lower().endswith(f".{export_format}"):
+        safe_filename = safe_filename[:-(len(export_format) + 1)]
+
+    sheet_name = str(data.get("sheet_name") or "Export").strip()
+    title = data.get("title")
+
+    rows = data.get("data")
+    if rows is None:
+        return jsonify({"error": "Payload missing 'data' array"}), 400
+    if not isinstance(rows, list):
+        return jsonify({"error": "'data' field must be an array of objects"}), 400
+
+    columns = data.get("columns")
+    if not columns or not isinstance(columns, list):
+        if rows and isinstance(rows[0], dict):
+            columns = [{"key": k, "label": str(k).replace("_", " ").title()} for k in rows[0].keys()]
+        else:
+            return jsonify({"error": "Must provide a non-empty 'columns' array or non-empty 'data'"}), 400
+
+    try:
+        if export_format == "xlsx":
+            buffer = generate_excel_export(
+                columns=columns,
+                data=rows,
+                title=title,
+                sheet_name=sheet_name,
+            )
+            download_filename = f"{safe_filename}.xlsx"
+            return send_file(
+                buffer,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                as_attachment=True,
+                download_name=download_filename,
+            )
+        else:
+            buffer = generate_csv_export(
+                columns=columns,
+                data=rows,
+            )
+            download_filename = f"{safe_filename}.csv"
+            return send_file(
+                buffer,
+                mimetype="text/csv; charset=utf-8",
+                as_attachment=True,
+                download_name=download_filename,
+            )
+    except Exception as exc:
+        logger.error(f"❌ [EXPORT ERROR] Failed to generate {export_format} export: {exc}", exc_info=True)
+        return jsonify({"error": f"Export generation error: {str(exc)}"}), 500
+
+
+@api_bp.route("/kpi/cache", methods=["GET"], strict_slashes=False)
+def get_cache_status():
+    """Returns current cache status and metadata for latest or specified upload_id."""
+    upload_id = request.args.get("upload_id")
+    cached = get_from_cache(upload_id)
+    if not cached:
+        return jsonify({"status": "empty", "message": "No data currently cached."}), 200
+    return jsonify({
+        "status": "cached",
+        "upload_id": cached.get("upload_id"),
+        "timestamp": cached.get("timestamp"),
+        "row_count": cached.get("row_count", 0),
+    }), 200
+
+
+@api_bp.route("/kpi/export/cache", methods=["GET", "POST"], strict_slashes=False)
+@api_bp.route("/export/cache", methods=["GET", "POST"], strict_slashes=False)
+def export_from_cache():
+    """
+    Downloads Excel or CSV directly from the server-side in-memory cached dataset.
+    Parameters (supported via URL query string OR JSON body):
+      - type / table_type: 'avg' (default) | 'automation_run' | 'automation_rca' | 'raw' | 'bucket'
+      - period: 'monthly' (default) | 'weekly' | 'daily'
+      - format: 'xlsx' (default) | 'csv'
+      - upload_id: optional cache identifier
+      - filename: optional custom filename
+    """
+    import re
+
+    # Extract parameters from query args or JSON body
+    if request.method == "POST" and request.is_json:
+        data = request.get_json(silent=True) or {}
+    else:
+        data = request.args.to_dict()
+
+    table_type = data.get("table_type") or data.get("type", "avg")
+    period = data.get("period") or data.get("group_by", "monthly")
+    export_format = str(data.get("format", "xlsx")).lower().strip()
+    upload_id = data.get("upload_id")
+
+    if export_format not in {"xlsx", "csv"}:
+        return jsonify({"error": f"Invalid export format '{export_format}'. Supported formats: 'xlsx', 'csv'"}), 400
+
+    try:
+        columns, rows, default_title, default_filename = get_cached_export_payload(
+            table_type=table_type,
+            period=period,
+            upload_id=upload_id,
+        )
+    except ValueError as val_err:
+        return jsonify({"error": str(val_err)}), 404
+    except Exception as exc:
+        logger.error(f"❌ [CACHE EXPORT ERROR] Failed to retrieve cached data: {exc}", exc_info=True)
+        return jsonify({"error": f"Cache retrieval error: {str(exc)}"}), 500
+
+    raw_filename = str(data.get("filename") or default_filename).strip()
+    safe_filename = re.sub(r'[\\/*?:"<>|]', "", raw_filename) or default_filename
+    if safe_filename.lower().endswith(f".{export_format}"):
+        safe_filename = safe_filename[:-(len(export_format) + 1)]
+
+    sheet_name = str(data.get("sheet_name") or default_title[:30]).strip()
+    title = data.get("title") or default_title
+
+    try:
+        if export_format == "xlsx":
+            buffer = generate_excel_export(
+                columns=columns,
+                data=rows,
+                title=title,
+                sheet_name=sheet_name,
+            )
+            download_filename = f"{safe_filename}.xlsx"
+            return send_file(
+                buffer,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                as_attachment=True,
+                download_name=download_filename,
+            )
+        else:
+            buffer = generate_csv_export(
+                columns=columns,
+                data=rows,
+            )
+            download_filename = f"{safe_filename}.csv"
+            return send_file(
+                buffer,
+                mimetype="text/csv; charset=utf-8",
+                as_attachment=True,
+                download_name=download_filename,
+            )
+    except Exception as exc:
+        logger.error(f"❌ [EXPORT CACHE ERROR] Failed generating {export_format}: {exc}", exc_info=True)
+        return jsonify({"error": f"Export error: {str(exc)}"}), 500
+
+
 

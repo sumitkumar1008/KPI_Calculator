@@ -31,10 +31,6 @@ function App() {
         <Sidebar
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((open) => !open)}
-          theme={theme}
-          onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')}
-          fileFormat={fileFormat}
-          onFileFormatChange={setFileFormat}
         />
         <div className="app-content">
           <Navbar theme={theme} onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')} />

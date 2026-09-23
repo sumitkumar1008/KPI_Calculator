@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -11,6 +11,8 @@ import {
   YAxis,
 } from 'recharts'
 import { parseDurationToSeconds } from '../utils/drilldownUtils'
+import DownloadDropdown from './DownloadDropdown'
+import { exportDataViaApi, exportSvgAsPng } from '../utils/exportUtils'
 import './linechart.css'
 
 /**
@@ -74,6 +76,7 @@ function bucketizeRows(rows) {
 
 function KpiBucketBarChart({ sourceResponse }) {
   const [activeKpis, setActiveKpis] = useState(() => KPI_CONFIG.map((k) => k.key))
+  const chartWrapRef = useRef(null)
 
   const chartData = useMemo(() => {
     return bucketizeRows(sourceResponse?.rows)
@@ -90,6 +93,31 @@ function KpiBucketBarChart({ sourceResponse }) {
   }
 
   const totalRecords = sourceResponse?.rows?.length ?? 0
+
+  const handleExportData = (format) => {
+    if (!chartData || chartData.length === 0) return
+
+    const exportCols = [
+      { key: 'bucket', label: 'Time Bucket' },
+      { key: 'MTTI', label: 'MTTI (Record Count)' },
+      { key: 'MTTR', label: 'MTTR (Record Count)' },
+      { key: 'MTTr', label: 'MTTr (Record Count)' },
+    ]
+
+    return exportDataViaApi({
+      format,
+      filename: 'kpi_bucket_distribution',
+      title: 'Incident Response Distribution (KPI Buckets)',
+      sheetName: 'KPI Buckets',
+      columns: exportCols,
+      data: chartData,
+    })
+  }
+
+  const handleExportImage = () => {
+    if (!chartWrapRef.current) return
+    return exportSvgAsPng(chartWrapRef.current, 'kpi_bucket_distribution_chart')
+  }
 
   const chartTooltip = ({ active, payload, label: tooltipLabel }) => {
     if (!active || !payload?.length) return null
@@ -117,10 +145,17 @@ function KpiBucketBarChart({ sourceResponse }) {
           </p>
           <h3>KPI BUCKET BAR CHART — MTTI, MTTR, MTTr</h3>
         </div>
+        <DownloadDropdown
+          onDownloadExcel={() => handleExportData('xlsx')}
+          onDownloadCsv={() => handleExportData('csv')}
+          onDownloadImage={handleExportImage}
+          disabled={!hasData}
+          tooltip="Export KPI Bucket Bar Chart data or image"
+        />
       </div>
 
       {hasData ? (
-        <div className="line-chart-wrap">
+        <div className="line-chart-wrap" ref={chartWrapRef}>
           <ResponsiveContainer width="100%" height={380}>
             <BarChart data={chartData} margin={{ top: 12, right: 20, left: 4, bottom: 12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />

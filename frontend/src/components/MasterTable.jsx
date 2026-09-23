@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import DownloadDropdown from './DownloadDropdown'
+import { exportDataViaApi } from '../utils/exportUtils'
 
 function ResultsTable({ rows }) {
   const [rowsPerPage, setRowsPerPage] = useState(10)
@@ -16,8 +18,48 @@ function ResultsTable({ rows }) {
     setCurrentPage(1)
   }
 
+  const handleExport = (format) => {
+    if (!rows || rows.length === 0) return
+
+    // Include all primary raw data columns
+    const columns = [
+      { key: 'SRNUMBER', label: 'SR Number' },
+      { key: 'SRCREATIONTIME', label: 'Creation Time' },
+      { key: 'AUTOMATION_RUN', label: 'Automation Run' },
+      { key: 'AUTOMATION_RCA_CONCLUSION', label: 'Automation RCA Conclusion' },
+      { key: 'MTTI', label: 'MTTI' },
+      { key: 'MTTA', label: 'MTTA' },
+      { key: 'MTTAck', label: 'MTTAck' },
+      { key: 'MTTR', label: 'MTTR' },
+      { key: 'MTTr', label: 'MTTr' },
+    ]
+
+    return exportDataViaApi({
+      format,
+      filename: 'raw_data_records',
+      title: 'KPI Raw Data Records',
+      sheetName: 'Raw Data',
+      columns,
+      data: rows,
+    })
+  }
+
   return (
     <>
+      {rows.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <span style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 600 }}>
+            Total Records: <strong>{rows.length}</strong>
+          </span>
+          <DownloadDropdown
+            onDownloadExcel={() => handleExport('xlsx')}
+            onDownloadCsv={() => handleExport('csv')}
+            disabled={rows.length === 0}
+            buttonLabel="Download Raw Data"
+            tooltip="Download all records in dataset"
+          />
+        </div>
+      )}
       {rows.length > 0 ? (
         <div className="results-table-wrap">
           <table className="results-table">

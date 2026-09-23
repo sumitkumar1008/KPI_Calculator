@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   CartesianGrid,
   Line,
@@ -8,6 +8,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import DownloadDropdown from './DownloadDropdown'
+import { exportDataViaApi, exportSvgAsPng } from '../utils/exportUtils'
 import './linechart.css'
 
 function LineChartComponent({
@@ -29,6 +31,7 @@ function LineChartComponent({
 }) {
   const [visibleLines, setVisibleLines] = useState(() => series.map((line) => line.key))
   const [hoveredLine, setHoveredLine] = useState(null)
+  const chartWrapRef = useRef(null)
 
   const toggleLine = (lineKey) => {
     setVisibleLines((currentLines) => {
@@ -39,6 +42,46 @@ function LineChartComponent({
 
       return [...currentLines, lineKey]
     })
+  }
+
+  const handleExportData = (format) => {
+    if (!data || data.length === 0) return
+
+    const exportCols = [
+      { key: 'date', label: 'Time Period' },
+      ...series.map((s) => ({ key: s.key, label: s.name || s.key })),
+    ]
+
+    const exportData = data.map((item) => {
+      const row = { date: item.date || '—' }
+      series.forEach((s) => {
+        const rawVal = item[s.key]
+        if (valueFormatter && typeof rawVal === 'number' && valueFormatter(rawVal) !== '—') {
+          row[s.key] = valueFormatter(rawVal)
+        } else {
+          row[s.key] = rawVal !== undefined && rawVal !== null ? rawVal : 0
+        }
+      })
+      return row
+    })
+
+    const safeTitle = `${title} - ${label} (${(period || 'monthly').toUpperCase()})`
+    const safeFilename = `${(sectionId || title || 'chart').toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${period || 'data'}`
+
+    return exportDataViaApi({
+      format,
+      filename: safeFilename,
+      title: safeTitle,
+      sheetName: title.slice(0, 30),
+      columns: exportCols,
+      data: exportData,
+    })
+  }
+
+  const handleExportImage = () => {
+    if (!chartWrapRef.current) return
+    const safeFilename = `${(sectionId || title || 'chart').toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${period || 'chart'}`
+    return exportSvgAsPng(chartWrapRef.current, safeFilename)
   }
 
   const chartTooltip = ({ active, payload, label: tooltipLabel }) => {
@@ -69,20 +112,29 @@ function LineChartComponent({
           <p className="section-label line-chart-label" style={{ textTransform: 'none' }}>{label}</p>
           <h3 id="line-chart-heading">{title}</h3>
         </div>
-        <label className="summary-period">
-          <span>Time period</span>
-          <select value={period} onChange={onPeriodChange} disabled={isLoading}>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </label>
+        <div className="line-chart-filters">
+          <label className="summary-period">
+            <span>Time period</span>
+            <select value={period} onChange={onPeriodChange} disabled={isLoading}>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </label>
+          <DownloadDropdown
+            onDownloadExcel={() => handleExportData('xlsx')}
+            onDownloadCsv={() => handleExportData('csv')}
+            onDownloadImage={handleExportImage}
+            disabled={isLoading || !data || data.length === 0}
+            tooltip={`Export ${title} data or image`}
+          />
+        </div>
       </div>
       {error && <p className="message message--error summary-message" role="alert"><span aria-hidden="true">!</span>{error}</p>}
       {isLoading ? (
         <p className="empty-results">Loading {period} chart...</p>
       ) : data.length > 0 ? (
-        <div className="line-chart-wrap">
+        <div className="line-chart-wrap" ref={chartWrapRef}>
           <ResponsiveContainer width="100%" height={340}>
             <LineChart data={data} margin={{ top: 12, right: 20, left: 4, bottom: 12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />

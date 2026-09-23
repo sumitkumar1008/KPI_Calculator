@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { calculateDrillDown } from '../utils/drilldownUtils'
+import DownloadDropdown from './DownloadDropdown'
+import { exportDataViaApi } from '../utils/exportUtils'
 
 function SummaryTableDrillDown({
   title,
@@ -59,23 +61,28 @@ function SummaryTableDrillDown({
     const weekKey = `${monthKey}:${weekNum}`
     setExpandedWeeks((previous) => {
       const next = new Set(previous)
-      if (next.has(weekKey)) next.delete(weekKey)
-      else next.add(weekKey)
+      if (next.has(weekKey)) {
+        next.delete(weekKey)
+      } else {
+        next.add(weekKey)
+        if (!expandedDailyRows[weekKey] && sourceResponse?.rows) {
+          const rawRows = sourceResponse.rows
+          const drill = calculateDrillDown(rawRows, tableType, monthKey, weekNum)
+          setExpandedDailyRows((prev) => ({
+            ...prev,
+            [weekKey]: drill.rows || [],
+          }))
+        }
+      }
       return next
     })
-
-    if (!expandedDailyRows[weekKey] && sourceResponse && Array.isArray(sourceResponse.rows)) {
-      setExpandedDailyRows((previous) => ({
-        ...previous,
-        [weekKey]: calculateDrillDown(sourceResponse.rows, tableType, monthKey, weekNum),
-      }))
-    }
   }
 
   const resetDrill = () => {
     setExpandedMonths(new Set())
     setExpandedWeeks(new Set())
     setExpandedDailyRows({})
+    setCurrentPage(1)
   }
 
   // Active dataset
@@ -86,6 +93,40 @@ function SummaryTableDrillDown({
   const totalPages = Math.max(1, Math.ceil(activeRows.length / rowsPerPage))
   const pageStartIndex = (currentPage - 1) * rowsPerPage
   const visibleRows = activeRows.slice(pageStartIndex, pageStartIndex + rowsPerPage)
+
+  const handleExport = (format) => {
+    if (!activeRows || activeRows.length === 0) return
+
+    const exportCols = columns.map((c) => ({
+      key: c.key,
+      label: c.label || c.key,
+    }))
+
+    const exportData = activeRows.map((row) => {
+      const item = {}
+      columns.forEach((col) => {
+        if (col.key === 'period') {
+          item[col.key] = row.period_label || row.period || '—'
+        } else {
+          const val = row[col.key] !== undefined ? row[col.key] : row[`AVG_${col.key}`]
+          item[col.key] = val !== undefined && val !== null ? val : '—'
+        }
+      })
+      return item
+    })
+
+    const safeTitle = `${title} (${period.toUpperCase()})`
+    const safeFilename = `${(sectionId || title || 'kpi_summary').toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${period}`
+
+    return exportDataViaApi({
+      format,
+      filename: safeFilename,
+      title: safeTitle,
+      sheetName: title.slice(0, 30),
+      columns: exportCols,
+      data: exportData,
+    })
+  }
 
   return (
     <section id={sectionId} className="summary-section" aria-label={title}>
@@ -100,21 +141,30 @@ function SummaryTableDrillDown({
           </div>
         </div>
 
-        <label className="summary-period">
-          <span>Time period</span>
-          <select
-            value={period}
-            onChange={(e) => {
-              resetDrill()
-              onPeriodChange(e.target.value)
-            }}
-            disabled={activeLoading}
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </label>
+        <div className="summary-controls" style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
+          <label className="summary-period">
+            <span>Time period</span>
+            <select
+              value={period}
+              onChange={(e) => {
+                resetDrill()
+                onPeriodChange(e.target.value)
+              }}
+              disabled={activeLoading}
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </label>
+
+          <DownloadDropdown
+            onDownloadExcel={() => handleExport('xlsx')}
+            onDownloadCsv={() => handleExport('csv')}
+            disabled={activeLoading || activeRows.length === 0}
+            tooltip={`Export ${title} data`}
+          />
+        </div>
       </div>
 
       {activeError && (
