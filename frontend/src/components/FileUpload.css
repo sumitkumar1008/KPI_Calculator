@@ -190,6 +190,98 @@
   border: 1px solid color-mix(in srgb, #ef4444 30%, transparent);
 }
 
+/* Active Filter Banner */
+.active-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.1rem;
+  margin-bottom: 1.5rem;
+  background: color-mix(in srgb, var(--accent, #2dd4bf) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent, #2dd4bf) 35%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  animation: filterBannerSlideIn 0.25s ease-out;
+}
+
+@keyframes filterBannerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.filter-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.86rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.filter-banner-icon {
+  font-size: 1.1rem;
+  color: var(--accent, #2dd4bf);
+  flex-shrink: 0;
+}
+
+.filter-banner-content strong {
+  color: var(--accent, #2dd4bf);
+  font-weight: 700;
+}
+
+.filter-banner-clear {
+  flex-shrink: 0;
+  padding: 0.35rem 0.8rem;
+  background: var(--surface-raised, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.2));
+  color: var(--ink);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.filter-banner-clear:hover {
+  background: color-mix(in srgb, #ef4444 20%, transparent);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+/* Drill-Down Tab Group */
+.drilldown-tab-group {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--surface-raised, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+  border-radius: 8px;
+}
+
+.drilldown-tab-btn {
+  padding: 0.35rem 0.8rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted, #9aaeb7);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.drilldown-tab-btn.is-active {
+  background: var(--surface, #18262d);
+  color: var(--accent, #2dd4bf);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
 @media (max-width: 600px) {
   .upload-section { width: min(100% - 32px, 920px); padding-top: 28px; }
   .app-header { padding: 32px 0 28px; }
@@ -197,4 +289,5 @@
   .pagination-controls { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
   .pagination-status { width: 100%; margin-left: 0; order: 3; }
   .summary-heading { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .active-filter-banner { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
 }

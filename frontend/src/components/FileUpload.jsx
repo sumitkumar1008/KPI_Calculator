@@ -9,10 +9,23 @@ import AutomationRcaConclusionLineChart from './AutomationRcaConclusionLineChart
 import ShortResponseTimeLineChart from './ShortResponseTimeLineChart'
 import LongResponseTimeLineChart from './LongResponseTimeLineChart'
 import KpiBucketBarChart from './KpiBucketBarChart'
+import { useGlobalFilter } from '../context/GlobalFilterContext'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
 import './FileUpload.css'
 
 function FileUpload({ fileFormat = 'all' }) {
+  const {
+    setRawResponse,
+    filteredResponse,
+    filteredRows,
+    selectedMedia,
+    selectedRoster,
+    clearFilters,
+    hasActiveFilters,
+    totalRowCount,
+    filteredRowCount,
+  } = useGlobalFilter()
+
   const [selectedFile, setSelectedFile] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -28,6 +41,8 @@ function FileUpload({ fileFormat = 'all' }) {
     setUploadStatus(null)
     setResultRows([])
     setUploadResponse(null)
+    setRawResponse(null)
+    clearFilters()
     setIsUploading(false)
     if (inputRef.current) inputRef.current.value = ''
   }
@@ -56,9 +71,14 @@ function FileUpload({ fileFormat = 'all' }) {
     try {
       data = JSON.parse(text)
     } catch {
-      const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-      const preview = cleanText ? cleanText.slice(0, 150) : (response.statusText || 'Server Error')
-      throw new Error(`Server Error HTTP ${response.status}: ${preview}`)
+      try {
+        const sanitized = text.replace(/:\s*NaN\b/g, ': null')
+        data = JSON.parse(sanitized)
+      } catch {
+        const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+        const preview = cleanText ? cleanText.slice(0, 150) : (response.statusText || 'Server Error')
+        throw new Error(`Server Error HTTP ${response.status}: ${preview}`)
+      }
     }
 
     if (!response.ok) {
@@ -90,6 +110,7 @@ function FileUpload({ fileFormat = 'all' }) {
 
       setResultRows(Array.isArray(responseData.rows) ? responseData.rows : [])
       setUploadResponse(responseData)
+      setRawResponse(responseData)
       setUploadStatus('success')
     } catch (uploadError) {
       setError(uploadError.message || 'Something went wrong while uploading the file.')
@@ -103,6 +124,9 @@ function FileUpload({ fileFormat = 'all' }) {
   const hasSelectedFile = Boolean(selectedFile)
   const isSuccess = uploadStatus === 'success'
   const acceptedFormats = fileFormat === 'all' ? '.csv,.xls,.xlsx' : `.${fileFormat}`
+
+  const activeResponse = filteredResponse || uploadResponse
+  const displayRows = hasActiveFilters ? filteredRows : (uploadResponse?.rows || resultRows)
 
   return (
     <>
@@ -153,38 +177,58 @@ function FileUpload({ fileFormat = 'all' }) {
 
       {isSuccess && (
         <section className="results-section" aria-labelledby="results-heading">
+          {hasActiveFilters && (
+            <div className="active-filter-banner" role="status">
+              <div className="filter-banner-content">
+                <span className="filter-banner-icon">⚡</span>
+                <span>
+                  Active filter:{' '}
+                  {selectedMedia !== 'all' && <strong>Media: {selectedMedia}</strong>}
+                  {selectedMedia !== 'all' && selectedRoster !== 'all' && ' & '}
+                  {selectedRoster !== 'all' && <strong>Roster: {selectedRoster}</strong>}
+                  {' — showing '}
+                  <strong>{filteredRowCount.toLocaleString()}</strong> of{' '}
+                  <strong>{totalRowCount.toLocaleString()}</strong> records. All KPI averages, automation counts, and graphs below reflect this selection.
+                </span>
+              </div>
+              <button type="button" className="filter-banner-clear" onClick={clearFilters}>
+                Clear Filter
+              </button>
+            </div>
+          )}
+
           <AvgTable
-            sourceResponse={uploadResponse}
+            sourceResponse={activeResponse}
           />
           <div id="unified-kpi-graph" className="unified-kpi-graphs">
             <ShortResponseTimeLineChart
-              sourceResponse={uploadResponse}
+              sourceResponse={activeResponse}
             />
             <LongResponseTimeLineChart
-              sourceResponse={uploadResponse}
+              sourceResponse={activeResponse}
             />
           </div>
           <KpiBucketBarChart
-            sourceResponse={uploadResponse}
+            sourceResponse={activeResponse}
           />
           <AutomationRunTable
-            sourceResponse={uploadResponse}
+            sourceResponse={activeResponse}
           />
           <AutomationRunLineChart
-            sourceResponse={uploadResponse}
+            sourceResponse={activeResponse}
           />
           <AutomationRcaConclusionTable
-            sourceResponse={uploadResponse}
+            sourceResponse={activeResponse}
           />
           <AutomationRcaConclusionLineChart
-            sourceResponse={uploadResponse}
+            sourceResponse={activeResponse}
           />
           <div id="raw-data" className="results-heading">
             <p className="section-label"></p>
             <h2 id="results-heading">RAW DATA</h2>
           </div>
           <ResultsTable
-            rows={resultRows}
+            rows={displayRows}
           />
         </section>
       )}

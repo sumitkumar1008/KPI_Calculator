@@ -9,7 +9,7 @@ import pandas as pd
 from flask import Blueprint, jsonify, request, send_file
 from werkzeug.exceptions import HTTPException
 
-from app.services.file_parser import parse_file
+from app.services.file_parser import parse_file, _sanitize_cell
 from app.services.automation_run import automation_run_answer, aggregate_automation_runs
 from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.kpi_calculator import compute_df_kpis, compute_row_kpis
@@ -133,7 +133,7 @@ def upload_kpi_excel():
             row_count = len(df_kpi)
             df_kpi["row_index"] = list(range(2, row_count + 2))
 
-            for col in ["SRNUMBER", "SRCREATIONTIME", "AUTOMATION_RCA_CONCLUSION", "AUTOMATION_RUN"]:
+            for col in ["SRNUMBER", "SRCREATIONTIME", "AUTOMATION_RCA_CONCLUSION", "AUTOMATION_RUN", "MEDIA", "ROSTER_ALLOCATION"]:
                 if col not in df_kpi.columns:
                     df_kpi[col] = None
 
@@ -141,6 +141,8 @@ def upload_kpi_excel():
             df_kpi["SRCREATIONTIME"] = df_kpi["SRCREATIONTIME"].apply(_format_date)
             df_kpi["AUTOMATION_RCA_CONCLUSION"] = df_kpi["AUTOMATION_RCA_CONCLUSION"].apply(_format_str)
             df_kpi["AUTOMATION_RUN"] = df_kpi["AUTOMATION_RUN"].apply(automation_run_answer)
+            df_kpi["MEDIA"] = df_kpi["MEDIA"].apply(_format_str)
+            df_kpi["ROSTER_ALLOCATION"] = df_kpi["ROSTER_ALLOCATION"].apply(_format_str)
 
             if "warnings" not in df_kpi.columns:
                 df_kpi["warnings"] = [[] for _ in range(row_count)]
@@ -151,6 +153,8 @@ def upload_kpi_excel():
                 "SRCREATIONTIME",
                 "AUTOMATION_RCA_CONCLUSION",
                 "AUTOMATION_RUN",
+                "MEDIA",
+                "ROSTER_ALLOCATION",
                 "MTTI",
                 "MTTA",
                 "MTTAck",
@@ -159,8 +163,11 @@ def upload_kpi_excel():
                 "warnings",
             ]
             
-            df_kpi_out = df_kpi[out_cols].where(pd.notna(df_kpi[out_cols]), None)
-            processed_rows = df_kpi_out.to_dict(orient="records")
+            raw_records = df_kpi[out_cols].to_dict(orient="records")
+            processed_rows = [
+                {k: (v if k == "warnings" else _sanitize_cell(v)) for k, v in r.items()}
+                for r in raw_records
+            ]
             total_warnings = sum(len(r.get("warnings") or []) for r in processed_rows)
         else:
             raw_rows = parse_result["rows"]
@@ -181,6 +188,8 @@ def upload_kpi_excel():
                     "SRCREATIONTIME": _format_date(row.get("SRCREATIONTIME")),
                     "AUTOMATION_RCA_CONCLUSION": _format_str(row.get("AUTOMATION_RCA_CONCLUSION")),
                     "AUTOMATION_RUN": automation_run_answer(row.get("AUTOMATION_RUN")),
+                    "MEDIA": _format_str(row.get("MEDIA")),
+                    "ROSTER_ALLOCATION": _format_str(row.get("ROSTER_ALLOCATION")),
                     "MTTI": computed["kpis"]["MTTI"],
                     "MTTA": computed["kpis"]["MTTA"],
                     "MTTAck": computed["kpis"]["MTTAck"],

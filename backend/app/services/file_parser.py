@@ -111,6 +111,15 @@ OPTIONAL_KPI_MAPPINGS: dict[str, str] = {
     "AUTO_RUN": "AUTOMATION_RUN",
     "AUTO RUN": "AUTOMATION_RUN",
     "AUTORUN": "AUTOMATION_RUN",
+    # Media column variants
+    "MEDIA": "MEDIA",
+    "MEDIA_TYPE": "MEDIA",
+    "MEDIA TYPE": "MEDIA",
+    # Roster Allocation column variants
+    "ROSTER_ALLOCATION": "ROSTER_ALLOCATION",
+    "ROSTER ALLOCATION": "ROSTER_ALLOCATION",
+    "ROSTERALLOCATION": "ROSTER_ALLOCATION",
+    "ROSTER": "ROSTER_ALLOCATION",
 }
 for k, canonical in OPTIONAL_KPI_MAPPINGS.items():
     _CANONICAL_LOOKUP[normalize_column_name(k)] = canonical
@@ -160,16 +169,27 @@ def _sanitize_cell(val: Any) -> Any:
     """
     Sanitizes raw pandas cell values into 100% JSON-serializable Python types.
     Converts:
-    - pd.isna / pd.NaT / np.nan / None -> None
+    - None / pd.isna / pd.NaT / np.nan -> None
+    - list / tuple / dict -> returned as-is (clean collections)
     - datetime / pd.Timestamp / datetime.time / datetime.date -> ISO format string
     - numpy scalars -> native Python int/float
     """
-    if val is None or pd.isna(val):
+    if val is None:
         return None
+    if isinstance(val, (list, tuple, dict)):
+        return val
     if isinstance(val, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
         return val.isoformat()
+    try:
+        if pd.isna(val):
+            return None
+    except Exception:
+        pass
     if hasattr(val, "item"):
-        return val.item()
+        try:
+            return val.item()
+        except Exception:
+            pass
     return val
 
 
@@ -274,6 +294,10 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
             r["AUTOMATION_RCA_CONCLUSION"] = None
         if "AUTOMATION_RUN" not in r:
             r["AUTOMATION_RUN"] = None
+        if "MEDIA" not in r:
+            r["MEDIA"] = None
+        if "ROSTER_ALLOCATION" not in r:
+            r["ROSTER_ALLOCATION"] = None
         clean_rows.append(r)
 
     return {

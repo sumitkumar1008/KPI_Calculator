@@ -66,6 +66,8 @@ function ResultsTable({ rows }) {
             <thead>
               <tr>
                 <th scope="col">SRNUMBER</th>
+                <th scope="col">MEDIA</th>
+                <th scope="col">ROSTER ALLOCATION</th>
                 <th scope="col">MTTI</th>
                 <th scope="col">MTTA</th>
                 <th scope="col">MTTAck</th>
@@ -77,6 +79,8 @@ function ResultsTable({ rows }) {
               {visibleRows.map((row, index) => (
                 <tr key={`${row.SRNUMBER || 'row'}-${pageStartIndex + index}`}>
                   <td>{row.SRNUMBER || '—'}</td>
+                  <td>{row.MEDIA || '—'}</td>
+                  <td>{row.ROSTER_ALLOCATION || '—'}</td>
                   <td>{row.MTTI || '—'}</td>
                   <td>{row.MTTA || '—'}</td>
                   <td>{row.MTTAck || '—'}</td>
