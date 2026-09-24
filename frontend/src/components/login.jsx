@@ -8,19 +8,14 @@ function Login({ onLogin }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-
     console.log("Email:", email);
     console.log("Password:", password);
-
     onLogin();
-
-    // Backend login/API will be connected here later.
   };
 
   return (
     <div className="login-page">
       <div className="login-card">
-
         {/* Airtel Logo */}
         <div className="company-logo">
           <img
@@ -31,17 +26,15 @@ function Login({ onLogin }) {
 
         {/* Heading */}
         <div className="login-header">
-          <h1>Welcome Back</h1>
+          <h1>KPI Calculator</h1>
           <p>Please login to your account</p>
         </div>
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="login-form">
-
           {/* Email */}
           <div className="form-group">
             <label htmlFor="email">Email Address</label>
-
             <input
               id="email"
               type="email"
@@ -55,7 +48,6 @@ function Login({ onLogin }) {
           {/* Password */}
           <div className="form-group">
             <label htmlFor="password">Password</label>
-
             <div className="password-container">
               <input
                 id="password"
@@ -65,7 +57,6 @@ function Login({ onLogin }) {
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
-
               <button
                 type="button"
                 className="show-password"
@@ -78,12 +69,10 @@ function Login({ onLogin }) {
 
           {/* Remember Me / Forgot Password */}
           <div className="login-options">
-
             <label className="remember-me">
               <input type="checkbox" />
               <span>Remember me</span>
             </label>
-
             <button
               type="button"
               className="forgot-password"
@@ -91,16 +80,13 @@ function Login({ onLogin }) {
             >
               Forgot Password?
             </button>
-
           </div>
 
           {/* Login Button */}
           <button type="submit" className="login-button">
             Login
           </button>
-
         </form>
-
       </div>
     </div>
   );

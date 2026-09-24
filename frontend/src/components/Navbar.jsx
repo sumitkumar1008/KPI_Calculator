@@ -8,7 +8,7 @@ function Navbar({ theme, onToggleTheme }) {
     <header className="app-header">
       <div>
         <p className="eyebrow">Data workspace</p>
-        <h1>KPI Calculator</h1>
+        <h1 className="navbar-title">KPI Calculator</h1>
         <p className="subtitle">Upload your data file to get started</p>
       </div>
       <div className="header-actions">

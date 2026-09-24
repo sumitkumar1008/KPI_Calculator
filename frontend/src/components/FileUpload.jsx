@@ -107,8 +107,11 @@ function FileUpload({ fileFormat = 'all' }) {
   return (
     <>
       <div className="section-intro">
-        <p className="section-label">Step 01</p>
-        <h2 id="upload-heading">Bring your data into focus</h2>
+        <h2>SR Volume Calculator</h2>
+        <p className="section-label" style={{ marginTop: '14px' }}>Step 01</p>
+        <h3 id="upload-heading" style={{ margin: '0 0 7px', color: 'var(--ink)', fontSize: '17px', fontWeight: 600 }}>
+          Bring your data into focus
+        </h3>
         <p>Select a spreadsheet to prepare it for KPI analysis.</p>
       </div>
 
@@ -143,7 +146,7 @@ function FileUpload({ fileFormat = 'all' }) {
       {isSuccess && <p className="message message--success" role="status"><span aria-hidden="true">✓</span>File ready for processing</p>}
 
       <button className="upload-button" type="button" disabled={!hasSelectedFile || isUploading || isSuccess} onClick={uploadFile}>
-        {isUploading ? 'Uploading...' : isSuccess ? 'File uploaded' : 'Upload file'}
+        {isUploading ? 'Calculating...' : isSuccess ? 'File uploaded' : 'Upload file'}
         {!isUploading && !isSuccess && <span aria-hidden="true">→</span>}
       </button>
       {isSuccess && <button type="button" className="another-button" onClick={resetUpload}>Choose another file</button>}

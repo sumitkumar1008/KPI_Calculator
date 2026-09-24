@@ -1,0 +1,71 @@
+.nstt-section {
+  width: min(1080px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 36px 0 60px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.nstt-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  margin: 24px 0 32px;
+}
+
+.nstt-upload-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nstt-box-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.nstt-box-header h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.nstt-badge {
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-strong);
+}
+
+.nstt-upload-card {
+  width: 100% !important;
+  max-width: 500px !important;
+  min-height: 290px;
+}
+
+.nstt-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+@media (max-width: 820px) {
+  .nstt-upload-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .nstt-section {
+    width: min(100% - 32px, 920px);
+    padding-top: 28px;
+  }
+}

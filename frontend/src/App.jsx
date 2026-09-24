@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import FileUpload from './components/FileUpload'
+import NsttCalculator from './components/NsttCalculator'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import Login from './components/login'
@@ -10,6 +11,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [theme, setTheme] = useState('light')
+  const [activeModule, setActiveModule] = useState('kpi')
   const [fileFormat, setFileFormat] = useState(() => localStorage.getItem('kpi-calculator-file-format') || 'xlsx')
 
   useEffect(() => {
@@ -31,13 +33,23 @@ function App() {
         <Sidebar
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((open) => !open)}
+          activeModule={activeModule}
+          onSelectModule={setActiveModule}
         />
         <div className="app-content">
-          <Navbar theme={theme} onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')} />
+          <Navbar
+            theme={theme}
+            onToggleTheme={() => setTheme((currentTheme) => currentTheme === 'dark' ? 'light' : 'dark')}
+            activeModule={activeModule}
+          />
 
-          <section id="upload-file" className="upload-section" aria-labelledby="upload-heading">
-            <FileUpload fileFormat={fileFormat} />
-          </section>
+          {activeModule === 'kpi' ? (
+            <section id="upload-file" className="upload-section" aria-labelledby="upload-heading">
+              <FileUpload fileFormat={fileFormat} />
+            </section>
+          ) : (
+            <NsttCalculator fileFormat={fileFormat} />
+          )}
 
           <footer className="app-footer"><span className="footer-dot" aria-hidden="true" /> Files stay in your browser during this demo</footer>
         </div>
