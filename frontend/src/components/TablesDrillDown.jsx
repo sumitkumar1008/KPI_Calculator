@@ -3,6 +3,15 @@ import { calculateDrillDown } from '../utils/drilldownUtils'
 import DownloadDropdown from './DownloadDropdown'
 import { exportDataViaApi } from '../utils/exportUtils'
 
+// Helper to safely extract row array from any drill-down result format
+function extractDrillRows(drillResult) {
+  if (Array.isArray(drillResult)) return drillResult
+  if (Array.isArray(drillResult?.summary)) return drillResult.summary
+  if (Array.isArray(drillResult?.rows)) return drillResult.rows
+  if (Array.isArray(drillResult?.data)) return drillResult.data
+  return []
+}
+
 function SummaryTableDrillDown({
   title,
   sectionId,
@@ -46,19 +55,53 @@ function SummaryTableDrillDown({
     return weekNum
   }
 
-  const handleRowClick = (row) => {
-    if (period !== 'monthly' || !row.period) return
-    setExpandedMonths((previous) => {
-      const next = new Set(previous)
-      if (next.has(row.period)) next.delete(row.period)
-      else next.add(row.period)
-      return next
-    })
+  // Handle main table row clicks:
+  // In monthly mode -> toggle month's weekly breakdown
+  // In weekly mode -> toggle week's daily breakdown directly
+  const handleMainRowClick = (row) => {
+    if (!row.period) return
+    if (period === 'monthly') {
+      setExpandedMonths((previous) => {
+        const next = new Set(previous)
+        if (next.has(row.period)) next.delete(row.period)
+        else next.add(row.period)
+        return next
+      })
+    } else if (period === 'weekly') {
+      const weekNum = getRowWeekNum(row)
+      let cleanMonth = row.period
+      if (typeof cleanMonth === 'string' && cleanMonth.includes('-W')) {
+        cleanMonth = cleanMonth.split('-W')[0]
+      }
+      const weekKey = `weekly-mode:${row.period}`
+      setExpandedWeeks((previous) => {
+        const next = new Set(previous)
+        if (next.has(weekKey)) {
+          next.delete(weekKey)
+        } else {
+          next.add(weekKey)
+          if (!expandedDailyRows[weekKey] && sourceResponse?.rows) {
+            const drill = calculateDrillDown(sourceResponse.rows, tableType, cleanMonth, weekNum)
+            const dailyRows = extractDrillRows(drill)
+            setExpandedDailyRows((prev) => ({
+              ...prev,
+              [weekKey]: dailyRows,
+            }))
+          }
+        }
+        return next
+      })
+    }
   }
 
+  // Toggle week when inside a monthly subtable
   const toggleWeek = (monthKey, row) => {
     const weekNum = getRowWeekNum(row)
-    const weekKey = `${monthKey}:${weekNum}`
+    let cleanMonth = monthKey
+    if (typeof cleanMonth === 'string' && cleanMonth.includes('-W')) {
+      cleanMonth = cleanMonth.split('-W')[0]
+    }
+    const weekKey = `${cleanMonth}:${weekNum}`
     setExpandedWeeks((previous) => {
       const next = new Set(previous)
       if (next.has(weekKey)) {
@@ -67,10 +110,11 @@ function SummaryTableDrillDown({
         next.add(weekKey)
         if (!expandedDailyRows[weekKey] && sourceResponse?.rows) {
           const rawRows = sourceResponse.rows
-          const drill = calculateDrillDown(rawRows, tableType, monthKey, weekNum)
+          const drill = calculateDrillDown(rawRows, tableType, cleanMonth, weekNum)
+          const dailyRows = extractDrillRows(drill)
           setExpandedDailyRows((prev) => ({
             ...prev,
-            [weekKey]: drill.rows || [],
+            [weekKey]: dailyRows,
           }))
         }
       }
@@ -192,23 +236,53 @@ function SummaryTableDrillDown({
             </thead>
             <tbody>
               {visibleRows.map((row, idx) => {
-                const canExpandMonth = period === 'monthly'
+                const isMonthly = period === 'monthly'
+                const isWeekly = period === 'weekly'
                 const monthKey = row.period
-                const monthExpanded = canExpandMonth && expandedMonths.has(monthKey)
-                const weekRows = monthExpanded && sourceResponse && Array.isArray(sourceResponse.rows)
-                  ? calculateDrillDown(sourceResponse.rows, tableType, monthKey)
+                const monthExpanded = isMonthly && expandedMonths.has(monthKey)
+
+                // Weekly direct drilldown state
+                const weekNum = isWeekly ? getRowWeekNum(row) : null
+                const weekKeyDirect = isWeekly ? `weekly-mode:${row.period}` : null
+                const weekExpandedDirect = isWeekly && expandedWeeks.has(weekKeyDirect)
+                const directDailyData = isWeekly && weekExpandedDirect
+                  ? (expandedDailyRows[weekKeyDirect] || (
+                      sourceResponse?.rows
+                        ? extractDrillRows(calculateDrillDown(sourceResponse.rows, tableType, row.period.split('-W')[0], weekNum))
+                        : []
+                    ))
                   : []
+
+                // Weekly breakdown rows when month is expanded
+                const weekRows = monthExpanded && sourceResponse && Array.isArray(sourceResponse.rows)
+                  ? extractDrillRows(calculateDrillDown(sourceResponse.rows, tableType, monthKey))
+                  : []
+
+                const isInteractive = isMonthly || isWeekly
+                const isExpanded = isMonthly ? monthExpanded : (isWeekly ? weekExpandedDirect : false)
 
                 return (
                   <React.Fragment key={row.period || idx}>
                     <tr
-                      className={canExpandMonth ? `interactive-row ${monthExpanded ? 'expanded-week-row' : ''}` : ''}
-                      onClick={canExpandMonth ? () => handleRowClick(row) : undefined}
-                      title={canExpandMonth ? (monthExpanded ? 'Click to collapse weekly breakdown' : 'Click to view weekly breakdown') : undefined}
+                      className={isInteractive ? `interactive-row ${isExpanded ? 'expanded-week-row' : ''}` : ''}
+                      onClick={isInteractive ? () => handleMainRowClick(row) : undefined}
+                      title={
+                        isMonthly
+                          ? (monthExpanded ? 'Click to collapse weekly breakdown' : 'Click to view weekly breakdown')
+                          : isWeekly
+                          ? (weekExpandedDirect ? 'Click to collapse daily breakdown' : 'Click to view daily breakdown')
+                          : undefined
+                      }
                     >
-                      {renderRowWithIndicator(row, canExpandMonth ? 'month' : null, monthExpanded, renderRow)}
+                      {renderRowWithIndicator(
+                        row,
+                        isMonthly ? 'month' : (isWeekly ? 'week' : null),
+                        isExpanded,
+                        renderRow
+                      )}
                     </tr>
 
+                    {/* Level 1: Month expanded -> shows weekly breakdown subtable */}
                     {monthExpanded && (
                       <tr className="subtable-row">
                         <td colSpan={columns.length} className="subtable-container-cell">
@@ -225,23 +299,79 @@ function SummaryTableDrillDown({
                                 </thead>
                                 <tbody>
                                   {weekRows.map((weekRow, weekIdx) => {
-                                    const weekNum = getRowWeekNum(weekRow)
-                                    const weekKey = `${monthKey}:${weekNum}`
-                                    const weekExpanded = expandedWeeks.has(weekKey)
-                                    const dailyData = expandedDailyRows[weekKey] || []
+                                    const wNum = getRowWeekNum(weekRow)
+                                    let cleanM = monthKey
+                                    if (typeof cleanM === 'string' && cleanM.includes('-W')) {
+                                      cleanM = cleanM.split('-W')[0]
+                                    }
+                                    const wKey = `${cleanM}:${wNum}`
+                                    const wExpanded = expandedWeeks.has(wKey)
+                                    const dailyData = expandedDailyRows[wKey] || (
+                                      sourceResponse?.rows
+                                        ? extractDrillRows(calculateDrillDown(sourceResponse.rows, tableType, cleanM, wNum))
+                                        : []
+                                    )
                                     return (
                                       <React.Fragment key={weekRow.period || weekIdx}>
-                                        <tr className="interactive-row" onClick={() => toggleWeek(monthKey, weekRow)} title={weekExpanded ? 'Click to collapse daily breakdown' : 'Click to view daily breakdown'}>
-                                          {renderRowWithIndicator(weekRow, 'week', weekExpanded, renderRow)}
+                                        <tr
+                                          className="interactive-row"
+                                          onClick={() => toggleWeek(monthKey, weekRow)}
+                                          title={wExpanded ? 'Click to collapse daily breakdown' : 'Click to view daily breakdown'}
+                                        >
+                                          {renderRowWithIndicator(weekRow, 'week', wExpanded, renderRow)}
                                         </tr>
-                                        {weekExpanded && dailyData.map((dailyRow, dayIdx) => (
-                                          <tr key={dailyRow.period || dayIdx}>
-                                            {renderRow(dailyRow)}
-                                          </tr>
-                                        ))}
+                                        {/* Level 2: Week expanded -> shows daily rows */}
+                                        {wExpanded && (
+                                          dailyData.length > 0 ? (
+                                            dailyData.map((dailyRow, dayIdx) => (
+                                              <tr key={dailyRow.period || dayIdx} className="daily-data-row">
+                                                {renderRowWithIndicator(dailyRow, 'day', false, renderRow)}
+                                              </tr>
+                                            ))
+                                          ) : (
+                                            <tr className="empty-subtable-row">
+                                              <td colSpan={columns.length} style={{ padding: '8px 18px', color: 'var(--muted)', fontStyle: 'italic', fontSize: '11px' }}>
+                                                No daily records found for this week.
+                                              </td>
+                                            </tr>
+                                          )
+                                        )}
                                       </React.Fragment>
                                     )
                                   })}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p className="empty-results" style={{ padding: '10px 14px', margin: 0 }}>
+                                No weekly records found for this month.
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
+                    {/* Direct Weekly drilldown -> shows daily breakdown subtable */}
+                    {isWeekly && weekExpandedDirect && (
+                      <tr className="subtable-row">
+                        <td colSpan={columns.length} className="subtable-container-cell">
+                          <div className="daily-subtable-wrap">
+                            <div className="daily-subtable-title">Daily Breakdown ({row.period_label || row.period})</div>
+                            {directDailyData.length > 0 ? (
+                              <table className="daily-subtable">
+                                <thead>
+                                  <tr>
+                                    {columns.map((col) => (
+                                      <th key={col.key}>{col.label}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {directDailyData.map((dailyRow, dayIdx) => (
+                                    <tr key={dailyRow.period || dayIdx} className="daily-data-row">
+                                      {renderRowWithIndicator(dailyRow, 'day', false, renderRow)}
+                                    </tr>
+                                  ))}
                                 </tbody>
                               </table>
                             ) : (
@@ -303,19 +433,30 @@ function SummaryTableDrillDown({
   )
 }
 
-// Helper to render row with a subtle expand/collapse indicator (▼/▶) for Level 1 weekly rows
+// Helper to render row with a subtle expand/collapse indicator (▼/▶) or day bullet (•)
 function renderRowWithIndicator(row, rowLevel, isExpanded, renderRow) {
   const defaultRowContent = renderRow(row)
   if (!rowLevel) return defaultRowContent
 
-  // Wrap the first cell with expand/collapse arrow
   const children = React.Children.toArray(defaultRowContent.props.children)
   if (children.length === 0) return defaultRowContent
 
   const firstCell = children[0]
+  const isDay = rowLevel === 'day'
   const modifiedFirstCell = (
-    <td key={firstCell.key || 'first-cell'}>
-    <span className="week-expand-indicator">{isExpanded ? '▼' : '▶'}</span>
+    <td
+      key={firstCell.key || 'first-cell'}
+      style={isDay ? { paddingLeft: '32px' } : undefined}
+    >
+      {!isDay ? (
+        <span className="week-expand-indicator" style={{ display: 'inline-block', width: '16px', userSelect: 'none' }}>
+          {isExpanded ? '▼' : '▶'}
+        </span>
+      ) : (
+        <span className="day-bullet-indicator" style={{ display: 'inline-block', width: '16px', color: 'var(--accent)', opacity: 0.7, userSelect: 'none' }}>
+          •
+        </span>
+      )}
       {firstCell.props.children}
     </td>
   )

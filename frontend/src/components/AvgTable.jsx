@@ -4,7 +4,7 @@ import { useGlobalFilter } from '../context/GlobalFilterContext'
 import { calculatePeriodSummary } from '../utils/drilldownUtils'
 
 function AvgTable({ sourceResponse }) {
-  const { globalPeriod } = useGlobalFilter()
+  const { globalPeriod, setGlobalPeriod } = useGlobalFilter()
   const [tablePeriod, setTablePeriod] = useState(globalPeriod || 'monthly')
   const [rows, setRows] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -87,7 +87,9 @@ function AvgTable({ sourceResponse }) {
       period={tablePeriod}
       onPeriodChange={(nextPeriod) => {
         setTablePeriod(nextPeriod)
-        setGlobalPeriod(nextPeriod)
+        if (typeof setGlobalPeriod === 'function') {
+          setGlobalPeriod(nextPeriod)
+        }
       }}
     />
   )

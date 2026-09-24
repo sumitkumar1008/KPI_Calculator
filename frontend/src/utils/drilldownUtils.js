@@ -23,10 +23,10 @@ export function formatSecondsToHHMMSS(totalSec) {
 
 // Parse string duration (HH:MM:SS or Xd HH:MM:SS) to seconds
 export function parseDurationToSeconds(val) {
-  if (!val) return null
+  if (!val && val !== 0) return null
   if (typeof val === 'number') return val >= 0 ? val : null
   const str = String(val).trim()
-  if (['none', 'null', '', 'n/a', 'nan'].includes(str.toLowerCase())) return null
+  if (['none', 'null', '', 'n/a', 'nan', '—', '-'].includes(str.toLowerCase())) return null
 
   try {
     let days = 0
@@ -46,18 +46,47 @@ export function parseDurationToSeconds(val) {
   return null
 }
 
+// Helper to extract creation date from various property names
+export function getRowCreationTime(row) {
+  if (!row) return null
+  return (
+    row.SRCREATIONTIME ||
+    row.CREATIONTIME ||
+    row.creation_time ||
+    row.CreationTime ||
+    row.SR_CREATION_TIME ||
+    row.srcreationtime ||
+    null
+  )
+}
+
 // Parse creation date into Date object
 export function parseSRDate(val) {
   if (!val) return null
-
-  const value = String(val).trim()
-  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s)(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/)
-  if (isoMatch) {
-    const [, year, month, day, hour, minute, second = '0'] = isoMatch
-    return new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val
+  if (typeof val === 'number') {
+    if (val > 30000 && val < 70000) {
+      return new Date(Math.round((val - 25569) * 86400 * 1000))
+    }
+    const d = new Date(val)
+    return isNaN(d.getTime()) ? null : d
   }
 
-  const separatedDateMatch = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
+  const value = String(val).trim()
+  if (!value || ['nan', 'none', 'null', '', 'nat'].includes(value.toLowerCase())) {
+    return null
+  }
+
+  // ISO / Hyphenated: 2026-08-21 or 2026-08-21T08:00:00 or 2026-08-21 08:00:00
+  const isoMatch = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/)
+  if (isoMatch) {
+    const [, year, month, day, hour = '0', minute = '0', second = '0'] = isoMatch
+    const d = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  // Day/Month/Year or Month/Day/Year: 21/08/2026 or 08/21/2026
+  const separatedDateMatch = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/)
   if (separatedDateMatch) {
     const [, firstPart, secondPart, year, hour = '0', minute = '0', second = '0'] = separatedDateMatch
     const firstNumber = Number(firstPart)
@@ -65,7 +94,8 @@ export function parseSRDate(val) {
     const isClearDayFirst = firstNumber > 12 && secondNumber <= 12
     const month = isClearDayFirst ? secondNumber : firstNumber
     const day = isClearDayFirst ? firstNumber : secondNumber
-    return new Date(Number(year), month - 1, day, Number(hour), Number(minute), Number(second))
+    const d = new Date(Number(year), month - 1, day, Number(hour), Number(minute), Number(second))
+    return isNaN(d.getTime()) ? null : d
   }
 
   const dt = new Date(value)
@@ -84,13 +114,16 @@ export function calculatePeriodSummary(rows, groupBy = 'monthly', tableType = 'a
   const buckets = {}
 
   rows.forEach((row) => {
-    const dt = parseSRDate(row.SRCREATIONTIME)
+    const dt = parseSRDate(getRowCreationTime(row))
     if (!dt) return
 
     const year = dt.getFullYear()
     const month = String(dt.getMonth() + 1).padStart(2, '0')
     const day = String(dt.getDate()).padStart(2, '0')
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ]
     const monthName = monthNames[dt.getMonth()]
 
     let key = ''
@@ -140,7 +173,9 @@ export function calculatePeriodSummary(rows, groupBy = 'monthly', tableType = 'a
       }
     } else if (tableType === 'automation_rca') {
       const yesValues = new Set(['1', 'true', 't', 'y', 'yes', 'on'])
-      const yCount = bucketRows.filter((r) => yesValues.has(String(r.AUTOMATION_RCA_CONCLUSION || '').trim().toLowerCase())).length
+      const yCount = bucketRows.filter((r) =>
+        yesValues.has(String(r.AUTOMATION_RCA_CONCLUSION || '').trim().toLowerCase())
+      ).length
       const nCount = bucketRows.length - yCount
       return {
         period: key,
@@ -168,7 +203,8 @@ export function calculatePeriodSummary(rows, groupBy = 'monthly', tableType = 'a
           if (r[secKey] !== undefined && r[secKey] !== null && !isNaN(r[secKey])) {
             validSecs.push(Number(r[secKey]))
           } else {
-            const parsed = parseDurationToSeconds(r[kpi])
+            const rawVal = r[kpi] !== undefined ? r[kpi] : r[`AVG_${kpi}`]
+            const parsed = parseDurationToSeconds(rawVal)
             if (parsed !== null) validSecs.push(parsed)
           }
         })
@@ -190,15 +226,24 @@ export function calculatePeriodSummary(rows, groupBy = 'monthly', tableType = 'a
 export function calculateDrillDown(rows, tableType, monthStr, weekNum = null) {
   if (!Array.isArray(rows) || rows.length === 0 || !monthStr) return []
 
-  const normMonth = String(monthStr).trim().toLowerCase()
+  let cleanMonth = String(monthStr).trim()
+  if (cleanMonth.includes('-W')) {
+    cleanMonth = cleanMonth.split('-W')[0]
+  } else if (cleanMonth.toLowerCase().includes(' - week')) {
+    cleanMonth = cleanMonth.split(/ - week/i)[0]
+  }
+  const normMonth = cleanMonth.trim().toLowerCase()
 
   // Filter rows by month
   const monthRows = rows.filter((r) => {
-    const dt = parseSRDate(r.SRCREATIONTIME)
+    const dt = parseSRDate(getRowCreationTime(r))
     if (!dt) return false
     const year = dt.getFullYear()
     const month = String(dt.getMonth() + 1).padStart(2, '0')
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ]
     const fullMonth = `${monthNames[dt.getMonth()]} ${year}`.toLowerCase()
     const monthKey = `${year}-${month}`.toLowerCase()
     return monthKey === normMonth || fullMonth === normMonth
@@ -208,7 +253,7 @@ export function calculateDrillDown(rows, tableType, monthStr, weekNum = null) {
     // Level 2: Week -> 7 Days Daily breakdown
     const targetWeek = Number(weekNum)
     const weekRows = monthRows.filter((r) => {
-      const dt = parseSRDate(r.SRCREATIONTIME)
+      const dt = parseSRDate(getRowCreationTime(r))
       return dt && getWeekNum(dt) === targetWeek
     })
     return calculatePeriodSummary(weekRows, 'daily', tableType)

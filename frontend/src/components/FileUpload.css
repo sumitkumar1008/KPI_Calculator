@@ -147,6 +147,21 @@
   border-bottom: 0;
 }
 
+.daily-data-row td {
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+  font-size: 11.5px;
+}
+
+.daily-data-row:hover td {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-raised));
+}
+
+.day-bullet-indicator {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--accent);
+}
+
 
 /* Quick KPI Header Badges */
 .summary-title-row {
