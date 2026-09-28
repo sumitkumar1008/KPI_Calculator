@@ -16,6 +16,12 @@ function LineChartComponent({
   data,
   period,
   onPeriodChange,
+  media = 'all',
+  onMediaChange,
+  roster = 'all',
+  onRosterChange,
+  availableMediaOptions = [],
+  availableRosterOptions = [],
   isLoading,
   error,
   title = 'Line chart',
@@ -65,7 +71,14 @@ function LineChartComponent({
       return row
     })
 
-    const safeTitle = `${title} - ${label} (${(period || 'monthly').toUpperCase()})`
+    const filterContextParts = [
+      media && media !== 'all' ? `Media: ${media}` : null,
+      roster && roster !== 'all' ? `Roster: ${roster}` : null,
+      period ? `Period: ${period.toUpperCase()}` : null,
+    ].filter(Boolean)
+    const filterContext = filterContextParts.length ? ` (${filterContextParts.join(', ')})` : ''
+
+    const safeTitle = `${title} - ${label}${filterContext}`
     const safeFilename = `${(sectionId || title || 'chart').toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${period || 'data'}`
 
     return exportDataViaApi({
@@ -113,14 +126,38 @@ function LineChartComponent({
           <h3 id="line-chart-heading">{title}</h3>
         </div>
         <div className="line-chart-filters">
-          <label className="summary-period">
-            <span>Time period</span>
-            <select value={period} onChange={onPeriodChange} disabled={isLoading}>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-          </label>
+          {availableMediaOptions?.length > 0 && onMediaChange && (
+            <label className={`summary-period chart-filter-select ${media && media !== 'all' ? 'is-filtered' : ''}`}>
+              <span>Media</span>
+              <select value={media || 'all'} onChange={onMediaChange} disabled={isLoading} title="Filter by Media subtype">
+                <option value="all">All Media</option>
+                {availableMediaOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {availableRosterOptions?.length > 0 && onRosterChange && (
+            <label className={`summary-period chart-filter-select ${roster && roster !== 'all' ? 'is-filtered' : ''}`}>
+              <span>Roster</span>
+              <select value={roster || 'all'} onChange={onRosterChange} disabled={isLoading} title="Filter by Roster Allocation">
+                <option value="all">All Rosters</option>
+                {availableRosterOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {onPeriodChange && (
+            <label className="summary-period chart-filter-select">
+              <span>Time period</span>
+              <select value={period} onChange={onPeriodChange} disabled={isLoading}>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
+          )}
           <DownloadDropdown
             onDownloadExcel={() => handleExportData('xlsx')}
             onDownloadCsv={() => handleExportData('csv')}

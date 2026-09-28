@@ -6,6 +6,32 @@
  * for zero-latency instant responses.
  */
 
+// Filter rows by Media and Roster Allocation
+export function filterRowsByMediaAndRoster(rows, media = 'all', roster = 'all') {
+  if (!Array.isArray(rows) || rows.length === 0) return []
+  const hasMedia = media && media !== 'all'
+  const hasRoster = roster && roster !== 'all'
+
+  if (!hasMedia && !hasRoster) {
+    return rows
+  }
+
+  const normMedia = hasMedia ? String(media).trim().toLowerCase() : null
+  const normRoster = hasRoster ? String(roster).trim().toLowerCase() : null
+
+  return rows.filter((r) => {
+    if (normMedia) {
+      const rowMedia = r.MEDIA !== null && r.MEDIA !== undefined ? String(r.MEDIA).trim().toLowerCase() : ''
+      if (rowMedia !== normMedia) return false
+    }
+    if (normRoster) {
+      const rowRoster = r.ROSTER_ALLOCATION !== null && r.ROSTER_ALLOCATION !== undefined ? String(r.ROSTER_ALLOCATION).trim().toLowerCase() : ''
+      if (rowRoster !== normRoster) return false
+    }
+    return true
+  })
+}
+
 // Helper to format duration seconds as cumulative HH:MM:SS (e.g. 20:35:59)
 export function formatSecondsToHHMMSS(totalSec) {
   if (totalSec === null || totalSec === undefined || isNaN(totalSec) || totalSec < 0) {
@@ -126,8 +152,8 @@ export function calculatePeriodSummary(rows, groupBy = 'monthly', tableType = 'a
     ]
     const monthName = monthNames[dt.getMonth()]
 
-    let key = ''
-    let label = ''
+    let key
+    let label
 
     if (groupBy === 'daily') {
       key = `${year}-${month}-${day}`

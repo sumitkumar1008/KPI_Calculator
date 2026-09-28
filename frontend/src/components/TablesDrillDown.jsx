@@ -18,6 +18,7 @@ function SummaryTableDrillDown({
   subtitle,
   tableType = 'avg',
   sourceResponse,
+  filteredRows,
   columns,
   renderRow,
   defaultPeriodRows = [],
@@ -25,6 +26,12 @@ function SummaryTableDrillDown({
   errorDefault = null,
   period = 'monthly',
   onPeriodChange = () => {},
+  media = 'all',
+  onMediaChange,
+  roster = 'all',
+  onRosterChange,
+  availableMediaOptions = [],
+  availableRosterOptions = [],
   headerStats = null,
 }) {
   const [expandedMonths, setExpandedMonths] = useState(new Set())
@@ -35,12 +42,14 @@ function SummaryTableDrillDown({
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Reset inline drill-downs if period or source file changes.
+  const activeBaseRows = filteredRows || sourceResponse?.rows || []
+
+  // Reset inline drill-downs if period, filter or source file changes.
   useEffect(() => {
     setExpandedMonths(new Set())
     setExpandedWeeks(new Set())
     setExpandedDailyRows({})
-  }, [period, sourceResponse])
+  }, [period, filteredRows, sourceResponse])
 
   // Extract week number from row (e.g. "Week 1", "2026-08-W1")
   const getRowWeekNum = (row) => {
@@ -80,8 +89,8 @@ function SummaryTableDrillDown({
           next.delete(weekKey)
         } else {
           next.add(weekKey)
-          if (!expandedDailyRows[weekKey] && sourceResponse?.rows) {
-            const drill = calculateDrillDown(sourceResponse.rows, tableType, cleanMonth, weekNum)
+          if (!expandedDailyRows[weekKey] && activeBaseRows.length > 0) {
+            const drill = calculateDrillDown(activeBaseRows, tableType, cleanMonth, weekNum)
             const dailyRows = extractDrillRows(drill)
             setExpandedDailyRows((prev) => ({
               ...prev,
@@ -108,9 +117,8 @@ function SummaryTableDrillDown({
         next.delete(weekKey)
       } else {
         next.add(weekKey)
-        if (!expandedDailyRows[weekKey] && sourceResponse?.rows) {
-          const rawRows = sourceResponse.rows
-          const drill = calculateDrillDown(rawRows, tableType, cleanMonth, weekNum)
+        if (!expandedDailyRows[weekKey] && activeBaseRows.length > 0) {
+          const drill = calculateDrillDown(activeBaseRows, tableType, cleanMonth, weekNum)
           const dailyRows = extractDrillRows(drill)
           setExpandedDailyRows((prev) => ({
             ...prev,
@@ -159,7 +167,14 @@ function SummaryTableDrillDown({
       return item
     })
 
-    const safeTitle = `${title} (${period.toUpperCase()})`
+    const filterContextParts = [
+      media && media !== 'all' ? `Media: ${media}` : null,
+      roster && roster !== 'all' ? `Roster: ${roster}` : null,
+      period ? `Period: ${period.toUpperCase()}` : null,
+    ].filter(Boolean)
+    const filterContext = filterContextParts.length ? ` (${filterContextParts.join(', ')})` : ''
+
+    const safeTitle = `${title}${filterContext}`
     const safeFilename = `${(sectionId || title || 'kpi_summary').toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${period}`
 
     return exportDataViaApi({
@@ -185,8 +200,32 @@ function SummaryTableDrillDown({
           </div>
         </div>
 
-        <div className="summary-controls" style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-          <label className="summary-period">
+        <div className="summary-controls" style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+          {availableMediaOptions?.length > 0 && onMediaChange && (
+            <label className={`summary-period chart-filter-select ${media && media !== 'all' ? 'is-filtered' : ''}`}>
+              <span>Media</span>
+              <select value={media || 'all'} onChange={onMediaChange} disabled={activeLoading} title="Filter by Media subtype">
+                <option value="all">All Media</option>
+                {availableMediaOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {availableRosterOptions?.length > 0 && onRosterChange && (
+            <label className={`summary-period chart-filter-select ${roster && roster !== 'all' ? 'is-filtered' : ''}`}>
+              <span>Roster</span>
+              <select value={roster || 'all'} onChange={onRosterChange} disabled={activeLoading} title="Filter by Roster Allocation">
+                <option value="all">All Rosters</option>
+                {availableRosterOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label className="summary-period chart-filter-select">
             <span>Time period</span>
             <select
               value={period}
@@ -247,15 +286,15 @@ function SummaryTableDrillDown({
                 const weekExpandedDirect = isWeekly && expandedWeeks.has(weekKeyDirect)
                 const directDailyData = isWeekly && weekExpandedDirect
                   ? (expandedDailyRows[weekKeyDirect] || (
-                      sourceResponse?.rows
-                        ? extractDrillRows(calculateDrillDown(sourceResponse.rows, tableType, row.period.split('-W')[0], weekNum))
+                      activeBaseRows.length > 0
+                        ? extractDrillRows(calculateDrillDown(activeBaseRows, tableType, row.period.split('-W')[0], weekNum))
                         : []
                     ))
                   : []
 
                 // Weekly breakdown rows when month is expanded
-                const weekRows = monthExpanded && sourceResponse && Array.isArray(sourceResponse.rows)
-                  ? extractDrillRows(calculateDrillDown(sourceResponse.rows, tableType, monthKey))
+                const weekRows = monthExpanded && activeBaseRows.length > 0
+                  ? extractDrillRows(calculateDrillDown(activeBaseRows, tableType, monthKey))
                   : []
 
                 const isInteractive = isMonthly || isWeekly
@@ -307,8 +346,8 @@ function SummaryTableDrillDown({
                                     const wKey = `${cleanM}:${wNum}`
                                     const wExpanded = expandedWeeks.has(wKey)
                                     const dailyData = expandedDailyRows[wKey] || (
-                                      sourceResponse?.rows
-                                        ? extractDrillRows(calculateDrillDown(sourceResponse.rows, tableType, cleanM, wNum))
+                                      activeBaseRows.length > 0
+                                        ? extractDrillRows(calculateDrillDown(activeBaseRows, tableType, cleanM, wNum))
                                         : []
                                     )
                                     return (

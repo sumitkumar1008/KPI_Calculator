@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -10,7 +10,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { parseDurationToSeconds } from '../utils/drilldownUtils'
+import { filterRowsByMediaAndRoster, parseDurationToSeconds } from '../utils/drilldownUtils'
+import { useGlobalFilter } from '../context/GlobalFilterContext'
 import DownloadDropdown from './DownloadDropdown'
 import { exportDataViaApi, exportSvgAsPng } from '../utils/exportUtils'
 import './linechart.css'
@@ -75,12 +76,37 @@ function bucketizeRows(rows) {
 }
 
 function KpiBucketBarChart({ sourceResponse }) {
+  const {
+    selectedMedia: globalMedia,
+    selectedRoster: globalRoster,
+    availableMediaOptions,
+    availableRosterOptions,
+    rawResponse,
+  } = useGlobalFilter()
+
+  const [media, setMedia] = useState(globalMedia || 'all')
+  const [roster, setRoster] = useState(globalRoster || 'all')
   const [activeKpis, setActiveKpis] = useState(() => KPI_CONFIG.map((k) => k.key))
   const chartWrapRef = useRef(null)
 
+  // Sync with global filter changes
+  useEffect(() => {
+    if (globalMedia !== undefined) setMedia(globalMedia)
+  }, [globalMedia])
+
+  useEffect(() => {
+    if (globalRoster !== undefined) setRoster(globalRoster)
+  }, [globalRoster])
+
+  // Filter rows based on local media & roster selection
+  const filteredChartRows = useMemo(() => {
+    const baseRows = rawResponse?.rows || sourceResponse?.rows || []
+    return filterRowsByMediaAndRoster(baseRows, media, roster)
+  }, [rawResponse, sourceResponse, media, roster])
+
   const chartData = useMemo(() => {
-    return bucketizeRows(sourceResponse?.rows)
-  }, [sourceResponse])
+    return bucketizeRows(filteredChartRows)
+  }, [filteredChartRows])
 
   const toggleKpi = (key) => {
     setActiveKpis((prev) => {
@@ -92,7 +118,7 @@ function KpiBucketBarChart({ sourceResponse }) {
     })
   }
 
-  const totalRecords = sourceResponse?.rows?.length ?? 0
+  const totalRecords = filteredChartRows?.length ?? 0
 
   const handleExportData = (format) => {
     if (!chartData || chartData.length === 0) return
@@ -104,10 +130,16 @@ function KpiBucketBarChart({ sourceResponse }) {
       { key: 'MTTr', label: 'MTTr (Record Count)' },
     ]
 
+    const filterContextParts = [
+      media && media !== 'all' ? `Media: ${media}` : null,
+      roster && roster !== 'all' ? `Roster: ${roster}` : null,
+    ].filter(Boolean)
+    const filterContext = filterContextParts.length ? ` (${filterContextParts.join(', ')})` : ''
+
     return exportDataViaApi({
       format,
-      filename: 'kpi_bucket_distribution',
-      title: 'Incident Response Distribution (KPI Buckets)',
+      filename: `kpi_bucket_distribution${media && media !== 'all' ? `_${media}` : ''}${roster && roster !== 'all' ? `_${roster}` : ''}`,
+      title: `Incident Response Distribution (KPI Buckets)${filterContext}`,
       sheetName: 'KPI Buckets',
       columns: exportCols,
       data: chartData,
@@ -145,13 +177,37 @@ function KpiBucketBarChart({ sourceResponse }) {
           </p>
           <h3>KPI BUCKET BAR CHART — MTTI, MTTR, MTTr</h3>
         </div>
-        <DownloadDropdown
-          onDownloadExcel={() => handleExportData('xlsx')}
-          onDownloadCsv={() => handleExportData('csv')}
-          onDownloadImage={handleExportImage}
-          disabled={!hasData}
-          tooltip="Export KPI Bucket Bar Chart data or image"
-        />
+        <div className="line-chart-filters">
+          {availableMediaOptions?.length > 0 && (
+            <label className={`summary-period chart-filter-select ${media && media !== 'all' ? 'is-filtered' : ''}`}>
+              <span>Media</span>
+              <select value={media || 'all'} onChange={(e) => setMedia(e.target.value)} title="Filter by Media subtype">
+                <option value="all">All Media</option>
+                {availableMediaOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {availableRosterOptions?.length > 0 && (
+            <label className={`summary-period chart-filter-select ${roster && roster !== 'all' ? 'is-filtered' : ''}`}>
+              <span>Roster</span>
+              <select value={roster || 'all'} onChange={(e) => setRoster(e.target.value)} title="Filter by Roster Allocation">
+                <option value="all">All Rosters</option>
+                {availableRosterOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <DownloadDropdown
+            onDownloadExcel={() => handleExportData('xlsx')}
+            onDownloadCsv={() => handleExportData('csv')}
+            onDownloadImage={handleExportImage}
+            disabled={!hasData}
+            tooltip="Export KPI Bucket Bar Chart data or image"
+          />
+        </div>
       </div>
 
       {hasData ? (

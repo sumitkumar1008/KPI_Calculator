@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import DownloadDropdown from './DownloadDropdown'
 import { exportDataViaApi } from '../utils/exportUtils'
 
-function ResultsTable({ rows }) {
+function ResultsTable({ rows = [] }) {
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
+
   const totalPages = Math.max(1, Math.ceil(rows.length / rowsPerPage))
   const pageStartIndex = (currentPage - 1) * rowsPerPage
   const visibleRows = rows.slice(pageStartIndex, pageStartIndex + rowsPerPage)
@@ -24,6 +25,8 @@ function ResultsTable({ rows }) {
     // Include all primary raw data columns
     const columns = [
       { key: 'SRNUMBER', label: 'SR Number' },
+      { key: 'MEDIA', label: 'Media' },
+      { key: 'ROSTER_ALLOCATION', label: 'Roster Allocation' },
       { key: 'SRCREATIONTIME', label: 'Creation Time' },
       { key: 'AUTOMATION_RUN', label: 'Automation Run' },
       { key: 'AUTOMATION_RCA_CONCLUSION', label: 'Automation RCA Conclusion' },
@@ -47,10 +50,11 @@ function ResultsTable({ rows }) {
   return (
     <>
       {rows.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 600 }}>
             Total Records: <strong>{rows.length}</strong>
           </span>
+
           <DownloadDropdown
             onDownloadExcel={() => handleExport('xlsx')}
             onDownloadCsv={() => handleExport('csv')}
@@ -96,7 +100,7 @@ function ResultsTable({ rows }) {
       )}
       {rows.length > 0 && (
         <div className="pagination-controls" aria-label="Table pagination">
-            <label className="rows-per-page">
+          <label className="rows-per-page">
             Rows per page
             <select value={rowsPerPage} onChange={changeRowsPerPage}>
               <option value="5">5</option>

@@ -1,11 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import SummaryTableDrillDown from './TablesDrillDown'
 import { useGlobalFilter } from '../context/GlobalFilterContext'
-import { calculatePeriodSummary } from '../utils/drilldownUtils'
+import { calculatePeriodSummary, filterRowsByMediaAndRoster } from '../utils/drilldownUtils'
 
 function AvgTable({ sourceResponse }) {
-  const { globalPeriod, setGlobalPeriod } = useGlobalFilter()
+  const {
+    globalPeriod,
+    selectedMedia: globalMedia,
+    selectedRoster: globalRoster,
+    availableMediaOptions,
+    availableRosterOptions,
+    rawResponse,
+  } = useGlobalFilter()
+
   const [tablePeriod, setTablePeriod] = useState(globalPeriod || 'monthly')
+  const [media, setMedia] = useState(globalMedia || 'all')
+  const [roster, setRoster] = useState(globalRoster || 'all')
   const [rows, setRows] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -13,44 +23,49 @@ function AvgTable({ sourceResponse }) {
   // In-memory pre-warmed cache for all periods
   const cacheRef = useRef({})
 
-  // Pre-calculate and cache all periods immediately upon upload
-  useEffect(() => {
-    if (!sourceResponse || !Array.isArray(sourceResponse.rows)) {
-      cacheRef.current = {}
-      setRows([])
-      return
-    }
-
-    // Pre-compute monthly, weekly, daily summaries in memory
-    const rawRows = sourceResponse.rows
-    cacheRef.current = {
-      monthly: calculatePeriodSummary(rawRows, 'monthly', 'avg'),
-      weekly: calculatePeriodSummary(rawRows, 'weekly', 'avg'),
-      daily: calculatePeriodSummary(rawRows, 'daily', 'avg'),
-    }
-
-    setRows(cacheRef.current[tablePeriod] || [])
-    setIsLoading(false)
-    setError(null)
-  }, [sourceResponse])
-
-  // Sync tablePeriod ONLY when globalPeriod changes (e.g. from top Navbar GlobalFilter)
+  // Sync with global filter changes
   useEffect(() => {
     if (globalPeriod) {
       setTablePeriod(globalPeriod)
     }
   }, [globalPeriod])
 
-  // Update displayed rows instantly from pre-computed cache
   useEffect(() => {
-    if (cacheRef.current[tablePeriod]) {
-      setRows(cacheRef.current[tablePeriod])
-    } else if (sourceResponse && Array.isArray(sourceResponse.rows)) {
-      const computed = calculatePeriodSummary(sourceResponse.rows, tablePeriod, 'avg')
-      cacheRef.current[tablePeriod] = computed
-      setRows(computed)
+    if (globalMedia !== undefined) {
+      setMedia(globalMedia)
     }
-  }, [tablePeriod, sourceResponse])
+  }, [globalMedia])
+
+  useEffect(() => {
+    if (globalRoster !== undefined) {
+      setRoster(globalRoster)
+    }
+  }, [globalRoster])
+
+  // Filter rows based on local media & roster selection
+  const filteredTableRows = useMemo(() => {
+    const baseRows = rawResponse?.rows || sourceResponse?.rows || []
+    return filterRowsByMediaAndRoster(baseRows, media, roster)
+  }, [rawResponse, sourceResponse, media, roster])
+
+  // Pre-calculate and cache all periods immediately upon rows change
+  useEffect(() => {
+    if (!filteredTableRows || filteredTableRows.length === 0) {
+      cacheRef.current = {}
+      setRows([])
+      return
+    }
+
+    cacheRef.current = {
+      monthly: calculatePeriodSummary(filteredTableRows, 'monthly', 'avg'),
+      weekly: calculatePeriodSummary(filteredTableRows, 'weekly', 'avg'),
+      daily: calculatePeriodSummary(filteredTableRows, 'daily', 'avg'),
+    }
+
+    setRows(cacheRef.current[tablePeriod] || [])
+    setIsLoading(false)
+    setError(null)
+  }, [filteredTableRows, tablePeriod])
 
   const columns = [
     { key: 'period', label: 'TIME PERIOD' },
@@ -79,18 +94,20 @@ function AvgTable({ sourceResponse }) {
       subtitle="KPI summary"
       tableType="avg"
       sourceResponse={sourceResponse}
+      filteredRows={filteredTableRows}
       columns={columns}
       renderRow={renderRow}
       defaultPeriodRows={rows}
       isLoadingDefault={isLoading}
       errorDefault={error}
       period={tablePeriod}
-      onPeriodChange={(nextPeriod) => {
-        setTablePeriod(nextPeriod)
-        if (typeof setGlobalPeriod === 'function') {
-          setGlobalPeriod(nextPeriod)
-        }
-      }}
+      onPeriodChange={setTablePeriod}
+      media={media}
+      onMediaChange={(e) => setMedia(e.target.value)}
+      roster={roster}
+      onRosterChange={(e) => setRoster(e.target.value)}
+      availableMediaOptions={availableMediaOptions}
+      availableRosterOptions={availableRosterOptions}
     />
   )
 }
