@@ -16,7 +16,6 @@ const nsttNavigationItems = [
   { id: 'nstt-heading', label: 'Upload & Process', icon: '↑' },
   { id: 'nstt-summary-matrix', label: 'Summary Matrix', icon: '▦' },
   { id: 'nstt-failure-analysis', label: 'Failure Analysis', icon: '⚠️' },
-  { id: 'nstt-raw-data', label: 'Raw Data', icon: '▤' },
 ]
 
 

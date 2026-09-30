@@ -130,7 +130,7 @@ def generate_nstt_excel_workbook(
     headers_l1 = [
         ("Total SR", 1, 2),
         ("NSTT Count", 2, 2),
-        ("% of Total SR", 3, 2),
+        ("Percentage NSTT Count", 3, 2),
         ("Capture Type", 4, 1),
         ("", 5, 1),
         ("Sub-Bifurcation 1", 6, 1),
@@ -178,7 +178,7 @@ def generate_nstt_excel_workbook(
     ws_dash["B6"].alignment = align_center
 
     ws_dash.merge_cells("C6:C7")
-    ws_dash["C6"].value = "% of Total SR"
+    ws_dash["C6"].value = "Percentage NSTT Count"
     ws_dash["C6"].font = header_font
     ws_dash["C6"].fill = header_fill
     ws_dash["C6"].alignment = align_center

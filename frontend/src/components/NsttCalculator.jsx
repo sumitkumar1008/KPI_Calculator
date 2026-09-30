@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import FileIcon from './FileIcon'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
 import { useNstt } from '../context/NsttContext'
-import ProcessingStatus from './nstt/ProcessingStatus'
 import NsttDashboard from './nstt/NsttDashboard'
 import './NsttCalculator.css'
 
@@ -13,12 +12,9 @@ function NsttCalculator({ fileFormat = 'all' }) {
     remedyFile,
     setRemedyFile,
     isProcessing,
-    currentStep,
-    stepStates,
     isComplete,
     error,
     aggregatedResult,
-    stats,
     processFiles,
     reset,
   } = useNstt()
@@ -90,29 +86,21 @@ function NsttCalculator({ fileFormat = 'all' }) {
         <p>Upload both datasets below to correlate and calculate Network Service Turnaround Times (NSTT).</p>
       </div>
 
-      {/* Processing Pipeline Status Indicator */}
-      {(isProcessing || error) && (
-        <ProcessingStatus
-          currentStep={currentStep}
-          stepStates={stepStates}
-          isComplete={isComplete}
-          hasError={Boolean(error)}
-          errorMessage={error}
-          namoFileName={namoFile?.name}
-          remedyFileName={remedyFile?.name}
-          stats={stats}
-          onReset={reset}
-        />
+      {error && (
+        <div className="message message--error" role="alert" style={{ margin: '1rem 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span><span aria-hidden="true">⚠️ </span>{error}</span>
+          <button type="button" className="text-button" onClick={reset} style={{ marginLeft: '1rem', color: 'inherit', textDecoration: 'underline' }}>
+            Dismiss
+          </button>
+        </div>
       )}
 
-      {!isProcessing && (
-        <>
-          <div className="nstt-upload-grid">
-            {/* Upload Box 1 - Namo Report */}
-            <div className="nstt-upload-col">
-              <div className="nstt-box-header">
-                <span className="nstt-badge">Dataset 01</span>
-                <h3>Namo Report (Primary Data)</h3>
+      <div className="nstt-upload-grid">
+        {/* Upload Box 1 - Namo Report */}
+        <div className="nstt-upload-col">
+          <div className="nstt-box-header">
+            <span className="nstt-badge">Dataset 01</span>
+            <h3>Namo Report (Primary Data)</h3>
               </div>
               <div
                 className={`upload-card nstt-upload-card ${isDragging1 ? 'is-dragging' : ''} ${namoFile ? 'has-file' : ''}`}
@@ -148,7 +136,6 @@ function NsttCalculator({ fileFormat = 'all' }) {
                     <p>Drag &amp; drop file here</p>
                     <span className="or-divider"><span>or</span></span>
                     <label className="choose-button" htmlFor="nstt-file-input-1">Choose file</label>
-                    <p className="supported">Required: INCIDENTID, ATTRIBUTEDTO, SRCREATIONTIME...</p>
                   </div>
                 )}
               </div>
@@ -195,7 +182,6 @@ function NsttCalculator({ fileFormat = 'all' }) {
                     <p>Drag &amp; drop file here</p>
                     <span className="or-divider"><span>or</span></span>
                     <label className="choose-button" htmlFor="nstt-file-input-2">Choose file</label>
-                    <p className="supported">Required: INCIDENT_NUMBER, UP_TIME, INCIDENT_IMPACT...</p>
                   </div>
                 )}
               </div>
@@ -203,26 +189,24 @@ function NsttCalculator({ fileFormat = 'all' }) {
             </div>
           </div>
 
-          <div className="nstt-actions">
-            <button
-              className="upload-button"
-              type="button"
-              disabled={!namoFile || !remedyFile || isProcessing}
-              onClick={handleCalculate}
-            >
-              {isProcessing ? 'Processing Pipeline...' : 'Calculate NSTT'}
-              {!isProcessing && <span aria-hidden="true">→</span>}
-            </button>
+        <div className="nstt-actions">
+          <button
+            className="upload-button"
+            type="button"
+            disabled={!namoFile || !remedyFile || isProcessing}
+            onClick={handleCalculate}
+          >
+            {isProcessing ? 'Processing NSTT Calculation...' : 'Calculate NSTT'}
+            {!isProcessing && <span aria-hidden="true">→</span>}
+          </button>
 
-            {(namoFile || remedyFile) && (
-              <button type="button" className="another-button" onClick={reset}>
-                Clear both files
-              </button>
-            )}
-          </div>
-        </>
-      )}
-    </section>
+          {(namoFile || remedyFile) && !isProcessing && (
+            <button type="button" className="another-button" onClick={reset}>
+              Clear both files
+            </button>
+          )}
+        </div>
+      </section>
   )
 }
 

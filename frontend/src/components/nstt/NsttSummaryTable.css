@@ -286,6 +286,38 @@
   color: #1F4E78;
 }
 
+/* ── Multi-item Sub Sub Bifurcation alignment ─────────────── */
+.spec-subsub-types-cell,
+.spec-subsub-counts-cell {
+  vertical-align: middle;
+  padding: 6px 8px !important;
+}
+
+.spec-subsub-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.spec-subsub-count-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.spec-subsub-item {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* ── Manually tagged strip ───────────────────────────────────── */
 .spec-manually-tagged {
   display: flex;

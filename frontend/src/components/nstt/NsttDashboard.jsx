@@ -2,7 +2,6 @@ import React from 'react'
 import { useNstt } from '../../context/NsttContext'
 import NsttSummaryTable from './NsttSummaryTable'
 import FailureTable from './FailureTable'
-import RawDataViewer from './RawDataViewer'
 import NsttDrillDown from './NsttDrillDown'
 import './nstt-dashboard.css'
 
@@ -14,11 +13,7 @@ import './nstt-dashboard.css'
  *   │  Warnings ribbon (if any)                                    │
  *   │  NsttSummaryTable   ← main hierarchical matrix              │
  *   │  FailureTable       ← failure category section              │
- *   │  [Raw Data tab]     ← optional raw view                     │
  *   └──────────────────────────────────────────────────────────────┘
- *
- * No large KPI metric cards. No charts. No sidebar within dashboard.
- * Visual design: spreadsheet/Excel style.
  */
 export default function NsttDashboard() {
   const {
@@ -28,17 +23,10 @@ export default function NsttDashboard() {
     namoFile,
     remedyFile,
     reset,
-    activeTab,
-    setActiveTab,
     handleExport,
-    openDrilldown,
   } = useNstt()
 
   if (!aggregatedResult) return null
-
-  const totalSr       = aggregatedResult.total_sr          || 0
-  const nsttCount     = aggregatedResult.nstt_count        || 0
-  const failGrandTotal = aggregatedResult.failures?.grand_total || 0
 
   return (
     <section className="nstt-dashboard-container" aria-labelledby="nstt-dash-title">
@@ -81,37 +69,12 @@ export default function NsttDashboard() {
         </div>
       )}
 
-      {/* ── Tab navigation ─────────────────────────────────────── */}
-      <div className="nstt-tabs-nav" role="tablist">
-        <button
-          type="button" role="tab"
-          aria-selected={activeTab === 'summary'}
-          className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`}
-          onClick={() => setActiveTab('summary')}
-        >
-          Summary Matrix
-        </button>
-        <button
-          type="button" role="tab"
-          aria-selected={activeTab === 'raw'}
-          className={`tab-btn ${activeTab === 'raw' ? 'active' : ''}`}
-          onClick={() => setActiveTab('raw')}
-        >
-          Raw Enriched Data
-        </button>
-      </div>
-
-      {/* ── Tab content ────────────────────────────────────────── */}
-      <div className="nstt-tab-panel">
-        {activeTab === 'summary' && (
-          <>
-            {/* Main hierarchical matrix */}
-            <NsttSummaryTable />
-            {/* Failure Category section below */}
-            <FailureTable />
-          </>
-        )}
-        {activeTab === 'raw' && <RawDataViewer />}
+      {/* ── Main Dashboard Content ─────────────────────────────── */}
+      <div className="nstt-dashboard-content">
+        {/* Main hierarchical matrix */}
+        <NsttSummaryTable />
+        {/* Failure Category section below */}
+        <FailureTable />
       </div>
 
       {/* ── Record-level drill-down drawer ─────────────────────── */}

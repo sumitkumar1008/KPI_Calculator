@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { uploadNsttFiles, processNstt, getNsttDrilldown, exportNstt } from '../services/nsttApi'
-import { NSTT_PIPELINE_STEPS } from '../components/nstt/ProcessingStatus'
 
 const NsttContext = createContext(null)
 
@@ -16,31 +15,19 @@ export function NsttProvider({ children }) {
 
   // Pipeline execution state
   const [isProcessing, setIsProcessing] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0)
-  const [stepStates, setStepStates] = useState({})
   const [isComplete, setIsComplete] = useState(false)
   const [error, setError] = useState(null)
 
-  // Navigation and UI state
-  const [activeTab, setActiveTab] = useState('summary') // 'summary' | 'failure' | 'raw'
+  // Navigation and drilldown UI state
   const [drilldownCategory, setDrilldownCategory] = useState(null)
   const [drilldownData, setDrilldownData] = useState(null)
   const [isDrilldownLoading, setIsDrilldownLoading] = useState(false)
   const [isDrilldownOpen, setIsDrilldownOpen] = useState(false)
 
-  const updateStep = (stepIndex, state = 'complete') => {
-    setCurrentStep(stepIndex)
-    if (stepIndex >= 0 && stepIndex < NSTT_PIPELINE_STEPS.length) {
-      const stepId = NSTT_PIPELINE_STEPS[stepIndex].id
-      setStepStates((prev) => ({ ...prev, [stepId]: state }))
-    }
-  }
-
-  const delay = (ms) => new Promise((res) => setTimeout(res, ms))
-
   /**
    * Main Pipeline Execution:
    * Coordinates file upload, backend VLOOKUP, Rule Engine classification, and Aggregation
+   * Logs each step into console.log instead of UI visualization.
    */
   const processFiles = useCallback(async (customNamo = null, customRemedy = null) => {
     const file1 = customNamo || namoFile
@@ -54,64 +41,51 @@ export function NsttProvider({ children }) {
     setIsProcessing(true)
     setError(null)
     setIsComplete(false)
-    setStepStates({})
-    setCurrentStep(0)
+
+    console.group('%c[NSTT Pipeline] Starting Processing Pipeline', 'color: #3b82f6; font-weight: bold; font-size: 13px;')
+    console.log(`[Step 1/5] Namo file selected: ${file1.name} (${(file1.size / 1024).toFixed(1)} KB)`)
+    console.log(`[Step 2/5] Remedy file selected: ${file2.name} (${(file2.size / 1024).toFixed(1)} KB)`)
 
     try {
-      // Step 1: Namo file loaded
-      updateStep(0, 'active')
-      await delay(120)
-      updateStep(0, 'complete')
-
-      // Step 2: Remedy file loaded
-      updateStep(1, 'active')
-      await delay(120)
-      updateStep(1, 'complete')
-
-      // Step 3: Column validation & VLOOKUP join (Backend Upload)
-      updateStep(2, 'active')
-      await delay(100)
-
+      // Step 3: Column validation, VLOOKUP join, impact conversion & Master Response generation
+      console.log('[Step 3/5] Uploading files, validating required columns & executing VLOOKUP join...')
       const uploadResult = await uploadNsttFiles(file1, file2)
+
+      console.log('[Step 3/5] VLOOKUP Join complete! Ingestion stats:', uploadResult.stats)
+      if (uploadResult.warnings?.length > 0) {
+        console.warn('[Step 3/5] Ingestion warnings:', uploadResult.warnings)
+      }
+
       setUploadId(uploadResult.upload_id)
       setMasterResponse(uploadResult.master_response)
       setStats(uploadResult.stats)
       setWarnings(uploadResult.warnings || [])
 
-      updateStep(2, 'complete') // Columns validated
-      updateStep(3, 'complete') // VLOOKUP completed
-      updateStep(4, 'complete') // INCIDENT_IMPACT converted
-      updateStep(5, 'complete') // Enriched dataset created
-      updateStep(6, 'complete') // Duplicate check done
-      updateStep(7, 'complete') // Master response JSON ready
-
-      // Step 8 & 9: Rule engine classification & Dashboard aggregation
-      updateStep(8, 'active')
-      await delay(150)
+      // Step 4 & 5: Rule Engine classification & hierarchical dashboard aggregation
+      console.log('[Step 4/5] Executing NSTT Rule Engine business classification...')
+      console.log('[Step 5/5] Computing hierarchical dashboard aggregations...')
 
       const processResult = await processNstt({
         uploadId: uploadResult.upload_id,
         masterResponse: uploadResult.master_response,
       })
 
+      console.log('[Step 5/5] Aggregation complete! Total SR:', processResult.aggregated_result?.total_sr, '| NSTT Count:', processResult.aggregated_result?.nstt_count)
+      console.log('%c[NSTT Pipeline] Complete! Successfully generated dashboard metrics.', 'color: #10b981; font-weight: bold;')
+      console.groupEnd()
+
       setClassifiedMasterResponse(processResult.classified_master_response)
       setAggregatedResult(processResult.aggregated_result)
-
-      updateStep(8, 'complete') // Rule engine done
-      updateStep(9, 'complete') // Aggregation done
-
       setIsComplete(true)
     } catch (err) {
       const errMsg = err.message || 'An unexpected error occurred during processing.'
+      console.error('%c[NSTT Pipeline Error]', 'color: #ef4444; font-weight: bold;', errMsg)
+      console.groupEnd()
       setError(errMsg)
-      setStepStates((prev) => ({
-        ...prev,
-        [NSTT_PIPELINE_STEPS[Math.min(currentStep, NSTT_PIPELINE_STEPS.length - 1)].id]: 'error',
-      }))
     } finally {
       setIsProcessing(false)
     }
-  }, [namoFile, remedyFile, currentStep])
+  }, [namoFile, remedyFile])
 
   /**
    * Drill-down handler for clickable counts in the dashboard
@@ -156,11 +130,8 @@ export function NsttProvider({ children }) {
     setStats(null)
     setWarnings([])
     setIsProcessing(false)
-    setCurrentStep(0)
-    setStepStates({})
     setIsComplete(false)
     setError(null)
-    setActiveTab('summary')
     closeDrilldown()
   }, [])
 
@@ -192,12 +163,8 @@ export function NsttProvider({ children }) {
         stats,
         warnings,
         isProcessing,
-        currentStep,
-        stepStates,
         isComplete,
         error,
-        activeTab,
-        setActiveTab,
         drilldownCategory,
         drilldownData,
         isDrilldownLoading,
