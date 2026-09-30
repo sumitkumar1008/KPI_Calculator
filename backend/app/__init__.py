@@ -2,6 +2,7 @@ import os
 from flask import Flask, jsonify, send_from_directory
 
 from app.api.routes import api_bp
+from app.api.nstt_routes import nstt_bp
 from app.core.config import Config
 
 
@@ -19,8 +20,9 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app = Flask(__name__, static_folder=frontend_dist, static_url_path="")
     app.config.from_object(config_class)
 
-    # Register the main KPI calculation API blueprint under /api/v1 prefix
+    # Register API blueprints under /api/v1 prefix
     app.register_blueprint(api_bp)
+    app.register_blueprint(nstt_bp)
 
     # Enable CORS for production deployments (e.g. Render)
     try:
@@ -68,6 +70,8 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     @app.errorhandler(Exception)
     def handle_global_exception(error):
         """Global fallback error handler ensuring 500 server errors always return JSON instead of HTML."""
+        import traceback
+        traceback.print_exc()
         err_msg = str(error) if error else "Internal server error"
         return jsonify({"error": f"Server Error: {err_msg}"}), 500
 
