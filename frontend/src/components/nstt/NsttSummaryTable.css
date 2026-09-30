@@ -1,0 +1,324 @@
+/* NsttSummaryTable.css — Excel-style hierarchical matrix matching Sample_Output_UI_Specification.md */
+
+/* ── Wrapper ─────────────────────────────────────────────────── */
+.spec-dashboard-wrapper {
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  font-size: 0.8rem;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--line, #d0d8e4);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(31, 78, 120, 0.08);
+  margin-bottom: 20px;
+}
+
+/* ── Title bar ───────────────────────────────────────────────── */
+.spec-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: #1F4E78;
+  border-bottom: 2px solid #163d60;
+}
+
+.spec-title-badge {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.spec-eligible-pill {
+  font-size: 0.82rem;
+  color: #cfe4f7;
+}
+
+.spec-eligible-pill strong {
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+/* ── Scrollable container ────────────────────────────────────── */
+.spec-table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* ── Table base ──────────────────────────────────────────────── */
+.spec-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.79rem;
+  background: var(--surface, #ffffff);
+  min-width: 900px;
+}
+
+/* ── Header rows ─────────────────────────────────────────────── */
+.spec-hdr-row {
+  background: #1F4E78;
+}
+
+.spec-th {
+  background: #1F4E78;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-align: center;
+  vertical-align: middle;
+  padding: 7px 10px;
+  border: 1px solid #2a5f8f;
+  white-space: nowrap;
+}
+
+.spec-th-sub {
+  background: #1a4268;   /* slightly darker for row-2 */
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* ── Data cells ──────────────────────────────────────────────── */
+.spec-td {
+  padding: 7px 10px;
+  border: 1px solid #dde4ed;
+  text-align: center;
+  vertical-align: middle;
+  color: var(--ink, #1e293b);
+  white-space: nowrap;
+}
+
+/* ── Row accents ─────────────────────────────────────────────── */
+.spec-row-auto-start .spec-td {
+  border-top: 2px solid #b8d0ea;
+}
+
+.spec-row-manual-start .spec-td {
+  border-top: 2px solid #fbbf24;
+}
+
+.spec-row-subgroup .spec-td {
+  border-top: 1px solid #c8d6e5;
+}
+
+/* Hover */
+.spec-row:hover .spec-td:not(.spec-sticky) {
+  background: rgba(31, 78, 120, 0.04);
+}
+
+/* ── Sticky left columns (Total SR / NSTT Count / %) ─────────── */
+.spec-sticky {
+  position: sticky;
+  z-index: 4;
+  background: var(--surface, #ffffff);
+}
+
+.spec-cell-total {
+  left: 0;
+  min-width: 90px;
+  border-right: 2px solid #1F4E78 !important;
+  background: linear-gradient(135deg, #eef4fb 0%, #f8fafc 100%);
+}
+
+.spec-cell-nstt {
+  left: 90px;
+  min-width: 90px;
+  background: linear-gradient(135deg, #e8f8f2 0%, #f8fafc 100%);
+}
+
+.spec-cell-pct {
+  left: 180px;
+  min-width: 80px;
+  border-right: 2px solid #1F4E78 !important;
+  background: var(--surface, #f8fafc);
+  font-weight: 600;
+  color: #475569;
+}
+
+/* ── Sub-bifurcation cell colours ────────────────────────────── */
+.spec-cell-auto {
+  background: rgba(31, 78, 120, 0.04);
+  color: #1d4ed8;
+}
+
+.spec-cell-manual {
+  background: rgba(245, 158, 11, 0.06);
+  color: #b45309;
+}
+
+/* ── Labels ─────────────────────────────────────────────────── */
+.spec-label-bold {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.spec-label-med {
+  font-weight: 600;
+  text-align: left;
+  font-size: 0.79rem;
+  white-space: normal;
+  min-width: 160px;
+}
+
+/* ── N/A placeholder ─────────────────────────────────────────── */
+.spec-na {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+/* ── Count / clickable badges ────────────────────────────────── */
+.spec-count {
+  min-width: 80px;
+}
+
+.spec-count-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 2px 10px;
+  border-radius: 5px;
+  background: rgba(31, 78, 120, 0.1);
+  color: #1F4E78;
+  border: 1px solid rgba(31, 78, 120, 0.25);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spec-count-btn:hover {
+  background: #1F4E78;
+  color: #ffffff;
+  transform: scale(1.06);
+  box-shadow: 0 2px 8px rgba(31, 78, 120, 0.28);
+}
+
+/* Total SR button */
+.spec-count-btn.total {
+  background: rgba(31, 78, 120, 0.12);
+  color: #1a3a6b;
+  font-size: 0.9rem;
+  border-color: rgba(31, 78, 120, 0.35);
+}
+
+/* NSTT Count button */
+.spec-count-btn.nstt {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.3);
+  font-size: 0.9rem;
+}
+
+.spec-count-btn.nstt:hover {
+  background: #047857;
+  color: #fff;
+}
+
+/* Manual button */
+.spec-count-btn.manual {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.spec-count-btn.manual:hover {
+  background: #b45309;
+  color: #fff;
+}
+
+/* SA badge */
+.spec-count-btn.sa {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.spec-count-btn.sa:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+/* NSA badge */
+.spec-count-btn.nsa {
+  background: rgba(16, 185, 129, 0.08);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.spec-count-btn.nsa:hover {
+  background: #059669;
+  color: #fff;
+}
+
+.spec-pct-sub {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* ── Inline chip row (Different NSTT / Resolved) ─────────────── */
+.spec-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.spec-chip {
+  padding: 2px 9px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  font-size: 0.74rem;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.spec-chip:hover {
+  border-color: #1F4E78;
+  background: rgba(31, 78, 120, 0.08);
+  color: #1F4E78;
+}
+
+/* ── Manually tagged strip ───────────────────────────────────── */
+.spec-manually-tagged {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  background: rgba(31, 78, 120, 0.05);
+  border-top: 2px solid #1F4E78;
+}
+
+.spec-section-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1F4E78;
+  letter-spacing: 0.02em;
+}
+
+.spec-tag-chips {
+  display: flex;
+  gap: 10px;
+}
+
+.spec-tag-chip {
+  padding: 3px 12px;
+  background: #ffffff;
+  border: 1px solid rgba(31, 78, 120, 0.3);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  color: #334155;
+}
+
+.spec-tag-chip strong {
+  color: #1F4E78;
+  font-weight: 700;
+}

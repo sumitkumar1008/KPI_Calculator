@@ -12,6 +12,14 @@ const kpiNavigationItems = [
   { id: 'raw-data', label: 'Raw data', icon: '▤' },
 ]
 
+const nsttNavigationItems = [
+  { id: 'nstt-heading', label: 'Upload & Process', icon: '↑' },
+  { id: 'nstt-summary-matrix', label: 'Summary Matrix', icon: '▦' },
+  { id: 'nstt-failure-analysis', label: 'Failure Analysis', icon: '⚠️' },
+  { id: 'nstt-raw-data', label: 'Raw Data', icon: '▤' },
+]
+
+
 function Sidebar({
   isOpen,
   onToggle,
@@ -19,6 +27,7 @@ function Sidebar({
   onSelectModule = () => {},
 }) {
   const [kpiDropdownOpen, setKpiDropdownOpen] = useState(true)
+  const [nsttDropdownOpen, setNsttDropdownOpen] = useState(true)
 
   const handleKpiHeaderClick = () => {
     if (activeModule !== 'kpi') {
@@ -29,24 +38,34 @@ function Sidebar({
     }
   }
 
+  const handleNsttHeaderClick = () => {
+    if (activeModule !== 'nstt') {
+      onSelectModule('nstt')
+      setNsttDropdownOpen(true)
+    } else {
+      setNsttDropdownOpen((prev) => !prev)
+    }
+  }
+
   const handleKpiChevronClick = (e) => {
     e.stopPropagation()
     setKpiDropdownOpen((prev) => !prev)
   }
 
-  const handleSubItemClick = (id) => {
-    if (activeModule !== 'kpi') {
-      onSelectModule('kpi')
+  const handleNsttChevronClick = (e) => {
+    e.stopPropagation()
+    setNsttDropdownOpen((prev) => !prev)
+  }
+
+  const handleSubItemClick = (id, targetModule = 'kpi') => {
+    if (activeModule !== targetModule) {
+      onSelectModule(targetModule)
       setTimeout(() => {
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
     } else {
       document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }
-
-  const handleNsttClick = () => {
-    onSelectModule('nstt')
   }
 
   return (
@@ -97,7 +116,7 @@ function Sidebar({
                     key={item.id}
                     type="button"
                     className="sidebar-item sidebar-item--sub"
-                    onClick={() => handleSubItemClick(item.id)}
+                    onClick={() => handleSubItemClick(item.id, 'kpi')}
                   >
                     <span className="sidebar-item-icon" aria-hidden="true">{item.icon}</span>
                     <span>{item.label}</span>
@@ -107,16 +126,41 @@ function Sidebar({
             )}
           </div>
 
-          {/* 2. NSTT Calculator */}
+          {/* 2. NSTT Calculator with Dropdown Accordion */}
           <div className={`sidebar-module-group ${activeModule === 'nstt' ? 'is-active-module' : ''}`}>
             <button
               type="button"
               className={`sidebar-item sidebar-item--module ${activeModule === 'nstt' ? 'is-active' : ''}`}
-              onClick={handleNsttClick}
+              onClick={handleNsttHeaderClick}
+              aria-expanded={nsttDropdownOpen}
             >
               <span className="sidebar-item-icon" aria-hidden="true">⏱</span>
               <span className="sidebar-item-text">NSTT Calculator</span>
+              <span
+                className={`sidebar-item-chevron ${nsttDropdownOpen ? 'is-open' : ''}`}
+                onClick={handleNsttChevronClick}
+                aria-label="Toggle NSTT options"
+                title="Toggle options"
+              >
+                ▼
+              </span>
             </button>
+
+            {nsttDropdownOpen && (
+              <div className="sidebar-submenu" role="menu">
+                {nsttNavigationItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="sidebar-item sidebar-item--sub"
+                    onClick={() => handleSubItemClick(item.id, 'nstt')}
+                  >
+                    <span className="sidebar-item-icon" aria-hidden="true">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </nav>
       </aside>

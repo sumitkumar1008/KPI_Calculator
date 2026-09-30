@@ -1,0 +1,312 @@
+/* ProcessingStatus.css - High polish NSTT Processing Pipeline Indicator */
+
+.processing-status-card {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--line, #d8e0e8);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 4px 16px var(--shadow, rgba(31, 63, 75, 0.08));
+  margin: 20px 0;
+  transition: all 0.3s ease;
+}
+
+.status-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.status-header-text h3 {
+  margin: 4px 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink, #253247);
+}
+
+.status-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent, #157a8a);
+  background: rgba(21, 122, 138, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.status-subtext {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: var(--muted, #617083);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.status-pill.running {
+  background: rgba(21, 122, 138, 0.12);
+  color: var(--accent, #157a8a);
+  border: 1px solid rgba(21, 122, 138, 0.25);
+}
+
+.status-pill.complete {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-pill.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Progress bar */
+.progress-bar-wrapper {
+  height: 6px;
+  background: var(--line, #e2e8f0);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 16px 0 20px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-bar-fill.is-running {
+  background: linear-gradient(90deg, var(--accent, #157a8a), #2dd4bf);
+}
+
+.progress-bar-fill.is-complete {
+  background: #10b981;
+}
+
+.progress-bar-fill.is-error {
+  background: #ef4444;
+}
+
+/* 10-step list */
+.pipeline-steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.pipeline-step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--surface-raised, #f8fafc);
+  transition: all 0.25s ease;
+}
+
+.pipeline-step-item.state-active {
+  border-color: var(--accent, #157a8a);
+  background: rgba(21, 122, 138, 0.05);
+  box-shadow: 0 0 0 1px var(--accent, #157a8a);
+}
+
+.pipeline-step-item.state-complete {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.pipeline-step-item.state-error {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.pipeline-step-item.state-pending {
+  opacity: 0.65;
+}
+
+/* Step Indicators */
+.step-indicator {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-icon-complete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.step-icon-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.step-icon-pending {
+  color: var(--muted, #94a3b8);
+  font-size: 1rem;
+}
+
+.step-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line, #cbd5e1);
+  border-top-color: var(--accent, #157a8a);
+  border-radius: 50%;
+  animation: nstt-spin 0.75s linear infinite;
+}
+
+@keyframes nstt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.step-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.step-number {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.step-label {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--ink, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Error box */
+.status-error-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 10px;
+  margin-top: 18px;
+}
+
+.error-icon-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.error-content h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #b91c1c;
+}
+
+.error-content p {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  color: #991b1b;
+}
+
+.retry-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: #b91c1c;
+}
+
+/* Stats Ribbon */
+.status-stats-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line, #e2e8f0);
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-raised, #f1f5f9);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+
+.stat-label {
+  color: var(--muted, #64748b);
+  font-weight: 500;
+}
+
+.stat-val {
+  color: var(--ink, #0f172a);
+  font-weight: 700;
+}
+
+.stat-pill.stat-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.stat-pill.stat-warning .stat-label,
+.stat-pill.stat-warning .stat-val {
+  color: #b45309;
+}

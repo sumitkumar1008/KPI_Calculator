@@ -5,7 +5,9 @@ import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import Login from './components/login'
 import { GlobalFilterProvider } from './context/GlobalFilterContext'
+import { NsttProvider } from './context/NsttContext'
 import './App.css'
+
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -48,8 +50,11 @@ function App() {
               <FileUpload fileFormat={fileFormat} />
             </section>
           ) : (
-            <NsttCalculator fileFormat={fileFormat} />
+            <NsttProvider>
+              <NsttCalculator fileFormat={fileFormat} />
+            </NsttProvider>
           )}
+
 
           <footer className="app-footer"><span className="footer-dot" aria-hidden="true" /> Files stay in your browser during this demo</footer>
         </div>

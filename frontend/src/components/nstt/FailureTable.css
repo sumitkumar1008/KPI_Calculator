@@ -1,0 +1,148 @@
+/* FailureTable.css — Excel-style matching Sample_Output_UI_Specification.md §14 */
+
+/* ── Wrapper ─────────────────────────────────────────────────── */
+.spec-fail-wrapper {
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--line, #d0d8e4);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(31, 78, 120, 0.08);
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+/* ── Title bar (dark blue, matching main matrix) ─────────────── */
+.spec-fail-title-bar {
+  padding: 10px 20px;
+  background: #1F4E78;
+  border-bottom: 2px solid #163d60;
+}
+
+.spec-fail-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ── Scroll container ────────────────────────────────────────── */
+.spec-fail-scroll {
+  overflow-x: auto;
+}
+
+/* ── Table ───────────────────────────────────────────────────── */
+.spec-fail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  background: var(--surface, #ffffff);
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.spec-fail-hdr-row {
+  background: #1F4E78;
+}
+
+.spec-fail-th {
+  background: #1F4E78;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-align: center;
+  vertical-align: middle;
+  padding: 8px 14px;
+  border: 1px solid #2a5f8f;
+  white-space: nowrap;
+}
+
+.spec-fail-th-cat {
+  text-align: left;
+  min-width: 260px;
+}
+
+/* ── Data cells ──────────────────────────────────────────────── */
+.spec-fail-td {
+  padding: 9px 14px;
+  border: 1px solid #e2eaf3;
+  color: var(--ink, #1e293b);
+  font-size: 0.8rem;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.spec-fail-td-cat {
+  text-align: left;
+}
+
+.spec-fail-td-num {
+  min-width: 80px;
+}
+
+.spec-fail-td-pct {
+  min-width: 90px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* ── Row hover ───────────────────────────────────────────────── */
+.spec-fail-row:hover .spec-fail-td {
+  background: rgba(31, 78, 120, 0.04);
+}
+
+/* ── Failure dot ─────────────────────────────────────────────── */
+.spec-fail-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ── Count badge button ──────────────────────────────────────── */
+.spec-fail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 3px 12px;
+  border-radius: 20px;
+  background: rgba(31, 78, 120, 0.1);
+  color: #1F4E78;
+  border: 1px solid rgba(31, 78, 120, 0.25);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spec-fail-btn:hover {
+  background: #1F4E78;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(31, 78, 120, 0.3);
+}
+
+/* ── Grand total row ─────────────────────────────────────────── */
+.spec-fail-total-row .spec-fail-td {
+  background: rgba(31, 78, 120, 0.06);
+  border-top: 2px solid #1F4E78;
+}
+
+.spec-fail-total-label {
+  font-weight: 700;
+  color: #1F4E78;
+}
+
+.spec-fail-btn-total {
+  background: rgba(31, 78, 120, 0.15);
+  border-color: rgba(31, 78, 120, 0.4);
+}
+
+.spec-fail-btn-total:hover {
+  background: #1F4E78;
+  color: #fff;
+}

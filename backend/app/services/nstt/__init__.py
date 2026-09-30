@@ -11,6 +11,8 @@ from app.services.nstt.vlookup import perform_vlookup
 from app.services.nstt.impact_mapper import map_incident_impact
 from app.services.nstt.duplicate_checker import check_duplicates
 from app.services.nstt.master_builder import build_master_response
+from app.services.nstt.rule_engine import run_rule_engine
+from app.services.nstt.aggregator import build_nstt_aggregation, filter_records_by_category
 
 __all__ = [
     "parse_namo_file",
@@ -19,4 +21,8 @@ __all__ = [
     "map_incident_impact",
     "check_duplicates",
     "build_master_response",
+    "run_rule_engine",
+    "build_nstt_aggregation",
+    "filter_records_by_category",
 ]
+
