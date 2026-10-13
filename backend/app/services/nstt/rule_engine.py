@@ -8,7 +8,7 @@ Execution Order (DO NOT CHANGE):
   1. total_sr            — ATTRIBUTEDTO filter → is_total_sr
   2. nstt_count          — blank INCIDENTID filter → is_nstt
   3. capture_type        — Automation vs Manual → capture_type
-  4. automation_classifier — Resolved → Same → Different (ORDER MATTERS) → nstt_type
+  4. automation_classifier — Resolved → Same → Different (ORDER MATTERS) → nstt_type 
   5. same_nstt           — IM/Non-IM, Auto/Manual, SA/NSA → factory_type, allocation_type, impact_type
   6. different_nstt      — 4 exact sub-categories → diff_nstt_category
   7. resolved_nstt       — IM/Non-IM, Auto/Manual → factory_type, allocation_type
@@ -22,7 +22,7 @@ Classification fields added per record:
   is_total_sr:        bool
   is_nstt:            bool
   capture_type:       "Automation" | "Manual" | null
-  nstt_type:          "Same NSTT" | "Different NSTT" | "Resolved NSTT" | null
+  nstt_type:          "Same NSTT" | "Different NSTT" | "Resolved NSTT" | "Wrong NSTT"| null
   factory_type:       "IM" | "Non IM" | null
   allocation_type:    "Auto" | "Manual" | null
   impact_type:        "SA" | "NSA" | null
@@ -124,7 +124,7 @@ def run_rule_engine(master_response: Dict[str, Any]) -> Dict[str, Any]:
     apply_same_nstt(records)
 
     # Step 6: Different NSTT sub-classification (with remedy impact map for proper categorization)
-    remedy_impact_map = _build_remedy_impact_map(records)
+    remedy_impact_map = master_response.get("remedy_impact_map") or _build_remedy_impact_map(records)
     apply_different_nstt(records, remedy_impact_map=remedy_impact_map)
 
     # Step 7: Resolved NSTT sub-classification

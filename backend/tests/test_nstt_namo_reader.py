@@ -72,3 +72,13 @@ def test_parse_namo_missing_column_error():
     assert res["success"] is False
     assert "missing required column" in res["error"].lower()
     assert len(res["missing_columns"]) > 0
+
+
+def test_parse_namo_swapped_remedy_file():
+    # User uploads a Remedy file into Namo slot
+    csv_content = "INCIDENT_NUMBER,ASSIGNED_SUPPORT_COMPANY,UP_TIME,Submit Date,INCIDENT_IMPACT,DESCRIPTION\nINC1001,AirTel,2026-09-01,2026-09-01,0,Desc\n"
+    bio = io.BytesIO(csv_content.encode("utf-8"))
+    res = parse_namo_file(bio, filename="remedy_in_namo.csv")
+
+    assert res["success"] is False
+    assert "appears to be a remedy report" in res["error"].lower()

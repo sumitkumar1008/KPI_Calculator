@@ -7,16 +7,17 @@ import './NsttSummaryTable.css'
  *
  * Renders the hierarchical matrix exactly as specified in Sample_Output_UI_Specification.md:
  *
- * Column structure (left → right):
- *   Total SR | NSTT Count | % of Total SR |
- *   Sub Bifurcation (Type / Count %) |
- *   Further Bifurcation (Category / Count %) |
- *   Sub Sub Bifurcation (Type / Count) |
- *   Detailed Bifurcation (SA / NSA)
+ * Column structure (left → right, 12 total columns):
+ *   1. Total SR (rowSpan 14)
+ *   2. NSTT Count (rowSpan 14)
+ *   3. Percentage NSTT Count (rowSpan 14)
+ *   4-5. Sub Bifurcation (Type, Count (%))
+ *   6-7. Further Bifurcation (Category, Count (%))
+ *   8-9. Sub Sub Bifurcation (Type, Count (%))
+ *   10-12. Detailed Bifurcation (Type, SA NSTT, NSA NSTT)
  *
+ * All sub-bifurcation and sub-sub-bifurcation percentages use nstt_count as the base denominator.
  * Headers: dark blue #1F4E78, white bold text, center-aligned, thin borders.
- * Data rows: merged cells vertically for parent categories (rowspan).
- * Clickable count badges for drill-down.
  */
 export default function NsttSummaryTable() {
   const { aggregatedResult, openDrilldown } = useNstt()
@@ -46,34 +47,25 @@ export default function NsttSummaryTable() {
   const manAfter   = manual.after_sr_creation      || {}
   const manResolved = manual.resolved              || {}
 
-  // Helpers
+  // Percentage and count helpers (all sub-percentages use nstt_count as base)
   const pct  = (v) => (v == null ? '–' : `${v}%`)
   const cnt  = (v) => (v == null ? 0 : v)
-  const calcSubPct = (v, total) => (!total || total <= 0 || v == null ? '–' : `${((v / total) * 100).toFixed(1)}%`)
+  const calcSubPct = (v) => (!nstt_count || nstt_count <= 0 || v == null ? '–' : `${((v / nstt_count) * 100).toFixed(1)}%`)
 
-  /** Clickable count cell */
-  const CC = ({ drillKey, value, extra }) => (
-    <td className="spec-td spec-count">
-      <button
-        type="button"
-        className="spec-count-btn"
-        onClick={() => openDrilldown(drillKey)}
-        title={`Drill down: ${drillKey}`}
-      >
-        {cnt(value).toLocaleString()}
-      </button>
-      {extra != null && <span className="spec-pct-sub">{pct(extra)}</span>}
-    </td>
-  )
-
-  /** SA + NSA pair */
+  /** SA + NSA pair with count and percentage in the same row */
   const SaNsa = ({ saKey, nsaKey, sa, nsa }) => (
     <>
       <td className="spec-td spec-count">
-        <button type="button" className="spec-count-btn sa" onClick={() => openDrilldown(saKey)}>{cnt(sa)}</button>
+        <button type="button" className="spec-count-btn sa" onClick={() => openDrilldown(saKey)} title={`SA: ${cnt(sa)}`}>
+          {cnt(sa).toLocaleString()}
+        </button>
+        <span className="spec-pct-sub">{calcSubPct(sa)}</span>
       </td>
       <td className="spec-td spec-count">
-        <button type="button" className="spec-count-btn nsa" onClick={() => openDrilldown(nsaKey)}>{cnt(nsa)}</button>
+        <button type="button" className="spec-count-btn nsa" onClick={() => openDrilldown(nsaKey)} title={`NSA: ${cnt(nsa)}`}>
+          {cnt(nsa).toLocaleString()}
+        </button>
+        <span className="spec-pct-sub">{calcSubPct(nsa)}</span>
       </td>
     </>
   )
@@ -97,7 +89,7 @@ export default function NsttSummaryTable() {
         <span className="spec-title-badge">NSTT Dashboard</span>
         <div className="spec-title-actions">
           <span className="spec-eligible-pill">
-            Eligible SRs: <strong>{cnt(nstt_count)}</strong> / {cnt(total_sr)}
+            Eligible SRs (NSTT Count): <strong>{cnt(nstt_count).toLocaleString()}</strong> / {cnt(total_sr).toLocaleString()} ({pct(nstt_percentage)})
           </span>
         </div>
       </div>
@@ -131,39 +123,39 @@ export default function NsttSummaryTable() {
               <th className="spec-th spec-th-sub">Type</th>
               <th className="spec-th spec-th-sub">Count (%)</th>
               <th className="spec-th spec-th-sub">Type</th>
-              <th className="spec-th spec-th-sub">SA NSTT</th>
-              <th className="spec-th spec-th-sub">NSA NSTT</th>
+              <th className="spec-th spec-th-sub">SA NSTT Count (%)</th>
+              <th className="spec-th spec-th-sub">NSA NSTT Count (%)</th>
             </tr>
           </thead>
 
           <tbody>
 
             {/* ════════════════════════════════════════════════════════
-                AUTOMATION — rows 1..8  (rowspan 8)
+                AUTOMATION CAPTURED — 10 rows (Same: 4, Diff: 1, Res: 4, Wrong: 1)
                 ════════════════════════════════════════════════════════ */}
 
             {/* Row 1: Auto > Same NSTT > IM > Auto */}
             <tr className="spec-row spec-row-auto-start">
-              {/* Total SR — spans all automation rows (8) + manual rows (5) + wrong rows (2) */}
-              <td className="spec-td spec-sticky spec-cell-total" rowSpan={17}>
-                <button className="spec-count-btn total" onClick={() => openDrilldown('total_sr')}>
+              {/* Total SR — spans all 14 rows */}
+              <td className="spec-td spec-sticky spec-cell-total" rowSpan={14}>
+                <button className="spec-count-btn total" onClick={() => openDrilldown('total_sr')} title="Drilldown: Total SR">
                   {cnt(total_sr).toLocaleString()}
                 </button>
               </td>
               {/* NSTT Count */}
-              <td className="spec-td spec-sticky spec-cell-nstt" rowSpan={17}>
-                <button className="spec-count-btn nstt" onClick={() => openDrilldown('nstt_count')}>
+              <td className="spec-td spec-sticky spec-cell-nstt" rowSpan={14}>
+                <button className="spec-count-btn nstt" onClick={() => openDrilldown('nstt_count')} title="Drilldown: NSTT Count">
                   {cnt(nstt_count).toLocaleString()}
                 </button>
               </td>
               {/* Percentage NSTT Count */}
-              <td className="spec-td spec-sticky spec-cell-pct" rowSpan={17}>
+              <td className="spec-td spec-sticky spec-cell-pct" rowSpan={14}>
                 {pct(nstt_percentage)}
               </td>
 
-              {/* Sub Bif: Automation Captured (spans 8 automation rows) */}
-              <TC cls="spec-cell-auto spec-label-bold" rowSpan={8}>Automation Captured</TC>
-              <td className="spec-td spec-count spec-cell-auto" rowSpan={8}>
+              {/* Sub Bif: Automation Captured (spans 10 automation rows) */}
+              <TC cls="spec-cell-auto spec-label-bold" rowSpan={10}>Automation Captured</TC>
+              <td className="spec-td spec-count spec-cell-auto" rowSpan={10}>
                 <button className="spec-count-btn" onClick={() => openDrilldown('automation')}>
                   {cnt(automation.count).toLocaleString()}
                 </button>
@@ -211,7 +203,6 @@ export default function NsttSummaryTable() {
 
             {/* Row 3: Auto > Same NSTT > Non IM > Auto */}
             <tr className="spec-row">
-              {/* Sub Sub Bif: Non IM (spans 2 rows) */}
               <TC rowSpan={2}>Non IM</TC>
               <td className="spec-td spec-count" rowSpan={2}>
                 <button className="spec-count-btn" onClick={() => openDrilldown('automation.same_nstt.non_im')}>
@@ -239,7 +230,7 @@ export default function NsttSummaryTable() {
               />
             </tr>
 
-            {/* ── Different NSTT ── */}
+            {/* ── Row 5: Different NSTT ── */}
             <tr className="spec-row spec-row-subgroup">
               <TC cls="spec-label-med">Auto Capture – Different NSTT</TC>
               <td className="spec-td spec-count">
@@ -248,41 +239,48 @@ export default function NsttSummaryTable() {
                 </button>
                 <span className="spec-pct-sub">{pct(diff.percentage)}</span>
               </td>
-              {/* Sub Sub Bifurcation: Type (4 categories aligned) */}
+              {/* Sub Sub Bifurcation: Type (5 categories) */}
               <td className="spec-td spec-subsub-types-cell">
                 <div className="spec-subsub-type-list">
                   <div className="spec-subsub-item">Incident SA auto NSA</div>
                   <div className="spec-subsub-item">Incident NSA auto SA</div>
                   <div className="spec-subsub-item">Both NSA</div>
                   <div className="spec-subsub-item">Both SA</div>
+                  <div className="spec-subsub-item">Impact Unknown / Not Found in Remedy</div>
                 </div>
               </td>
-              {/* Sub Sub Bifurcation: Count (%) (Beside each category) */}
+              {/* Sub Sub Bifurcation: Count (%) (Calculated with base nstt_count) */}
               <td className="spec-td spec-count spec-subsub-counts-cell">
                 <div className="spec-subsub-count-list">
                   <div className="spec-subsub-item">
                     <button className="spec-count-btn" onClick={() => openDrilldown('automation.different_nstt.incident_sa_auto_nsa')}>
                       {cnt(diff.incident_sa_auto_nsa).toLocaleString()}
                     </button>
-                    <span className="spec-pct-sub">{calcSubPct(diff.incident_sa_auto_nsa, diff.count)}</span>
+                    <span className="spec-pct-sub">{calcSubPct(diff.incident_sa_auto_nsa)}</span>
                   </div>
                   <div className="spec-subsub-item">
                     <button className="spec-count-btn" onClick={() => openDrilldown('automation.different_nstt.incident_nsa_auto_sa')}>
                       {cnt(diff.incident_nsa_auto_sa).toLocaleString()}
                     </button>
-                    <span className="spec-pct-sub">{calcSubPct(diff.incident_nsa_auto_sa, diff.count)}</span>
+                    <span className="spec-pct-sub">{calcSubPct(diff.incident_nsa_auto_sa)}</span>
                   </div>
                   <div className="spec-subsub-item">
                     <button className="spec-count-btn" onClick={() => openDrilldown('automation.different_nstt.both_nsa')}>
                       {cnt(diff.both_nsa).toLocaleString()}
                     </button>
-                    <span className="spec-pct-sub">{calcSubPct(diff.both_nsa, diff.count)}</span>
+                    <span className="spec-pct-sub">{calcSubPct(diff.both_nsa)}</span>
                   </div>
                   <div className="spec-subsub-item">
                     <button className="spec-count-btn" onClick={() => openDrilldown('automation.different_nstt.both_sa')}>
                       {cnt(diff.both_sa).toLocaleString()}
                     </button>
-                    <span className="spec-pct-sub">{calcSubPct(diff.both_sa, diff.count)}</span>
+                    <span className="spec-pct-sub">{calcSubPct(diff.both_sa)}</span>
+                  </div>
+                  <div className="spec-subsub-item">
+                    <button className="spec-count-btn" onClick={() => openDrilldown('automation.different_nstt.unknown')}>
+                      {cnt(diff.unknown).toLocaleString()}
+                    </button>
+                    <span className="spec-pct-sub">{calcSubPct(diff.unknown)}</span>
                   </div>
                 </div>
               </td>
@@ -290,73 +288,93 @@ export default function NsttSummaryTable() {
               <TC colSpan={3} cls="spec-na">—</TC>
             </tr>
 
-            {/* ── Resolved NSTT > IM + Non IM ── */}
+            {/* ── Rows 6..9: Resolved NSTT > IM (Auto / Manual) & Non IM (Auto / Manual) ── */}
+            {/* Row 6: Resolved > IM > Auto */}
             <tr className="spec-row spec-row-subgroup">
-              <TC cls="spec-label-med" rowSpan={2}>Auto Capture – Resolved NSTT</TC>
-              <td className="spec-td spec-count" rowSpan={2}>
+              <TC cls="spec-label-med" rowSpan={4}>Auto Capture – Resolved NSTT</TC>
+              <td className="spec-td spec-count" rowSpan={4}>
                 <button className="spec-count-btn" onClick={() => openDrilldown('automation.resolved_nstt')}>
                   {cnt(resolved.count).toLocaleString()}
                 </button>
                 <span className="spec-pct-sub">{pct(resolved.percentage)}</span>
               </td>
-              <TC>IM</TC>
-              <td className="spec-td spec-count">
+              <TC rowSpan={2}>IM</TC>
+              <td className="spec-td spec-count" rowSpan={2}>
                 <button className="spec-count-btn" onClick={() => openDrilldown('automation.resolved_nstt.im')}>
                   {cnt(resolvedIm.count ?? ((resolvedIm.auto ?? 0) + (resolvedIm.manual ?? 0))).toLocaleString()}
                 </button>
                 <span className="spec-pct-sub">{pct(resolvedIm.percentage)}</span>
               </td>
-              {/* Detailed Bifurcation: Auto / Manual across 3 cols */}
-              <td className="spec-td" colSpan={3}>
-                <div className="spec-chip-row">
-                  <button className="spec-chip" onClick={() => openDrilldown('automation.resolved_nstt.im')}>
-                    Auto: <strong>{cnt(resolvedIm.auto)}</strong>
-                  </button>
-                  <button className="spec-chip" onClick={() => openDrilldown('automation.resolved_nstt.im')}>
-                    Manual: <strong>{cnt(resolvedIm.manual)}</strong>
-                  </button>
-                </div>
+              <TC>Auto</TC>
+              <td className="spec-td spec-count" colSpan={2}>
+                <button className="spec-count-btn" onClick={() => openDrilldown('automation.resolved_nstt.im.auto')}>
+                  {cnt(resolvedIm.auto).toLocaleString()}
+                </button>
+                <span className="spec-pct-sub">{calcSubPct(resolvedIm.auto)}</span>
               </td>
             </tr>
+
+            {/* Row 7: Resolved > IM > Manual */}
             <tr className="spec-row">
-              <TC>Non IM</TC>
-              <td className="spec-td spec-count">
+              <TC>Manual</TC>
+              <td className="spec-td spec-count" colSpan={2}>
+                <button className="spec-count-btn" onClick={() => openDrilldown('automation.resolved_nstt.im.manual')}>
+                  {cnt(resolvedIm.manual).toLocaleString()}
+                </button>
+                <span className="spec-pct-sub">{calcSubPct(resolvedIm.manual)}</span>
+              </td>
+            </tr>
+
+            {/* Row 8: Resolved > Non IM > Auto */}
+            <tr className="spec-row">
+              <TC rowSpan={2}>Non IM</TC>
+              <td className="spec-td spec-count" rowSpan={2}>
                 <button className="spec-count-btn" onClick={() => openDrilldown('automation.resolved_nstt.non_im')}>
                   {cnt(resolvedNonIm.count ?? ((resolvedNonIm.auto ?? 0) + (resolvedNonIm.manual ?? 0))).toLocaleString()}
                 </button>
                 <span className="spec-pct-sub">{pct(resolvedNonIm.percentage)}</span>
               </td>
-              <td className="spec-td" colSpan={3}>
-                <div className="spec-chip-row">
-                  <button className="spec-chip" onClick={() => openDrilldown('automation.resolved_nstt.non_im')}>
-                    Auto: <strong>{cnt(resolvedNonIm.auto)}</strong>
-                  </button>
-                  <button className="spec-chip" onClick={() => openDrilldown('automation.resolved_nstt.non_im')}>
-                    Manual: <strong>{cnt(resolvedNonIm.manual)}</strong>
-                  </button>
-                </div>
+              <TC>Auto</TC>
+              <td className="spec-td spec-count" colSpan={2}>
+                <button className="spec-count-btn" onClick={() => openDrilldown('automation.resolved_nstt.non_im.auto')}>
+                  {cnt(resolvedNonIm.auto).toLocaleString()}
+                </button>
+                <span className="spec-pct-sub">{calcSubPct(resolvedNonIm.auto)}</span>
               </td>
             </tr>
 
-            {/* ── Wrong NSTT by Automation (1 row) ── */}
+            {/* Row 9: Resolved > Non IM > Manual */}
+            <tr className="spec-row">
+              <TC>Manual</TC>
+              <td className="spec-td spec-count" colSpan={2}>
+                <button className="spec-count-btn" onClick={() => openDrilldown('automation.resolved_nstt.non_im.manual')}>
+                  {cnt(resolvedNonIm.manual).toLocaleString()}
+                </button>
+                <span className="spec-pct-sub">{calcSubPct(resolvedNonIm.manual)}</span>
+              </td>
+            </tr>
+
+            {/* ── Row 10: Wrong NSTT by Automation (1 row) ── */}
             <tr className="spec-row spec-row-subgroup">
               <TC cls="spec-label-med">Wrong NSTT Attached by Automation</TC>
               <td className="spec-td spec-count">
                 <button className="spec-count-btn" onClick={() => openDrilldown('wrong_nstt.automation_ang_txn')}>
                   {cnt(wrong_nstt.automation_ang_txn).toLocaleString()}
                 </button>
+                <span className="spec-pct-sub">{calcSubPct(wrong_nstt.automation_ang_txn)}</span>
               </td>
-              <TC colSpan={5} cls="spec-na">—</TC>
+              <TC colSpan={2} cls="spec-na">—</TC>
+              <TC colSpan={3} cls="spec-na">—</TC>
             </tr>
 
             {/* ════════════════════════════════════════════════════════
-                MANUAL CAPTURED — rows 9..13
+                MANUAL CAPTURED — 4 rows (Before: 1, After: 1, Res: 1, Wrong: 1)
                 ════════════════════════════════════════════════════════ */}
 
-            {/* Row 9: Manual > Before SR Creation */}
+            {/* Row 11: Manual > Before SR Creation */}
             <tr className="spec-row spec-row-manual-start">
-              <TC cls="spec-cell-manual spec-label-bold" rowSpan={5}>Manual Captured</TC>
-              <td className="spec-td spec-count spec-cell-manual" rowSpan={5}>
+              <TC cls="spec-cell-manual spec-label-bold" rowSpan={4}>Manual Captured</TC>
+              <td className="spec-td spec-count spec-cell-manual" rowSpan={4}>
                 <button className="spec-count-btn manual" onClick={() => openDrilldown('manual')}>
                   {cnt(manual.count).toLocaleString()}
                 </button>
@@ -369,7 +387,8 @@ export default function NsttSummaryTable() {
                 </button>
                 <span className="spec-pct-sub">{pct(manBefore.percentage)}</span>
               </td>
-              <TC colSpan={3} cls="spec-na">—</TC>
+              <TC colSpan={2} cls="spec-na">—</TC>
+              <TC cls="spec-na">—</TC>
               <SaNsa
                 saKey="manual.before_sr_creation.sa"
                 nsaKey="manual.before_sr_creation.nsa"
@@ -378,7 +397,7 @@ export default function NsttSummaryTable() {
               />
             </tr>
 
-            {/* Row 10: Manual > After SR Creation */}
+            {/* Row 12: Manual > After SR Creation */}
             <tr className="spec-row">
               <TC cls="spec-label-med">Manual NSTT After SR Creation</TC>
               <td className="spec-td spec-count">
@@ -387,7 +406,8 @@ export default function NsttSummaryTable() {
                 </button>
                 <span className="spec-pct-sub">{pct(manAfter.percentage)}</span>
               </td>
-              <TC colSpan={3} cls="spec-na">—</TC>
+              <TC colSpan={2} cls="spec-na">—</TC>
+              <TC cls="spec-na">—</TC>
               <SaNsa
                 saKey="manual.after_sr_creation.sa"
                 nsaKey="manual.after_sr_creation.nsa"
@@ -396,7 +416,7 @@ export default function NsttSummaryTable() {
               />
             </tr>
 
-            {/* Row 11: Manual > Resolved */}
+            {/* Row 13: Manual > Resolved */}
             <tr className="spec-row">
               <TC cls="spec-label-med">Manual NSTT Resolved</TC>
               <td className="spec-td spec-count">
@@ -405,7 +425,8 @@ export default function NsttSummaryTable() {
                 </button>
                 <span className="spec-pct-sub">{pct(manResolved.percentage)}</span>
               </td>
-              <TC colSpan={3} cls="spec-na">—</TC>
+              <TC colSpan={2} cls="spec-na">—</TC>
+              <TC cls="spec-na">—</TC>
               <SaNsa
                 saKey="manual.resolved.sa"
                 nsaKey="manual.resolved.nsa"
@@ -414,15 +435,17 @@ export default function NsttSummaryTable() {
               />
             </tr>
 
-            {/* Row 12: Wrong NSTT by Engineer */}
+            {/* Row 14: Wrong NSTT by Engineer */}
             <tr className="spec-row">
               <TC cls="spec-label-med">Wrong NSTT Attached by Engineer</TC>
               <td className="spec-td spec-count">
                 <button className="spec-count-btn" onClick={() => openDrilldown('wrong_nstt.engineer_ang_txn')}>
                   {cnt(wrong_nstt.engineer_ang_txn).toLocaleString()}
                 </button>
+                <span className="spec-pct-sub">{calcSubPct(wrong_nstt.engineer_ang_txn)}</span>
               </td>
-              <TC colSpan={5} cls="spec-na">—</TC>
+              <TC colSpan={2} cls="spec-na">—</TC>
+              <TC colSpan={3} cls="spec-na">—</TC>
             </tr>
 
           </tbody>
@@ -445,3 +468,4 @@ export default function NsttSummaryTable() {
     </div>
   )
 }
+

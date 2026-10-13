@@ -41,8 +41,11 @@ export default function NsttDrillDown() {
     if (!searchTerm.trim()) return records
     const term = searchTerm.toLowerCase()
     return records.filter((rec) => {
+      const srNum = String(rec.SRNUMBER || rec.SR_NUMBER || rec['SR NUMBER'] || rec.SRNO || rec['SR NO'] || '')
       return (
+        srNum.toLowerCase().includes(term) ||
         String(rec.INCIDENTID || '').toLowerCase().includes(term) ||
+        String(rec.AUTOMATION_UPDATE_NSTT_NUMBER || '').toLowerCase().includes(term) ||
         String(rec.ATTRIBUTEDTO || '').toLowerCase().includes(term) ||
         String(rec.FACTORY || '').toLowerCase().includes(term) ||
         String(rec.DESCRIPTION || '').toLowerCase().includes(term) ||
@@ -125,7 +128,7 @@ export default function NsttDrillDown() {
             <span className="search-icon" aria-hidden="true">🔍</span>
             <input
               type="text"
-              placeholder="Search by Incident ID, Attributed To, Factory, Description..."
+              placeholder="Search by SR Number, Incident ID, Automation NSTT, Attributed To..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value)
@@ -182,16 +185,14 @@ export default function NsttDrillDown() {
                   <tr>
                     <th className="sticky-col">#</th>
                     <th className="sticky-col-2">INCIDENTID</th>
+                    <th>SR NUMBER</th>
+                    <th>AUTOMATION UPDATE NSTT NUMBER</th>
                     <th>ATTRIBUTEDTO</th>
                     <th>FACTORY</th>
                     <th>AUTO_ALLOCATION</th>
                     <th>INCIDENT_IMPACT</th>
                     <th>CAPTURE_TYPE</th>
                     <th>NSTT_TYPE</th>
-                    <th>TIMING_TYPE</th>
-                    <th>DIFF_CATEGORY</th>
-                    <th>EXCEPTION</th>
-                    <th>FAILURE_CATEGORY</th>
                     <th>SRCREATIONTIME</th>
                     <th>UP_TIME</th>
                     <th>Submit Date</th>
@@ -206,6 +207,12 @@ export default function NsttDrillDown() {
                         <td className="sticky-col text-muted">{rowIdx}</td>
                         <td className="sticky-col-2 font-mono font-bold">
                           {r.INCIDENTID || '—'}
+                        </td>
+                        <td className="font-mono">
+                          {r.SRNUMBER || r.SR_NUMBER || r['SR NUMBER'] || r.SRNO || r['SR NO'] || '—'}
+                        </td>
+                        <td className="font-mono text-sm" title={r.AUTOMATION_UPDATE_NSTT_NUMBER || ''}>
+                          {r.AUTOMATION_UPDATE_NSTT_NUMBER || '—'}
                         </td>
                         <td>{r.ATTRIBUTEDTO || '—'}</td>
                         <td>
@@ -225,22 +232,6 @@ export default function NsttDrillDown() {
                         </td>
                         <td>{r.capture_type || '—'}</td>
                         <td>{r.nstt_type || '—'}</td>
-                        <td>{r.timing_type || '—'}</td>
-                        <td>{r.diff_nstt_category || '—'}</td>
-                        <td>
-                          {r.exception_type ? (
-                            <span className="pill-warning" title={r.exception_type}>
-                              {r.exception_type}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td>
-                          {r.failure_category ? (
-                            <span className="pill-error" title={r.failure_category}>
-                              {r.failure_category}
-                            </span>
-                          ) : '—'}
-                        </td>
                         <td className="font-mono text-sm">{r.SRCREATIONTIME || '—'}</td>
                         <td className="font-mono text-sm">{r.UP_TIME || '—'}</td>
                         <td className="font-mono text-sm">{r['Submit Date'] || '—'}</td>

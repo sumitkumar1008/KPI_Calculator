@@ -87,11 +87,19 @@ function NsttCalculator({ fileFormat = 'all' }) {
       </div>
 
       {error && (
-        <div className="message message--error" role="alert" style={{ margin: '1rem 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span><span aria-hidden="true">⚠️ </span>{error}</span>
-          <button type="button" className="text-button" onClick={reset} style={{ marginLeft: '1rem', color: 'inherit', textDecoration: 'underline' }}>
-            Dismiss
-          </button>
+        <div className="nstt-error-banner" role="alert">
+          <div className="nstt-error-header">
+            <span className="nstt-error-icon" aria-hidden="true">⚠️</span>
+            <div>
+              <h4 className="nstt-error-title">File Validation / Upload Error</h4>
+              <p className="nstt-error-msg">{error}</p>
+            </div>
+          </div>
+          <div className="nstt-error-actions">
+            <button type="button" className="nstt-error-dismiss" onClick={reset}>
+              Clear &amp; Try Again
+            </button>
+          </div>
         </div>
       )}
 
@@ -101,93 +109,93 @@ function NsttCalculator({ fileFormat = 'all' }) {
           <div className="nstt-box-header">
             <span className="nstt-badge">Dataset 01</span>
             <h3>Namo Report (Primary Data)</h3>
-              </div>
-              <div
-                className={`upload-card nstt-upload-card ${isDragging1 ? 'is-dragging' : ''} ${namoFile ? 'has-file' : ''}`}
-                onDragEnter={(e) => { e.preventDefault(); setIsDragging1(true) }}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging1(true) }}
-                onDragLeave={(e) => { if (e.currentTarget === e.target) setIsDragging1(false) }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setIsDragging1(false)
-                  selectFile1(e.dataTransfer.files?.[0])
-                }}
-              >
-                <input
-                  ref={inputRef1}
-                  id="nstt-file-input-1"
-                  type="file"
-                  accept={acceptedFormats}
-                  hidden
-                  onChange={(e) => selectFile1(e.target.files?.[0])}
-                />
-
-                {namoFile ? (
-                  <div className="file-state">
-                    <div className="file-icon-wrap"><FileIcon /></div>
-                    <p className="file-name" title={namoFile.name}>{namoFile.name}</p>
-                    <p className="file-meta">{ext1} <span aria-hidden="true">•</span> {formatFileSize(namoFile.size)}</p>
-                    <button type="button" className="text-button" onClick={resetFile1}>Change file</button>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <div className="upload-icon-wrap"><FileIcon compact /></div>
-                    <h3>Upload Namo Report</h3>
-                    <p>Drag &amp; drop file here</p>
-                    <span className="or-divider"><span>or</span></span>
-                    <label className="choose-button" htmlFor="nstt-file-input-1">Choose file</label>
-                  </div>
-                )}
-              </div>
-              {localError1 && <p className="message message--error" role="alert"><span aria-hidden="true">!</span>{localError1}</p>}
-            </div>
-
-            {/* Upload Box 2 - Remedy Report */}
-            <div className="nstt-upload-col">
-              <div className="nstt-box-header">
-                <span className="nstt-badge">Dataset 02</span>
-                <h3>Remedy Report (Secondary Data)</h3>
-              </div>
-              <div
-                className={`upload-card nstt-upload-card ${isDragging2 ? 'is-dragging' : ''} ${remedyFile ? 'has-file' : ''}`}
-                onDragEnter={(e) => { e.preventDefault(); setIsDragging2(true) }}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging2(true) }}
-                onDragLeave={(e) => { if (e.currentTarget === e.target) setIsDragging2(false) }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setIsDragging2(false)
-                  selectFile2(e.dataTransfer.files?.[0])
-                }}
-              >
-                <input
-                  ref={inputRef2}
-                  id="nstt-file-input-2"
-                  type="file"
-                  accept={acceptedFormats}
-                  hidden
-                  onChange={(e) => selectFile2(e.target.files?.[0])}
-                />
-
-                {remedyFile ? (
-                  <div className="file-state">
-                    <div className="file-icon-wrap"><FileIcon /></div>
-                    <p className="file-name" title={remedyFile.name}>{remedyFile.name}</p>
-                    <p className="file-meta">{ext2} <span aria-hidden="true">•</span> {formatFileSize(remedyFile.size)}</p>
-                    <button type="button" className="text-button" onClick={resetFile2}>Change file</button>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <div className="upload-icon-wrap"><FileIcon compact /></div>
-                    <h3>Upload Remedy Report</h3>
-                    <p>Drag &amp; drop file here</p>
-                    <span className="or-divider"><span>or</span></span>
-                    <label className="choose-button" htmlFor="nstt-file-input-2">Choose file</label>
-                  </div>
-                )}
-              </div>
-              {localError2 && <p className="message message--error" role="alert"><span aria-hidden="true">!</span>{localError2}</p>}
-            </div>
           </div>
+          <div
+            className={`upload-card nstt-upload-card ${isDragging1 ? 'is-dragging' : ''} ${namoFile ? 'has-file' : ''} ${error && error.includes('Dataset 01') ? 'has-card-error' : ''}`}
+            onDragEnter={(e) => { e.preventDefault(); setIsDragging1(true) }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging1(true) }}
+            onDragLeave={(e) => { if (e.currentTarget === e.target) setIsDragging1(false) }}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragging1(false)
+              selectFile1(e.dataTransfer.files?.[0])
+            }}
+          >
+            <input
+              ref={inputRef1}
+              id="nstt-file-input-1"
+              type="file"
+              accept={acceptedFormats}
+              hidden
+              onChange={(e) => selectFile1(e.target.files?.[0])}
+            />
+
+            {namoFile ? (
+              <div className="file-state">
+                <div className="file-icon-wrap"><FileIcon /></div>
+                <p className="file-name" title={namoFile.name}>{namoFile.name}</p>
+                <p className="file-meta">{ext1} <span aria-hidden="true">•</span> {formatFileSize(namoFile.size)}</p>
+                <button type="button" className="text-button" onClick={resetFile1}>Change file</button>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="upload-icon-wrap"><FileIcon compact /></div>
+                <h3>Upload Namo Report</h3>
+                <p>Drag &amp; drop file here</p>
+                <span className="or-divider"><span>or</span></span>
+                <label className="choose-button" htmlFor="nstt-file-input-1">Choose file</label>
+              </div>
+            )}
+          </div>
+          {localError1 && <p className="message message--error" role="alert"><span aria-hidden="true">!</span>{localError1}</p>}
+        </div>
+
+        {/* Upload Box 2 - Remedy Report */}
+        <div className="nstt-upload-col">
+          <div className="nstt-box-header">
+            <span className="nstt-badge">Dataset 02</span>
+            <h3>Remedy Report (Secondary Data)</h3>
+          </div>
+          <div
+            className={`upload-card nstt-upload-card ${isDragging2 ? 'is-dragging' : ''} ${remedyFile ? 'has-file' : ''} ${error && error.includes('Dataset 02') ? 'has-card-error' : ''}`}
+            onDragEnter={(e) => { e.preventDefault(); setIsDragging2(true) }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging2(true) }}
+            onDragLeave={(e) => { if (e.currentTarget === e.target) setIsDragging2(false) }}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragging2(false)
+              selectFile2(e.dataTransfer.files?.[0])
+            }}
+          >
+            <input
+              ref={inputRef2}
+              id="nstt-file-input-2"
+              type="file"
+              accept={acceptedFormats}
+              hidden
+              onChange={(e) => selectFile2(e.target.files?.[0])}
+            />
+
+            {remedyFile ? (
+              <div className="file-state">
+                <div className="file-icon-wrap"><FileIcon /></div>
+                <p className="file-name" title={remedyFile.name}>{remedyFile.name}</p>
+                <p className="file-meta">{ext2} <span aria-hidden="true">•</span> {formatFileSize(remedyFile.size)}</p>
+                <button type="button" className="text-button" onClick={resetFile2}>Change file</button>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="upload-icon-wrap"><FileIcon compact /></div>
+                <h3>Upload Remedy Report</h3>
+                <p>Drag &amp; drop file here</p>
+                <span className="or-divider"><span>or</span></span>
+                <label className="choose-button" htmlFor="nstt-file-input-2">Choose file</label>
+              </div>
+            )}
+          </div>
+          {localError2 && <p className="message message--error" role="alert"><span aria-hidden="true">!</span>{localError2}</p>}
+        </div>
+      </div>
 
         <div className="nstt-actions">
           <button

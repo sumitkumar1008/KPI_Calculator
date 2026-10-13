@@ -43,13 +43,26 @@ def _is_blank(val: Any) -> bool:
     return str(val).strip().upper() in ("", "NAN", "NONE", "NULL")
 
 
+def _extract_nstt_tokens(val: Any) -> List[str]:
+    """Splits a string or collection of NSTT / incident numbers by comma, semicolon, slash, whitespace, pipe."""
+    if _is_blank(val):
+        return []
+    import re
+    if isinstance(val, (list, tuple, set)):
+        tokens = []
+        for item in val:
+            tokens.extend(_extract_nstt_tokens(item))
+        return tokens
+    return [t.strip().upper() for t in re.split(r"[,;\s/|]+", str(val)) if t.strip()]
+
+
 def apply_automation_classifier(records: List[Dict[str, Any]]) -> None:
     """
     Mutates records in-place, setting 'nstt_type' for Automation records.
 
     Classification is performed in this strict order:
       1. Resolved NSTT (SRCREATIONTIME > UP_TIME)
-      2. Same NSTT (INCIDENTID == AUTOMATION_UPDATE_NSTT_NUMBER)
+      2. Same NSTT (INCIDENTID matches any single token in AUTOMATION_UPDATE_NSTT_NUMBER)
       3. Different NSTT (fallthrough)
 
     Args:
@@ -77,14 +90,13 @@ def apply_automation_classifier(records: List[Dict[str, Any]]) -> None:
             rec["nstt_type"] = "Resolved NSTT"
             continue
 
-        # Check 2: Same NSTT — INCIDENTID matches AUTOMATION_UPDATE_NSTT_NUMBER
-        if (
-            not _is_blank(incident_id)
-            and not _is_blank(auto_nstt_num)
-            and str(incident_id).strip().upper() == str(auto_nstt_num).strip().upper()
-        ):
-            rec["nstt_type"] = "Same NSTT"
-            continue
+        # Check 2: Same NSTT — INCIDENTID matches any single AUTOMATION_UPDATE_NSTT_NUMBER token
+        if not _is_blank(incident_id) and not _is_blank(auto_nstt_num):
+            inc_tokens = _extract_nstt_tokens(incident_id)
+            auto_tokens = _extract_nstt_tokens(auto_nstt_num)
+            if any(inc_tok in auto_tokens for inc_tok in inc_tokens):
+                rec["nstt_type"] = "Same NSTT"
+                continue
 
         # Check 3: Different NSTT — all other Automation records
         rec["nstt_type"] = "Different NSTT"

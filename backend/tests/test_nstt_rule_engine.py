@@ -177,13 +177,26 @@ class TestAutomationClassifier:
         apply_automation_classifier([rec])
         assert rec["nstt_type"] == "Same NSTT"
 
+    def test_same_nstt_when_any_token_matches(self):
+        """INCIDENTID matches ANY token in comma/space separated AUTOMATION_UPDATE_NSTT_NUMBER → Same NSTT."""
+        from app.services.nstt.rules.automation_classifier import apply_automation_classifier
+        rec = make_record(
+            capture_type="Automation",
+            INCIDENTID="INC002",
+            AUTOMATION_UPDATE_NSTT_NUMBER="INC001, INC002, INC003",
+            SRCREATIONTIME="2026-09-01 10:00:00",
+            UP_TIME="2026-09-01 15:00:00",
+        )
+        apply_automation_classifier([rec])
+        assert rec["nstt_type"] == "Same NSTT"
+
     def test_different_nstt_when_ids_differ(self):
         """INCIDENTID != AUTOMATION_UPDATE_NSTT_NUMBER → Different NSTT."""
         from app.services.nstt.rules.automation_classifier import apply_automation_classifier
         rec = make_record(
             capture_type="Automation",
             INCIDENTID="INC001",
-            AUTOMATION_UPDATE_NSTT_NUMBER="INC999",  # different
+            AUTOMATION_UPDATE_NSTT_NUMBER="INC999, INC888",  # neither matches
             SRCREATIONTIME="2026-09-01 10:00:00",
             UP_TIME="2026-09-01 15:00:00",
         )

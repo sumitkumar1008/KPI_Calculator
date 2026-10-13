@@ -52,18 +52,19 @@ DIFF_CAT_INCIDENT_SA_AUTO_NSA = "Incident SA auto NSA"
 DIFF_CAT_INCIDENT_NSA_AUTO_SA = "Incident NSA auto SA"
 DIFF_CAT_BOTH_NSA = "Both NSA"
 DIFF_CAT_BOTH_SA = "Both SA"
+DIFF_CAT_UNKNOWN = "Impact Unknown / Not Found in Remedy"
 
 
-def _classify_different_nstt(incident_impact: Optional[str], auto_impact: Optional[str]) -> Optional[str]:
+def _classify_different_nstt(incident_impact: Optional[str], auto_impact: Optional[str]) -> str:
     """
-    Returns one of 4 exact spec-defined category labels based on impact values.
+    Returns one of 5 exact spec-defined category labels based on impact values.
 
     Args:
         incident_impact: "SA", "NSA", or None
         auto_impact: "SA", "NSA", or None (derived separately)
 
     Returns:
-        One of the 4 exact labels, or None if both impacts are unknown.
+        One of the 5 exact labels.
     """
     if incident_impact == "SA" and auto_impact == "NSA":
         return DIFF_CAT_INCIDENT_SA_AUTO_NSA
@@ -73,7 +74,7 @@ def _classify_different_nstt(incident_impact: Optional[str], auto_impact: Option
         return DIFF_CAT_BOTH_NSA
     if incident_impact == "SA" and auto_impact == "SA":
         return DIFF_CAT_BOTH_SA
-    return None
+    return DIFF_CAT_UNKNOWN
 
 
 def apply_different_nstt(records: List[Dict[str, Any]], remedy_impact_map: Optional[Dict[str, Optional[str]]] = None) -> None:
@@ -103,8 +104,14 @@ def apply_different_nstt(records: List[Dict[str, Any]], remedy_impact_map: Optio
         auto_impact: Optional[str] = None
 
         if remedy_impact_map and auto_nstt_num:
-            key = str(auto_nstt_num).strip().upper()
-            auto_impact = remedy_impact_map.get(key)
+            import re
+            auto_tokens = [t.strip().upper() for t in re.split(r"[,;\s/|]+", str(auto_nstt_num)) if t.strip()]
+            for tok in auto_tokens:
+                if tok in remedy_impact_map and remedy_impact_map[tok] is not None:
+                    auto_impact = remedy_impact_map[tok]
+                    break
+            if auto_impact is None and auto_tokens:
+                auto_impact = remedy_impact_map.get(auto_tokens[0])
         else:
             # Fallback: use INCIDENT_IMPACT as a proxy when no separate lookup available
             # This means the category will be "Both SA" or "Both NSA" by default

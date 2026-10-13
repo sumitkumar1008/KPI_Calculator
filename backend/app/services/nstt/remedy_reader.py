@@ -207,10 +207,23 @@ def parse_remedy_file(file_input: Any, filename: str = "") -> Dict[str, Any]:
     col_map, missing_cols = validate_remedy_headers(raw_headers)
 
     if missing_cols:
+        # Check if the uploaded file is actually a Namo report
+        from app.services.nstt.namo_reader import validate_namo_headers
+        _, namo_missing = validate_namo_headers(raw_headers)
+        if len(namo_missing) <= 2:
+            return {
+                "success": False,
+                "error": "Dataset 02 Error: The file uploaded as 'Remedy Report' appears to be a Namo Report (detected Namo columns). Please upload the Remedy Report in Dataset 02 and the Namo Report in Dataset 01.",
+                "missing_columns": missing_cols,
+                "df": None,
+                "row_count": 0,
+            }
+
         missing_str = ", ".join(missing_cols)
+        found_str = ", ".join(raw_headers[:8]) + ("..." if len(raw_headers) > 8 else "")
         return {
             "success": False,
-            "error": f"Remedy file missing required column(s): {missing_str}",
+            "error": f"Dataset 02 (Remedy Report) Error: Missing required column(s): {missing_str}. (Found: {found_str}). Please ensure you upload the correct Remedy report file.",
             "missing_columns": missing_cols,
             "df": None,
             "row_count": 0,

@@ -33,12 +33,19 @@ NAMO_HEADER_ALIASES: Dict[str, List[str]] = {
         "INCIDENT ID",
         "INCIDENT_NUMBER",
         "INCIDENT NUMBER",
+        "INCIDENTNO",
+        "INCIDENT_NO",
+        "INCIDENT NO",
+    ],
+    "SRNUMBER": [
         "SRNUMBER",
         "SR_NUMBER",
         "SR NUMBER",
         "SR_NO",
         "SR NO",
         "SRNO",
+        "SERVICE_REQUEST_NUMBER",
+        "SERVICE REQUEST NUMBER",
     ],
     "ATTRIBUTEDTO": [
         "ATTRIBUTEDTO",
@@ -143,6 +150,14 @@ def validate_namo_headers(columns: List[Any]) -> Tuple[Dict[str, str], List[str]
             column_map[raw_col] = canonical
             found_canonicals.add(canonical)
 
+    # Fallback: if INCIDENTID not found, check if a column mapped to SRNUMBER exists
+    if "INCIDENTID" not in found_canonicals:
+        for raw_col, can in list(column_map.items()):
+            if can == "SRNUMBER":
+                column_map[raw_col] = "INCIDENTID"
+                found_canonicals.add("INCIDENTID")
+                break
+
     missing_cols = [c for c in REQUIRED_NAMO_COLUMNS if c not in found_canonicals]
     return column_map, missing_cols
 
@@ -217,10 +232,23 @@ def parse_namo_file(file_input: Any, filename: str = "") -> Dict[str, Any]:
     col_map, missing_cols = validate_namo_headers(raw_headers)
 
     if missing_cols:
+        # Check if the uploaded file is actually a Remedy report
+        from app.services.nstt.remedy_reader import validate_remedy_headers
+        _, remedy_missing = validate_remedy_headers(raw_headers)
+        if len(remedy_missing) <= 2:
+            return {
+                "success": False,
+                "error": "Dataset 01 Error: The file uploaded as 'Namo Report' appears to be a Remedy Report (detected Remedy columns). Please upload the Namo Report in Dataset 01 and the Remedy Report in Dataset 02.",
+                "missing_columns": missing_cols,
+                "df": None,
+                "row_count": 0,
+            }
+
         missing_str = ", ".join(missing_cols)
+        found_str = ", ".join(raw_headers[:8]) + ("..." if len(raw_headers) > 8 else "")
         return {
             "success": False,
-            "error": f"Namo file missing required column(s): {missing_str}",
+            "error": f"Dataset 01 (Namo Report) Error: Missing required column(s): {missing_str}. (Found: {found_str}). Please ensure you upload the correct Namo report file.",
             "missing_columns": missing_cols,
             "df": None,
             "row_count": 0,

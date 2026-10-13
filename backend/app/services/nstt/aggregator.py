@@ -63,6 +63,7 @@ DIFF_INC_SA_AUTO_NSA = "Incident SA auto NSA"
 DIFF_INC_NSA_AUTO_SA = "Incident NSA auto SA"
 DIFF_BOTH_NSA = "Both NSA"
 DIFF_BOTH_SA = "Both SA"
+DIFF_UNKNOWN = "Impact Unknown / Not Found in Remedy"
 
 
 def _calc_percentage(numerator: int, denominator: int) -> float:
@@ -107,6 +108,7 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     diff_inc_nsa_auto_sa = 0
     diff_both_nsa = 0
     diff_both_sa = 0
+    diff_unknown = 0
 
     # Resolved NSTT (Automation)
     resolved_im_auto = 0
@@ -132,6 +134,19 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     fail_ring = 0
     fail_section = 0
     fail_unstitched = 0
+
+    # Level counters — counted independently so summary matches drill-down exactly.
+    # These count ALL records at each hierarchy level, regardless of sub-field values.
+    same_nstt_level = 0
+    diff_nstt_level = 0
+    resolved_nstt_level = 0
+    same_im_level = 0
+    same_non_im_level = 0
+    resolved_im_level = 0
+    resolved_non_im_level = 0
+    man_res_level = 0
+    man_before_level = 0
+    man_after_level = 0
 
     for r in records:
         is_sr = bool(r.get("is_total_sr"))
@@ -176,7 +191,11 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             auto_count += 1
 
             if nstt_type == "Same NSTT":
+                # Count at the Same NSTT level (matches drill-down predicate)
+                same_nstt_level += 1
+
                 if factory_type == "IM":
+                    same_im_level += 1
                     if alloc_type == "Auto":
                         if impact_type == "SA":
                             same_im_auto_sa += 1
@@ -188,6 +207,7 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                         elif impact_type == "NSA":
                             same_im_man_nsa += 1
                 elif factory_type == "Non IM":
+                    same_non_im_level += 1
                     if alloc_type == "Auto":
                         if impact_type == "SA":
                             same_non_im_auto_sa += 1
@@ -200,6 +220,9 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                             same_non_im_man_nsa += 1
 
             elif nstt_type == "Different NSTT":
+                # Count at the Different NSTT level (matches drill-down predicate)
+                diff_nstt_level += 1
+
                 if diff_cat == DIFF_INC_SA_AUTO_NSA:
                     diff_inc_sa_auto_nsa += 1
                 elif diff_cat == DIFF_INC_NSA_AUTO_SA:
@@ -208,14 +231,23 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                     diff_both_nsa += 1
                 elif diff_cat == DIFF_BOTH_SA:
                     diff_both_sa += 1
+                elif diff_cat == DIFF_UNKNOWN:
+                    diff_unknown += 1
+                else:
+                    diff_unknown += 1
 
             elif nstt_type == "Resolved NSTT":
+                # Count at the Resolved NSTT level (matches drill-down predicate)
+                resolved_nstt_level += 1
+
                 if factory_type == "IM":
+                    resolved_im_level += 1
                     if alloc_type == "Auto":
                         resolved_im_auto += 1
                     elif alloc_type == "Manual":
                         resolved_im_manual += 1
                 elif factory_type == "Non IM":
+                    resolved_non_im_level += 1
                     if alloc_type == "Auto":
                         resolved_non_im_auto += 1
                     elif alloc_type == "Manual":
@@ -225,63 +257,72 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             manual_count += 1
 
             if timing_type == "Resolved":
+                man_res_level += 1
                 if impact_type == "SA":
                     man_res_sa += 1
                 elif impact_type == "NSA":
                     man_res_nsa += 1
             elif timing_type == "Before SR Creation":
+                man_before_level += 1
                 if impact_type == "SA":
                     man_before_sa += 1
                 elif impact_type == "NSA":
                     man_before_nsa += 1
             elif timing_type == "After SR Creation":
+                man_after_level += 1
                 if impact_type == "SA":
                     man_after_sa += 1
                 elif impact_type == "NSA":
                     man_after_nsa += 1
 
-    # Aggregate Same NSTT IM & Non-IM subtotals
+    # Leaf-level subtotals (these still sum up correctly for breakdown display)
     same_im_auto_total = same_im_auto_sa + same_im_auto_nsa
     same_im_man_total = same_im_man_sa + same_im_man_nsa
-    same_im_total = same_im_auto_total + same_im_man_total
+    same_im_total = same_im_level  # Use level counter, not leaf sum
 
     same_non_im_auto_total = same_non_im_auto_sa + same_non_im_auto_nsa
     same_non_im_man_total = same_non_im_man_sa + same_non_im_man_nsa
-    same_non_im_total = same_non_im_auto_total + same_non_im_man_total
+    same_non_im_total = same_non_im_level  # Use level counter, not leaf sum
 
-    same_nstt_total = same_im_total + same_non_im_total
+    # Use the level counter — this is the TRUE count of all "Same NSTT" records
+    same_nstt_total = same_nstt_level
 
-    # Aggregate Different NSTT subtotals
-    diff_nstt_total = diff_inc_sa_auto_nsa + diff_inc_nsa_auto_sa + diff_both_nsa + diff_both_sa
+    # Use the level counter — this is the TRUE count of all "Different NSTT" records
+    diff_nstt_total = diff_nstt_level
 
-    # Aggregate Resolved NSTT subtotals
-    resolved_im_total = resolved_im_auto + resolved_im_manual
-    resolved_non_im_total = resolved_non_im_auto + resolved_non_im_manual
-    resolved_nstt_total = resolved_im_total + resolved_non_im_total
+    # Use the level counter — this is the TRUE count of all "Resolved NSTT" records
+    resolved_im_total = resolved_im_level
+    resolved_non_im_total = resolved_non_im_level
+    resolved_nstt_total = resolved_nstt_level
 
-    # Manual subtotals
-    man_res_total = man_res_sa + man_res_nsa
-    man_before_total = man_before_sa + man_before_nsa
-    man_after_total = man_after_sa + man_after_nsa
+    # Manual subtotals — use level counters
+    man_res_total = man_res_level
+    man_before_total = man_before_level
+    man_after_total = man_after_level
 
     # Failures grand total
     fail_grand_total = fail_not_found + fail_ring + fail_section + fail_unstitched
 
-    # Percentages with total_sr as the base denominator
+    # Percentages:
+    # 1. nstt_pct: Percentage of Total SR population
     nstt_pct = _calc_percentage(nstt_count, total_sr)
-    auto_pct = _calc_percentage(auto_count, total_sr)
-    manual_pct = _calc_percentage(manual_count, total_sr)
 
-    same_nstt_pct = _calc_percentage(same_nstt_total, total_sr)
-    same_im_pct = _calc_percentage(same_im_total, total_sr)
-    same_non_im_pct = _calc_percentage(same_non_im_total, total_sr)
+    # 2. Sub bifurcations & sub-sub bifurcations: base denominator is nstt_count
+    auto_pct = _calc_percentage(auto_count, nstt_count)
+    manual_pct = _calc_percentage(manual_count, nstt_count)
 
-    diff_nstt_pct = _calc_percentage(diff_nstt_total, total_sr)
-    resolved_nstt_pct = _calc_percentage(resolved_nstt_total, total_sr)
+    same_nstt_pct = _calc_percentage(same_nstt_total, nstt_count)
+    same_im_pct = _calc_percentage(same_im_total, nstt_count)
+    same_non_im_pct = _calc_percentage(same_non_im_total, nstt_count)
 
-    man_res_pct = _calc_percentage(man_res_total, total_sr)
-    man_before_pct = _calc_percentage(man_before_total, total_sr)
-    man_after_pct = _calc_percentage(man_after_total, total_sr)
+    diff_nstt_pct = _calc_percentage(diff_nstt_total, nstt_count)
+    resolved_nstt_pct = _calc_percentage(resolved_nstt_total, nstt_count)
+    resolved_im_pct = _calc_percentage(resolved_im_total, nstt_count)
+    resolved_non_im_pct = _calc_percentage(resolved_non_im_total, nstt_count)
+
+    man_res_pct = _calc_percentage(man_res_total, nstt_count)
+    man_before_pct = _calc_percentage(man_before_total, nstt_count)
+    man_after_pct = _calc_percentage(man_after_total, nstt_count)
 
     return {
         "total_sr": total_sr,
@@ -332,6 +373,7 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "incident_nsa_auto_sa": diff_inc_nsa_auto_sa,
                 "both_nsa": diff_both_nsa,
                 "both_sa": diff_both_sa,
+                "unknown": diff_unknown,
             },
 
             "resolved_nstt": {
@@ -339,11 +381,13 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "percentage": resolved_nstt_pct,
                 "im": {
                     "count": resolved_im_total,
+                    "percentage": resolved_im_pct,
                     "auto": resolved_im_auto,
                     "manual": resolved_im_manual,
                 },
                 "non_im": {
                     "count": resolved_non_im_total,
+                    "percentage": resolved_non_im_pct,
                     "auto": resolved_non_im_auto,
                     "manual": resolved_non_im_manual,
                 },
@@ -421,6 +465,7 @@ def _empty_aggregation() -> Dict[str, Any]:
                 "incident_nsa_auto_sa": 0,
                 "both_nsa": 0,
                 "both_sa": 0,
+                "unknown": 0,
             },
             "resolved_nstt": {
                 "count": 0,
@@ -494,6 +539,9 @@ _DRILLDOWN_PREDICATES: Dict[str, Callable[[Dict[str, Any]], bool]] = {
     "automation.different_nstt.incident_nsa_auto_sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Different NSTT" and r.get("diff_nstt_category") == DIFF_INC_NSA_AUTO_SA,
     "automation.different_nstt.both_nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Different NSTT" and r.get("diff_nstt_category") == DIFF_BOTH_NSA,
     "automation.different_nstt.both_sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Different NSTT" and r.get("diff_nstt_category") == DIFF_BOTH_SA,
+    "automation.different_nstt.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Different NSTT" and (r.get("diff_nstt_category") == DIFF_UNKNOWN or r.get("diff_nstt_category") is None),
+    "automation.different_nstt.impact_unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Different NSTT" and (r.get("diff_nstt_category") == DIFF_UNKNOWN or r.get("diff_nstt_category") is None),
+    "automation.different_nstt.impact_unknown_not_found_in_remedy": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Different NSTT" and (r.get("diff_nstt_category") == DIFF_UNKNOWN or r.get("diff_nstt_category") is None),
 
     # Resolved NSTT (Automation)
     "automation.resolved_nstt": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT",

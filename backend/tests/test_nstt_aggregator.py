@@ -209,20 +209,21 @@ class TestNSTTAggregatorStructure:
         assert agg["failures"]["unstitched"] == 1
         assert agg["failures"]["grand_total"] == 4
 
-        # Percentage Verification (Base = total_sr)
-        # All sub-bifurcation percentages must be relative to total_sr
+        # Percentage Verification (Base for sub-bifurcations = nstt_count)
+        # nstt_percentage is relative to total_sr; all sub-bifurcation percentages are relative to nstt_count
         total_sr_val = agg["total_sr"]
-        assert agg["nstt_percentage"] == round((agg["nstt_count"] / total_sr_val) * 100, 2)
-        assert auto["percentage"] == round((auto["count"] / total_sr_val) * 100, 2)
-        assert man["percentage"] == round((man["count"] / total_sr_val) * 100, 2)
-        assert same["percentage"] == round((same["count"] / total_sr_val) * 100, 2)
-        assert diff["percentage"] == round((diff["count"] / total_sr_val) * 100, 2)
-        assert res["percentage"] == round((res["count"] / total_sr_val) * 100, 2)
-        assert same["im"]["percentage"] == round((same["im"]["count"] / total_sr_val) * 100, 2)
-        assert same["non_im"]["percentage"] == round((same["non_im"]["count"] / total_sr_val) * 100, 2)
-        assert man["resolved"]["percentage"] == round((man["resolved"]["count"] / total_sr_val) * 100, 2)
-        assert man["before_sr_creation"]["percentage"] == round((man["before_sr_creation"]["count"] / total_sr_val) * 100, 2)
-        assert man["after_sr_creation"]["percentage"] == round((man["after_sr_creation"]["count"] / total_sr_val) * 100, 2)
+        nstt_count_val = agg["nstt_count"]
+        assert agg["nstt_percentage"] == round((nstt_count_val / total_sr_val) * 100, 2)
+        assert auto["percentage"] == round((auto["count"] / nstt_count_val) * 100, 2)
+        assert man["percentage"] == round((man["count"] / nstt_count_val) * 100, 2)
+        assert same["percentage"] == round((same["count"] / nstt_count_val) * 100, 2)
+        assert diff["percentage"] == round((diff["count"] / nstt_count_val) * 100, 2)
+        assert res["percentage"] == round((res["count"] / nstt_count_val) * 100, 2)
+        assert same["im"]["percentage"] == round((same["im"]["count"] / nstt_count_val) * 100, 2)
+        assert same["non_im"]["percentage"] == round((same["non_im"]["count"] / nstt_count_val) * 100, 2)
+        assert man["resolved"]["percentage"] == round((man["resolved"]["count"] / nstt_count_val) * 100, 2)
+        assert man["before_sr_creation"]["percentage"] == round((man["before_sr_creation"]["count"] / nstt_count_val) * 100, 2)
+        assert man["after_sr_creation"]["percentage"] == round((man["after_sr_creation"]["count"] / nstt_count_val) * 100, 2)
 
 
 

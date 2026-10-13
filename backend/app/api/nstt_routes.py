@@ -10,6 +10,7 @@ import logging
 import sys
 import time
 from typing import Any, Dict, List, Optional
+import pandas as pd
 from flask import Blueprint, jsonify, request, send_file
 from werkzeug.exceptions import HTTPException
 
@@ -120,6 +121,20 @@ def upload_nstt_files():
 
     # Step 6: Build Master Response JSON
     master_response = build_master_response(final_df)
+
+    # Build complete remedy impact map from remedy_df (maps INCIDENT_NUMBER -> SA/NSA)
+    remedy_impact_df = map_incident_impact(remedy_df.copy())
+    remedy_impact_map = {}
+    for _, row in remedy_impact_df.iterrows():
+        inc_num = row.get("INCIDENT_NUMBER")
+        imp = row.get("INCIDENT_IMPACT")
+        if inc_num is not None and not pd.isna(inc_num):
+            k = str(inc_num).strip().upper()
+            if imp in ("SA", "NSA"):
+                remedy_impact_map[k] = imp
+            elif k not in remedy_impact_map:
+                remedy_impact_map[k] = None
+    master_response["remedy_impact_map"] = remedy_impact_map
 
     # Compile processing statistics & warnings
     warnings = []
