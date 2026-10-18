@@ -14,6 +14,7 @@ import pandas as pd
 from flask import Blueprint, jsonify, request, send_file
 from werkzeug.exceptions import HTTPException
 
+from app.services.nstt.column_validator import validate_both_files_columns
 from app.services.nstt.namo_reader import parse_namo_file
 from app.services.nstt.remedy_reader import parse_remedy_file
 from app.services.nstt.vlookup import perform_vlookup
@@ -83,32 +84,74 @@ def upload_nstt_files():
             "error": "Missing required 'remedy_file' in form-data. Please attach the Remedy Excel/CSV file with key 'remedy_file'."
         }), 400
 
-    nstt_logger.info(f"Processing NSTT files: Namo='{namo_file.filename}', Remedy='{remedy_file.filename}'")
+    nstt_logger.info(f"Received NSTT files: File 1='{namo_file.filename}', File 2='{remedy_file.filename}'")
 
-    # Step 1: Parse and validate Namo file
-    namo_result = parse_namo_file(namo_file, filename=namo_file.filename)
-    if not namo_result.get("success"):
-        error_msg = namo_result.get("error", "Failed to parse Namo file.")
-        nstt_logger.warning(f"Namo validation error: {error_msg}")
-        return jsonify({"error": error_msg, "missing_columns": namo_result.get("missing_columns", [])}), 400
+    # Step 1: Upfront column validation for BOTH files (independent of file names or slots)
+    # Fast-fails immediately if any required columns are missing without running calculations.
+    validation = validate_both_files_columns(
+        file1_input=namo_file,
+        file1_name=namo_file.filename,
+        file2_input=remedy_file,
+        file2_name=remedy_file.filename,
+    )
 
-    namo_df = namo_result["df"]
+    if not validation["valid"]:
+        nstt_logger.error(f"\n{validation['internal_error']}")
+        return jsonify({
+            "error": validation["error"],
+            "error_type": validation["error_type"],
+            "files": validation["files"],
+            "missing_columns": validation["missing_columns"],
+            "internal_error": validation["internal_error"],
+        }), 400
 
-    # Step 2: Parse and validate Remedy file
-    remedy_result = parse_remedy_file(remedy_file, filename=remedy_file.filename)
-    if not remedy_result.get("success"):
-        error_msg = remedy_result.get("error", "Failed to parse Remedy file.")
-        nstt_logger.warning(f"Remedy validation error: {error_msg}")
-        return jsonify({"error": error_msg, "missing_columns": remedy_result.get("missing_columns", [])}), 400
+    namo_df = validation["namo_df"]
+    remedy_df = validation["remedy_df"]
+    namo_file_name = validation["namo_file_name"]
+    remedy_file_name = validation["remedy_file_name"]
 
-    remedy_df = remedy_result["df"]
+    if validation.get("swapped"):
+        nstt_logger.info(
+            f"Detected reversed file slots based on column headers: "
+            f"using '{namo_file_name}' as Namo Report and '{remedy_file_name}' as Remedy Report."
+        )
 
-    # Step 3: VLOOKUP / Left Join on Namo.INCIDENTID = Remedy.INCIDENT_NUMBER
+    # Step 2: VLOOKUP / Left Join on Namo.INCIDENTID = Remedy.INCIDENT_NUMBER
     try:
         join_result = perform_vlookup(namo_df, remedy_df)
     except Exception as exc:
-        nstt_logger.error(f"VLOOKUP join failed: {str(exc)}", exc_info=True)
-        return jsonify({"error": f"VLOOKUP join failed: {str(exc)}"}), 500
+        import traceback
+        tb = traceback.format_exc()
+        internal_err = f"VLOOKUP join exception: {str(exc)}\n{tb}"
+        nstt_logger.error(f"[FILE MISMATCH ERROR] {internal_err}")
+        return jsonify({
+            "error": f"File Mismatch Error: Failed to correlate datasets: {str(exc)}",
+            "error_type": "FILE_MISMATCH",
+            "internal_error": internal_err,
+        }), 500
+
+    if join_result.get("matched_count", 0) == 0 and len(namo_df) > 0 and len(remedy_df) > 0:
+        error_msg = (
+            f"File Mismatch Error: 0 matching records found between Namo Report ('{namo_file.filename}') "
+            f"and Remedy Report ('{remedy_file.filename}'). The Namo INCIDENTID values do not correlate with Remedy INCIDENT_NUMBER."
+        )
+        sample_namo = list(namo_df["INCIDENTID"].dropna().astype(str).str.strip().head(5))
+        sample_remedy = list(remedy_df["INCIDENT_NUMBER"].dropna().astype(str).str.strip().head(5))
+        internal_err = (
+            f"Zero Match Correlation Failure:\n"
+            f"  - Namo File: '{namo_file.filename}' ({len(namo_df)} rows)\n"
+            f"  - Remedy File: '{remedy_file.filename}' ({len(remedy_df)} rows)\n"
+            f"  - Sample Namo IDs: {sample_namo}\n"
+            f"  - Sample Remedy IDs: {sample_remedy}"
+        )
+        nstt_logger.error(f"[FILE MISMATCH ERROR] {internal_err}")
+        return jsonify({
+            "error": error_msg,
+            "error_type": "FILE_MISMATCH",
+            "dataset": "Cross-File Correlation",
+            "missing_columns": [],
+            "internal_error": internal_err,
+        }), 400
 
     enriched_df = join_result["df"]
 

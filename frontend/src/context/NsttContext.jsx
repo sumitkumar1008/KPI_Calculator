@@ -34,7 +34,11 @@ export function NsttProvider({ children }) {
     const file2 = customRemedy || remedyFile
 
     if (!file1 || !file2) {
-      setError('Please select both Namo Report (Dataset 1) and Remedy Report (Dataset 2).')
+      setError({
+        message: 'Please select both Namo Report (Dataset 1) and Remedy Report (Dataset 2).',
+        errorType: 'VALIDATION_ERROR',
+        missingColumns: [],
+      })
       return
     }
 
@@ -79,9 +83,26 @@ export function NsttProvider({ children }) {
       setIsComplete(true)
     } catch (err) {
       const errMsg = err.message || 'An unexpected error occurred during processing.'
-      console.error('%c[NSTT Pipeline Error]', 'color: #ef4444; font-weight: bold;', errMsg)
+      console.error(
+        '%c[NSTT File Mismatch / Pipeline Error]',
+        'color: #ef4444; font-weight: bold; font-size: 13px;',
+        '\nMessage:', errMsg,
+        '\nMissing Columns:', err.missingColumns || [],
+        '\nDataset:', err.dataset || 'N/A',
+        '\nInternal Error Details:\n', err.internalError || errMsg
+      )
       console.groupEnd()
-      setError(errMsg)
+      setError({
+        message: errMsg,
+        errorType: err.errorType || 'ERROR',
+        dataset: err.dataset || null,
+        filename: err.filename || null,
+        missingColumns: err.missingColumns || [],
+        foundColumns: err.foundColumns || [],
+        expectedColumns: err.expectedColumns || [],
+        files: err.files || null,
+        internalError: err.internalError || errMsg,
+      })
     } finally {
       setIsProcessing(false)
     }

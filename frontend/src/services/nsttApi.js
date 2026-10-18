@@ -33,10 +33,21 @@ async function safeParseJson(response) {
 
   if (!response.ok) {
     let msg = data?.error || data?.detail || data?.message
-    if (data?.missing_columns && Array.isArray(data.missing_columns)) {
-      msg = `${msg || 'Missing required column(s)'}: ${data.missing_columns.join(', ')}`
+    if (!msg && data?.missing_columns && Array.isArray(data.missing_columns) && data.missing_columns.length > 0) {
+      msg = `File Mismatch Error: Missing required column(s): ${data.missing_columns.join(', ')}`
     }
-    throw new Error(msg || `Request failed with HTTP status ${response.status}.`)
+    const err = new Error(msg || `Request failed with HTTP status ${response.status}.`)
+    err.errorType = data?.error_type || (data?.missing_columns?.length ? 'FILE_MISMATCH' : 'API_ERROR')
+    err.dataset = data?.dataset || null
+    err.filename = data?.filename || null
+    err.missingColumns = Array.isArray(data?.missing_columns) ? data.missing_columns : []
+    err.foundColumns = Array.isArray(data?.found_columns) ? data.found_columns : []
+    err.expectedColumns = Array.isArray(data?.expected_columns) ? data.expected_columns : []
+    err.internalError = data?.internal_error || data?.detail || text
+    err.files = data?.files || null
+    err.status = response.status
+    err.data = data
+    throw err
   }
 
   return data

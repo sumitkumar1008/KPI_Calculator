@@ -14,7 +14,10 @@ from app.services.nstt.master_builder import build_master_response
 from app.services.nstt.rule_engine import run_rule_engine
 from app.services.nstt.aggregator import build_nstt_aggregation, filter_records_by_category
 
+from app.services.nstt.column_validator import validate_both_files_columns
+
 __all__ = [
+    "validate_both_files_columns",
     "parse_namo_file",
     "parse_remedy_file",
     "perform_vlookup",

@@ -78,6 +78,42 @@ function NsttCalculator({ fileFormat = 'all' }) {
   const ext1 = namoFile?.name.split('.').pop()?.toUpperCase()
   const ext2 = remedyFile?.name.split('.').pop()?.toUpperCase()
 
+  const errorMessage = typeof error === 'string' ? error : (error?.message || '')
+  const errorType = error?.errorType || ''
+  const isFileMismatch =
+    errorType === 'FILE_MISMATCH' ||
+    (Array.isArray(error?.missingColumns) && error.missingColumns.length > 0) ||
+    errorMessage.toLowerCase().includes('file mismatch') ||
+    errorMessage.toLowerCase().includes('missing required column') ||
+    errorMessage.toLowerCase().includes('column validation failed')
+  const missingCols = Array.isArray(error?.missingColumns) ? error.missingColumns : []
+  const filesDetail = error?.files || null
+  const errorDataset = error?.dataset || (typeof error === 'string' ? error : '')
+
+  const isDataset1Error = Boolean(
+    (filesDetail?.file1?.status === 'mismatch' || filesDetail?.file1?.status === 'unparseable') ||
+    (!filesDetail && error && (
+      errorDataset.includes('Dataset 01') ||
+      errorDataset.includes('Dataset 1') ||
+      errorMessage.includes('Dataset 01') ||
+      errorMessage.includes('Dataset 1') ||
+      errorMessage.includes('Namo') ||
+      errorMessage.includes('File 1')
+    ))
+  )
+
+  const isDataset2Error = Boolean(
+    (filesDetail?.file2?.status === 'mismatch' || filesDetail?.file2?.status === 'unparseable') ||
+    (!filesDetail && error && (
+      errorDataset.includes('Dataset 02') ||
+      errorDataset.includes('Dataset 2') ||
+      errorMessage.includes('Dataset 02') ||
+      errorMessage.includes('Dataset 2') ||
+      errorMessage.includes('Remedy') ||
+      errorMessage.includes('File 2')
+    ))
+  )
+
   return (
     <section className="nstt-section" aria-labelledby="nstt-heading">
       <div className="section-intro">
@@ -90,9 +126,83 @@ function NsttCalculator({ fileFormat = 'all' }) {
         <div className="nstt-error-banner" role="alert">
           <div className="nstt-error-header">
             <span className="nstt-error-icon" aria-hidden="true">⚠️</span>
-            <div>
-              <h4 className="nstt-error-title">File Validation / Upload Error</h4>
-              <p className="nstt-error-msg">{error}</p>
+            <div className="nstt-error-body">
+              <div className="nstt-error-title-row">
+                <h4 className="nstt-error-title">
+                  {isFileMismatch ? 'File Mismatch Error' : 'File Validation / Upload Error'}
+                </h4>
+                {error?.dataset && (
+                  <span className="nstt-error-dataset-tag">{error.dataset}</span>
+                )}
+              </div>
+              <p className="nstt-error-msg">
+                {isFileMismatch
+                  ? 'Required column mismatch detected. Please check the missing columns below:'
+                  : errorMessage}
+              </p>
+
+              {filesDetail ? (
+                <div className="nstt-files-validation-grid">
+                  {filesDetail.file1?.missing_columns?.length > 0 && (
+                    <div className="nstt-missing-cols-panel">
+                      <div className="nstt-missing-cols-header">
+                        <span className="nstt-missing-cols-label">
+                          {filesDetail.file1.slot || 'Dataset 01'} ({filesDetail.file1.target_dataset}):
+                        </span>
+                        <span className="nstt-missing-cols-hint">
+                          {filesDetail.file1.missing_columns.length} missing column(s)
+                        </span>
+                      </div>
+                      <div className="nstt-missing-chips-list">
+                        {filesDetail.file1.missing_columns.map((col, idx) => (
+                          <span key={idx} className="nstt-missing-chip" title={`Missing required column: ${col}`}>
+                            <span className="nstt-missing-chip-x" aria-hidden="true">✕</span>
+                            <code>{col}</code>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filesDetail.file2?.missing_columns?.length > 0 && (
+                    <div className="nstt-missing-cols-panel">
+                      <div className="nstt-missing-cols-header">
+                        <span className="nstt-missing-cols-label">
+                          {filesDetail.file2.slot || 'Dataset 02'} ({filesDetail.file2.target_dataset}):
+                        </span>
+                        <span className="nstt-missing-cols-hint">
+                          {filesDetail.file2.missing_columns.length} missing column(s)
+                        </span>
+                      </div>
+                      <div className="nstt-missing-chips-list">
+                        {filesDetail.file2.missing_columns.map((col, idx) => (
+                          <span key={idx} className="nstt-missing-chip" title={`Missing required column: ${col}`}>
+                            <span className="nstt-missing-chip-x" aria-hidden="true">✕</span>
+                            <code>{col}</code>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                missingCols.length > 0 && (
+                  <div className="nstt-missing-cols-panel">
+                    <div className="nstt-missing-cols-header">
+                      <span className="nstt-missing-cols-label">Missing Columns ({missingCols.length}):</span>
+                      <span className="nstt-missing-cols-hint">The following required columns were not found in this file:</span>
+                    </div>
+                    <div className="nstt-missing-chips-list">
+                      {missingCols.map((col, idx) => (
+                        <span key={idx} className="nstt-missing-chip" title={`Missing required column: ${col}`}>
+                          <span className="nstt-missing-chip-x" aria-hidden="true">✕</span>
+                          <code>{col}</code>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
             </div>
           </div>
           <div className="nstt-error-actions">
@@ -111,7 +221,7 @@ function NsttCalculator({ fileFormat = 'all' }) {
             <h3>Namo Report (Primary Data)</h3>
           </div>
           <div
-            className={`upload-card nstt-upload-card ${isDragging1 ? 'is-dragging' : ''} ${namoFile ? 'has-file' : ''} ${error && error.includes('Dataset 01') ? 'has-card-error' : ''}`}
+            className={`upload-card nstt-upload-card ${isDragging1 ? 'is-dragging' : ''} ${namoFile ? 'has-file' : ''} ${isDataset1Error ? 'has-card-error' : ''}`}
             onDragEnter={(e) => { e.preventDefault(); setIsDragging1(true) }}
             onDragOver={(e) => { e.preventDefault(); setIsDragging1(true) }}
             onDragLeave={(e) => { if (e.currentTarget === e.target) setIsDragging1(false) }}
@@ -157,7 +267,7 @@ function NsttCalculator({ fileFormat = 'all' }) {
             <h3>Remedy Report (Secondary Data)</h3>
           </div>
           <div
-            className={`upload-card nstt-upload-card ${isDragging2 ? 'is-dragging' : ''} ${remedyFile ? 'has-file' : ''} ${error && error.includes('Dataset 02') ? 'has-card-error' : ''}`}
+            className={`upload-card nstt-upload-card ${isDragging2 ? 'is-dragging' : ''} ${remedyFile ? 'has-file' : ''} ${isDataset2Error ? 'has-card-error' : ''}`}
             onDragEnter={(e) => { e.preventDefault(); setIsDragging2(true) }}
             onDragOver={(e) => { e.preventDefault(); setIsDragging2(true) }}
             onDragLeave={(e) => { if (e.currentTarget === e.target) setIsDragging2(false) }}

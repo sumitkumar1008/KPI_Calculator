@@ -59,15 +59,22 @@ export default function NsttDashboard() {
         </div>
       </div>
 
-      {/* ── Warnings ribbon ────────────────────────────────────── */}
-      {warnings && warnings.length > 0 && (
-        <div className="dash-warnings-box" role="alert">
-          <span className="warning-icon" aria-hidden="true">⚠️</span>
-          <div className="warning-texts">
-            {warnings.map((w, i) => <p key={i}>{w}</p>)}
-          </div>
+      {/* ── Success Banner (records successfully fetched from both files) ── */}
+      <div className="dash-success-box" role="status">
+        <span className="dash-success-icon" aria-hidden="true">✓</span>
+        <div className="dash-success-texts">
+          <span>
+            Total <strong>{((stats?.namo_rows || 0) + (stats?.remedy_rows || 0)).toLocaleString()} records</strong> have been successfully fetched from both files{' '}
+            (<strong>{(stats?.namo_rows || 0).toLocaleString()}</strong> from {namoFile?.name || 'Namo Report'} &amp;{' '}
+            <strong>{(stats?.remedy_rows || 0).toLocaleString()}</strong> from {remedyFile?.name || 'Remedy Report'})
+            {stats?.matched != null && (
+              <span className="dash-success-matched">
+                ✓ {stats.matched.toLocaleString()} records successfully matched
+              </span>
+            )}
+          </span>
         </div>
-      )}
+      </div>
 
       {/* ── Main Dashboard Content ─────────────────────────────── */}
       <div className="nstt-dashboard-content">

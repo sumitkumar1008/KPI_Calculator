@@ -238,18 +238,24 @@ def parse_namo_file(file_input: Any, filename: str = "") -> Dict[str, Any]:
         if len(remedy_missing) <= 2:
             return {
                 "success": False,
-                "error": "Dataset 01 Error: The file uploaded as 'Namo Report' appears to be a Remedy Report (detected Remedy columns). Please upload the Namo Report in Dataset 01 and the Remedy Report in Dataset 02.",
+                "error_type": "FILE_MISMATCH",
+                "error": "File Mismatch Error (Dataset 01): The file uploaded as 'Namo Report' appears to be a Remedy Report.",
+                "dataset": "Dataset 01 (Namo Report)",
                 "missing_columns": missing_cols,
+                "found_columns": raw_headers,
+                "expected_columns": REQUIRED_NAMO_COLUMNS,
                 "df": None,
                 "row_count": 0,
             }
 
-        missing_str = ", ".join(missing_cols)
-        found_str = ", ".join(raw_headers[:8]) + ("..." if len(raw_headers) > 8 else "")
         return {
             "success": False,
-            "error": f"Dataset 01 (Namo Report) Error: Missing required column(s): {missing_str}. (Found: {found_str}). Please ensure you upload the correct Namo report file.",
+            "error_type": "FILE_MISMATCH",
+            "error": "File Mismatch Error (Dataset 01 - Namo Report): Uploaded file is missing required column(s).",
+            "dataset": "Dataset 01 (Namo Report)",
             "missing_columns": missing_cols,
+            "found_columns": raw_headers,
+            "expected_columns": REQUIRED_NAMO_COLUMNS,
             "df": None,
             "row_count": 0,
         }
