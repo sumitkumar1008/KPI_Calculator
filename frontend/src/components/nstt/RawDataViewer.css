@@ -149,17 +149,8 @@
 }
 
 .raw-table .sticky-col {
-  position: sticky;
-  left: 0;
-  background: var(--surface, #ffffff);
-  z-index: 6;
   width: 50px;
   border-right: 1px solid var(--line, #cbd5e1);
-}
-
-.raw-table th.sticky-col {
-  background: var(--surface-raised, #f1f5f9);
-  z-index: 7;
 }
 
 /* Footer */
@@ -176,3 +167,77 @@
   text-align: center;
   padding: 48px 24px;
 }
+
+/* ── Dark Theme Overrides ────────────────────────────────────── */
+html[data-theme="dark"] .raw-data-card,
+.theme-dark .raw-data-card {
+  background: var(--surface, #18262d);
+  border-color: var(--line, #2c4149);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .raw-data-controls,
+.theme-dark .raw-data-controls {
+  border-bottom-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .raw-search-box input,
+.theme-dark .raw-search-box input {
+  background: var(--surface-raised, #202f36);
+  color: var(--ink, #d7e2e7);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .raw-search-box input:focus,
+.theme-dark .raw-search-box input:focus {
+  border-color: var(--accent, #2dd4bf);
+  background: var(--surface, #18262d);
+}
+
+html[data-theme="dark"] .clear-search-btn,
+.theme-dark .clear-search-btn {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .raw-page-size,
+.theme-dark .raw-page-size {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .raw-page-size select,
+.theme-dark .raw-page-size select {
+  background: var(--surface-raised, #202f36);
+  color: var(--ink, #d7e2e7);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .raw-table-wrapper,
+.theme-dark .raw-table-wrapper {
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .raw-table th,
+.theme-dark .raw-table th {
+  background: var(--surface-raised, #202f36);
+  color: var(--ink, #d7e2e7);
+  border-bottom-color: var(--line, #2c4149);
+  border-right-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .raw-table td,
+.theme-dark .raw-table td {
+  border-bottom-color: var(--line, #2c4149);
+  border-right-color: var(--line, #2c4149);
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .raw-table tr:hover td,
+.theme-dark .raw-table tr:hover td {
+  background: rgba(45, 212, 191, 0.05);
+}
+
+html[data-theme="dark"] .raw-table .sticky-col,
+.theme-dark .raw-table .sticky-col {
+  border-right-color: var(--line, #2c4149);
+}
+

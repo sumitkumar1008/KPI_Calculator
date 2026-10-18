@@ -143,3 +143,65 @@
   }
 }
 
+/* ── Dark Theme Overrides ────────────────────────────────────── */
+html[data-theme="dark"] .nstt-section,
+.theme-dark .nstt-section {
+  border-top-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .nstt-box-header h3,
+.theme-dark .nstt-box-header h3 {
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .nstt-badge,
+.theme-dark .nstt-badge {
+  background: rgba(45, 212, 191, 0.15);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .nstt-error-banner,
+.theme-dark .nstt-error-banner {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.4);
+  border-left-color: #ef4444;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .nstt-error-title,
+.theme-dark .nstt-error-title {
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .nstt-error-msg,
+.theme-dark .nstt-error-msg {
+  color: #fecaca;
+}
+
+html[data-theme="dark"] .nstt-error-dismiss,
+.theme-dark .nstt-error-dismiss {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .nstt-error-dismiss:hover,
+.theme-dark .nstt-error-dismiss:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .upload-card.has-card-error,
+.theme-dark .upload-card.has-card-error {
+  border: 2px dashed #ef4444 !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+html[data-theme="dark"] .message--error,
+.theme-dark .message--error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+

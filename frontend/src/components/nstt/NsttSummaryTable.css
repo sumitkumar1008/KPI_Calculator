@@ -5,7 +5,7 @@
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   font-size: 0.8rem;
   background: var(--surface, #ffffff);
-  border: 1px solid var(--line, #d0d8e4);
+  border: 1.5px solid #1F4E78;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(31, 78, 120, 0.08);
@@ -55,6 +55,7 @@
   font-size: 0.79rem;
   background: var(--surface, #ffffff);
   min-width: 900px;
+  border: 1.5px solid #1F4E78;
 }
 
 /* ── Header rows ─────────────────────────────────────────────── */
@@ -70,7 +71,7 @@
   text-align: center;
   vertical-align: middle;
   padding: 7px 10px;
-  border: 1px solid #2a5f8f;
+  border: 1px solid #1F4E78;
   white-space: nowrap;
 }
 
@@ -78,12 +79,13 @@
   background: #1a4268;   /* slightly darker for row-2 */
   font-size: 0.72rem;
   font-weight: 600;
+  border: 1px solid #1F4E78;
 }
 
 /* ── Data cells ──────────────────────────────────────────────── */
 .spec-td {
   padding: 7px 10px;
-  border: 1px solid #dde4ed;
+  border: 1px solid #1F4E78;
   text-align: center;
   vertical-align: middle;
   color: var(--ink, #1e293b);
@@ -92,44 +94,35 @@
 
 /* ── Row accents ─────────────────────────────────────────────── */
 .spec-row-auto-start .spec-td {
-  border-top: 2px solid #b8d0ea;
+  border-top: 2px solid #1F4E78;
 }
 
 .spec-row-manual-start .spec-td {
-  border-top: 2px solid #fbbf24;
+  border-top: 2px solid #1F4E78;
 }
 
 .spec-row-subgroup .spec-td {
-  border-top: 1px solid #c8d6e5;
+  border-top: 1px solid #1F4E78;
 }
 
 /* Hover */
-.spec-row:hover .spec-td:not(.spec-sticky) {
+.spec-row:hover .spec-td {
   background: rgba(31, 78, 120, 0.04);
 }
 
-/* ── Sticky left columns (Total SR / NSTT Count / %) ─────────── */
-.spec-sticky {
-  position: sticky;
-  z-index: 4;
-  background: var(--surface, #ffffff);
-}
-
+/* ── Primary metric columns (Total SR / NSTT Count / %) ─────────── */
 .spec-cell-total {
-  left: 0;
   min-width: 90px;
   border-right: 2px solid #1F4E78 !important;
   background: linear-gradient(135deg, #eef4fb 0%, #f8fafc 100%);
 }
 
 .spec-cell-nstt {
-  left: 90px;
   min-width: 90px;
   background: linear-gradient(135deg, #e8f8f2 0%, #f8fafc 100%);
 }
 
 .spec-cell-pct {
-  left: 180px;
   min-width: 80px;
   border-right: 2px solid #1F4E78 !important;
   background: var(--surface, #f8fafc);
@@ -354,3 +347,251 @@
   color: #1F4E78;
   font-weight: 700;
 }
+
+/* ── Dark Theme Overrides ────────────────────────────────────── */
+html[data-theme="dark"] .spec-dashboard-wrapper,
+.theme-dark .spec-dashboard-wrapper {
+  background: var(--surface, #18262d);
+  border: 1.5px solid #2dd4bf;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .spec-title-bar,
+.theme-dark .spec-title-bar {
+  background: #13222a;
+  border-bottom: 2px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-title-badge,
+.theme-dark .spec-title-badge {
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .spec-eligible-pill,
+.theme-dark .spec-eligible-pill {
+  color: #9aaeb7;
+}
+
+html[data-theme="dark"] .spec-eligible-pill strong,
+.theme-dark .spec-eligible-pill strong {
+  color: #f0fdfa;
+}
+
+html[data-theme="dark"] .spec-matrix-table,
+.theme-dark .spec-matrix-table {
+  background: var(--surface, #18262d);
+  border: 1.5px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-hdr-row,
+.theme-dark .spec-hdr-row {
+  background: #192b34;
+}
+
+html[data-theme="dark"] .spec-th,
+.theme-dark .spec-th {
+  background: #192b34;
+  color: #f0fdfa;
+  border: 1px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-th-sub,
+.theme-dark .spec-th-sub {
+  background: #142229;
+  color: #ccfbf1;
+  border: 1px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-td,
+.theme-dark .spec-td {
+  border: 1px solid #2dd4bf;
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .spec-row-auto-start .spec-td,
+.theme-dark .spec-row-auto-start .spec-td {
+  border-top: 2px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-row-manual-start .spec-td,
+.theme-dark .spec-row-manual-start .spec-td {
+  border-top: 2px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-row-subgroup .spec-td,
+.theme-dark .spec-row-subgroup .spec-td {
+  border-top: 1px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-row:hover .spec-td,
+.theme-dark .spec-row:hover .spec-td {
+  background: rgba(45, 212, 191, 0.05);
+}
+
+html[data-theme="dark"] .spec-cell-total,
+.theme-dark .spec-cell-total {
+  background: linear-gradient(135deg, #182a32 0%, #142229 100%) !important;
+  border-right: 2px solid #2dd4bf !important;
+}
+
+html[data-theme="dark"] .spec-cell-nstt,
+.theme-dark .spec-cell-nstt {
+  background: linear-gradient(135deg, #15322d 0%, #142229 100%) !important;
+  border-right: 1px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-cell-pct,
+.theme-dark .spec-cell-pct {
+  background: #18262d !important;
+  border-right: 2px solid #2dd4bf !important;
+  color: #f0fdfa !important;
+}
+
+html[data-theme="dark"] .spec-cell-auto,
+.theme-dark .spec-cell-auto {
+  background: rgba(45, 212, 191, 0.07);
+  color: #38bdf8 !important;
+}
+
+html[data-theme="dark"] .spec-cell-manual,
+.theme-dark .spec-cell-manual {
+  background: rgba(245, 158, 11, 0.08);
+  color: #fbbf24 !important;
+}
+
+html[data-theme="dark"] .spec-na,
+.theme-dark .spec-na {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .spec-count-btn,
+.theme-dark .spec-count-btn {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.32);
+  color: #5eead4 !important;
+}
+
+html[data-theme="dark"] .spec-count-btn:hover,
+.theme-dark .spec-count-btn:hover {
+  background: #2dd4bf;
+  color: #0d171b !important;
+  box-shadow: 0 2px 10px rgba(45, 212, 191, 0.3);
+}
+
+html[data-theme="dark"] .spec-count-btn.total,
+.theme-dark .spec-count-btn.total {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.38);
+  color: #7dd3fc !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.total:hover,
+.theme-dark .spec-count-btn.total:hover {
+  background: #38bdf8;
+  color: #0d171b !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.nstt,
+.theme-dark .spec-count-btn.nstt {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: rgba(52, 211, 153, 0.38);
+  color: #6ee7b7 !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.nstt:hover,
+.theme-dark .spec-count-btn.nstt:hover {
+  background: #34d399;
+  color: #0d171b !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.manual,
+.theme-dark .spec-count-btn.manual {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.38);
+  color: #fde68a !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.manual:hover,
+.theme-dark .spec-count-btn.manual:hover {
+  background: #f59e0b;
+  color: #0d171b !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.sa,
+.theme-dark .spec-count-btn.sa {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5 !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.sa:hover,
+.theme-dark .spec-count-btn.sa:hover {
+  background: #ef4444;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.nsa,
+.theme-dark .spec-count-btn.nsa {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7 !important;
+}
+
+html[data-theme="dark"] .spec-count-btn.nsa:hover,
+.theme-dark .spec-count-btn.nsa:hover {
+  background: #10b981;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] .spec-pct-sub,
+.theme-dark .spec-pct-sub {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .spec-chip,
+.theme-dark .spec-chip {
+  background: #202f36;
+  border-color: #2c4149;
+  color: #d7e2e7;
+}
+
+html[data-theme="dark"] .spec-chip:hover,
+.theme-dark .spec-chip:hover {
+  border-color: #2dd4bf;
+  background: rgba(45, 212, 191, 0.14);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .spec-subsub-type-list,
+.theme-dark .spec-subsub-type-list {
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .spec-subsub-item,
+.theme-dark .spec-subsub-item {
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .spec-manually-tagged,
+.theme-dark .spec-manually-tagged {
+  background: rgba(45, 212, 191, 0.05);
+  border-top: 2px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-section-label,
+.theme-dark .spec-section-label {
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .spec-tag-chip,
+.theme-dark .spec-tag-chip {
+  background: #202f36;
+  border-color: rgba(45, 212, 191, 0.3);
+  color: #d7e2e7;
+}
+
+html[data-theme="dark"] .spec-tag-chip strong,
+.theme-dark .spec-tag-chip strong {
+  color: #5eead4;
+}
+

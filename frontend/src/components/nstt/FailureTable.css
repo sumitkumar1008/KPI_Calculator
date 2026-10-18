@@ -4,7 +4,7 @@
 .spec-fail-wrapper {
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   background: var(--surface, #ffffff);
-  border: 1px solid var(--line, #d0d8e4);
+  border: 1.5px solid #1F4E78;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(31, 78, 120, 0.08);
@@ -16,7 +16,7 @@
 .spec-fail-title-bar {
   padding: 10px 20px;
   background: #1F4E78;
-  border-bottom: 2px solid #163d60;
+  border-bottom: 2px solid #1F4E78;
 }
 
 .spec-fail-title {
@@ -38,6 +38,7 @@
   border-collapse: collapse;
   font-size: 0.8rem;
   background: var(--surface, #ffffff);
+  border: 1.5px solid #1F4E78;
 }
 
 /* ── Header ──────────────────────────────────────────────────── */
@@ -53,7 +54,7 @@
   text-align: center;
   vertical-align: middle;
   padding: 8px 14px;
-  border: 1px solid #2a5f8f;
+  border: 1px solid #1F4E78;
   white-space: nowrap;
 }
 
@@ -65,7 +66,7 @@
 /* ── Data cells ──────────────────────────────────────────────── */
 .spec-fail-td {
   padding: 9px 14px;
-  border: 1px solid #e2eaf3;
+  border: 1px solid #1F4E78;
   color: var(--ink, #1e293b);
   font-size: 0.8rem;
   vertical-align: middle;
@@ -146,3 +147,95 @@
   background: #1F4E78;
   color: #fff;
 }
+
+/* ── Dark Theme Overrides ────────────────────────────────────── */
+html[data-theme="dark"] .spec-fail-wrapper,
+.theme-dark .spec-fail-wrapper {
+  background: var(--surface, #18262d);
+  border: 1.5px solid #2dd4bf;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .spec-fail-title-bar,
+.theme-dark .spec-fail-title-bar {
+  background: #13222a;
+  border-bottom: 2px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-fail-title,
+.theme-dark .spec-fail-title {
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .spec-fail-table,
+.theme-dark .spec-fail-table {
+  background: var(--surface, #18262d);
+  border: 1.5px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-fail-hdr-row,
+.theme-dark .spec-fail-hdr-row {
+  background: #192b34;
+}
+
+html[data-theme="dark"] .spec-fail-th,
+.theme-dark .spec-fail-th {
+  background: #192b34;
+  color: #f0fdfa;
+  border: 1px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-fail-td,
+.theme-dark .spec-fail-td {
+  border: 1px solid #2dd4bf;
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .spec-fail-td-pct,
+.theme-dark .spec-fail-td-pct {
+  color: #f0fdfa !important;
+}
+
+html[data-theme="dark"] .spec-fail-row:hover .spec-fail-td,
+.theme-dark .spec-fail-row:hover .spec-fail-td {
+  background: rgba(45, 212, 191, 0.05);
+}
+
+html[data-theme="dark"] .spec-fail-btn,
+.theme-dark .spec-fail-btn {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.32);
+  color: #5eead4 !important;
+}
+
+html[data-theme="dark"] .spec-fail-btn:hover,
+.theme-dark .spec-fail-btn:hover {
+  background: #2dd4bf;
+  color: #0d171b !important;
+  box-shadow: 0 2px 10px rgba(45, 212, 191, 0.3);
+}
+
+html[data-theme="dark"] .spec-fail-total-row .spec-fail-td,
+.theme-dark .spec-fail-total-row .spec-fail-td {
+  background: rgba(45, 212, 191, 0.08);
+  border-top: 2px solid #2dd4bf;
+}
+
+html[data-theme="dark"] .spec-fail-total-label,
+.theme-dark .spec-fail-total-label {
+  color: #5eead4 !important;
+}
+
+html[data-theme="dark"] .spec-fail-btn-total,
+.theme-dark .spec-fail-btn-total {
+  background: rgba(45, 212, 191, 0.2);
+  border-color: rgba(45, 212, 191, 0.4);
+  color: #5eead4 !important;
+}
+
+html[data-theme="dark"] .spec-fail-btn-total:hover,
+.theme-dark .spec-fail-btn-total:hover {
+  background: #2dd4bf;
+  color: #0d171b !important;
+}
+

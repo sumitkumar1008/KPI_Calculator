@@ -137,19 +137,19 @@ export default function NsttSummaryTable() {
             {/* Row 1: Auto > Same NSTT > IM > Auto */}
             <tr className="spec-row spec-row-auto-start">
               {/* Total SR — spans all 14 rows */}
-              <td className="spec-td spec-sticky spec-cell-total" rowSpan={14}>
+              <td className="spec-td spec-cell-total" rowSpan={14}>
                 <button className="spec-count-btn total" onClick={() => openDrilldown('total_sr')} title="Drilldown: Total SR">
                   {cnt(total_sr).toLocaleString()}
                 </button>
               </td>
               {/* NSTT Count */}
-              <td className="spec-td spec-sticky spec-cell-nstt" rowSpan={14}>
+              <td className="spec-td spec-cell-nstt" rowSpan={14}>
                 <button className="spec-count-btn nstt" onClick={() => openDrilldown('nstt_count')} title="Drilldown: NSTT Count">
                   {cnt(nstt_count).toLocaleString()}
                 </button>
               </td>
               {/* Percentage NSTT Count */}
-              <td className="spec-td spec-sticky spec-cell-pct" rowSpan={14}>
+              <td className="spec-td spec-cell-pct" rowSpan={14}>
                 {pct(nstt_percentage)}
               </td>
 

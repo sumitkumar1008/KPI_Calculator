@@ -29,7 +29,7 @@
 .choose-button:hover { border-color: var(--accent); background: var(--accent); }
 .supported { margin: 20px 0 0 !important; font-size: 12px !important; }
 
-.file-name { width: 100%; margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 700; }
+.file-name { width: 100%; margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 700; color: var(--ink); }
 .file-meta { margin: 0 0 22px; color: var(--muted); font-size: 13px !important; }
 .file-meta span { margin: 0 5px; color: #aab7c6; }
 .text-button { padding: 4px 0; border: 0; color: var(--accent); background: transparent; font-size: 13px; font-weight: 700; }

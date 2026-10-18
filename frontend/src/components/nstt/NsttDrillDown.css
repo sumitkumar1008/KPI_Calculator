@@ -229,33 +229,15 @@
   background: rgba(21, 122, 138, 0.04);
 }
 
-/* Sticky first columns */
+/* First columns (normal flow — moves together with the rest of the table) */
 .drilldown-table th.sticky-col,
 .drilldown-table td.sticky-col {
-  position: sticky;
-  left: 0;
-  background: var(--surface, #ffffff);
-  z-index: 11;
   width: 50px;
-}
-
-.drilldown-table th.sticky-col {
-  background: var(--surface-raised, #f1f5f9);
-  z-index: 12;
 }
 
 .drilldown-table th.sticky-col-2,
 .drilldown-table td.sticky-col-2 {
-  position: sticky;
-  left: 50px;
-  background: var(--surface, #ffffff);
-  z-index: 11;
   border-right: 1px solid var(--line, #cbd5e1);
-}
-
-.drilldown-table th.sticky-col-2 {
-  background: var(--surface-raised, #f1f5f9);
-  z-index: 12;
 }
 
 /* Badges / Pills */
@@ -384,3 +366,159 @@
   padding: 0 8px;
   color: var(--ink, #1e293b);
 }
+
+/* ── Dark Theme Overrides ────────────────────────────────────── */
+html[data-theme="dark"] .drilldown-backdrop,
+.theme-dark .drilldown-backdrop {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+html[data-theme="dark"] .drilldown-drawer,
+.theme-dark .drilldown-drawer {
+  background: var(--surface, #18262d);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.6);
+}
+
+html[data-theme="dark"] .drilldown-header,
+.theme-dark .drilldown-header {
+  background: var(--surface-raised, #202f36);
+  border-bottom-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .drilldown-header-title h2,
+.theme-dark .drilldown-header-title h2 {
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .drilldown-meta,
+.theme-dark .drilldown-meta {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .btn-drill-close,
+.theme-dark .btn-drill-close {
+  background: var(--surface, #18262d);
+  color: var(--ink, #d7e2e7);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .btn-drill-close:hover,
+.theme-dark .btn-drill-close:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+html[data-theme="dark"] .drilldown-controls,
+.theme-dark .drilldown-controls {
+  background: var(--surface, #18262d);
+  border-bottom-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .drill-search-box input,
+.theme-dark .drill-search-box input {
+  background: var(--surface-raised, #202f36);
+  color: var(--ink, #d7e2e7);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .drill-search-box input:focus,
+.theme-dark .drill-search-box input:focus {
+  border-color: var(--accent, #2dd4bf);
+  background: var(--surface, #18262d);
+}
+
+html[data-theme="dark"] .drill-search-box .clear-search,
+.theme-dark .drill-search-box .clear-search {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .drill-page-size,
+.theme-dark .drill-page-size {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .drill-page-size select,
+.theme-dark .drill-page-size select {
+  background: var(--surface-raised, #202f36);
+  color: var(--ink, #d7e2e7);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .drilldown-body,
+.theme-dark .drilldown-body {
+  background: var(--surface, #18262d);
+}
+
+html[data-theme="dark"] .drilldown-table th,
+.theme-dark .drilldown-table th {
+  background: var(--surface-raised, #202f36);
+  color: var(--ink, #d7e2e7);
+  border-bottom-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .drilldown-table td,
+.theme-dark .drilldown-table td {
+  border-bottom-color: var(--line, #2c4149);
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .drilldown-table tr:hover td,
+.theme-dark .drilldown-table tr:hover td {
+  background: rgba(45, 212, 191, 0.05);
+}
+
+html[data-theme="dark"] .drilldown-table td.sticky-col-2,
+html[data-theme="dark"] .drilldown-table th.sticky-col-2,
+.theme-dark .drilldown-table td.sticky-col-2,
+.theme-dark .drilldown-table th.sticky-col-2 {
+  border-right-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .pill-factory.non-im,
+.theme-dark .pill-factory.non-im {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .pill-warning,
+.theme-dark .pill-warning {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+}
+
+html[data-theme="dark"] .pill-error,
+.theme-dark .pill-error {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .drilldown-footer,
+.theme-dark .drilldown-footer {
+  background: var(--surface-raised, #202f36);
+  border-top-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .pagination-info,
+.theme-dark .pagination-info {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .page-btn,
+.theme-dark .page-btn {
+  background: var(--surface, #18262d);
+  color: var(--ink, #d7e2e7);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .page-btn:hover:not(:disabled),
+.theme-dark .page-btn:hover:not(:disabled) {
+  background: var(--surface-raised, #202f36);
+  border-color: var(--accent, #2dd4bf);
+}
+
+html[data-theme="dark"] .page-indicator,
+.theme-dark .page-indicator {
+  color: var(--ink, #d7e2e7);
+}
+

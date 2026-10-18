@@ -310,3 +310,94 @@
 .stat-pill.stat-warning .stat-val {
   color: #b45309;
 }
+
+/* ── Dark Theme Overrides ────────────────────────────────────── */
+html[data-theme="dark"] .processing-status-card,
+.theme-dark .processing-status-card {
+  background: var(--surface, #18262d);
+  border-color: var(--line, #2c4149);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .status-header-text h3,
+.theme-dark .status-header-text h3 {
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .status-subtext,
+.theme-dark .status-subtext {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .progress-bar-wrapper,
+.theme-dark .progress-bar-wrapper {
+  background: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .pipeline-step-item,
+.theme-dark .pipeline-step-item {
+  background: var(--surface-raised, #202f36);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .pipeline-step-item.state-active,
+.theme-dark .pipeline-step-item.state-active {
+  background: rgba(45, 212, 191, 0.1);
+  border-color: var(--accent, #2dd4bf);
+  box-shadow: 0 0 0 1px var(--accent, #2dd4bf);
+}
+
+html[data-theme="dark"] .step-number,
+.theme-dark .step-number {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .step-label,
+.theme-dark .step-label {
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .stat-pill,
+.theme-dark .stat-pill {
+  background: var(--surface-raised, #202f36);
+}
+
+html[data-theme="dark"] .stat-label,
+.theme-dark .stat-label {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .stat-val,
+.theme-dark .stat-val {
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .stat-pill.stat-warning,
+.theme-dark .stat-pill.stat-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+html[data-theme="dark"] .stat-pill.stat-warning .stat-label,
+html[data-theme="dark"] .stat-pill.stat-warning .stat-val,
+.theme-dark .stat-pill.stat-warning .stat-label,
+.theme-dark .stat-pill.stat-warning .stat-val {
+  color: #fde68a;
+}
+
+html[data-theme="dark"] .status-error-box,
+.theme-dark .status-error-box {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+html[data-theme="dark"] .error-content h4,
+.theme-dark .error-content h4 {
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .error-content p,
+.theme-dark .error-content p {
+  color: #fecaca;
+}
+

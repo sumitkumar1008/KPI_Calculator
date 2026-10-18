@@ -175,3 +175,85 @@
 .nstt-tab-panel {
   /* no extra padding — tables are self-contained */
 }
+
+/* ── Dark Theme Overrides ────────────────────────────────────── */
+html[data-theme="dark"] .nstt-dash-header,
+.theme-dark .nstt-dash-header {
+  border-bottom-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .nstt-dash-title,
+.theme-dark .nstt-dash-title {
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .dash-sub,
+.theme-dark .dash-sub {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .dash-file-pill,
+.theme-dark .dash-file-pill {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.3);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .dash-amp,
+.theme-dark .dash-amp {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .dash-matched,
+.theme-dark .dash-matched {
+  color: var(--ink, #d7e2e7);
+}
+
+html[data-theme="dark"] .upload-new-btn,
+.theme-dark .upload-new-btn {
+  background: var(--surface, #18262d);
+  color: var(--ink, #d7e2e7);
+  border-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .upload-new-btn:hover,
+.theme-dark .upload-new-btn:hover {
+  background: var(--surface-raised, #202f36);
+  border-color: var(--accent, #2dd4bf);
+  color: var(--accent, #2dd4bf);
+}
+
+html[data-theme="dark"] .dash-warnings-box,
+.theme-dark .dash-warnings-box {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+html[data-theme="dark"] .warning-texts p,
+.theme-dark .warning-texts p {
+  color: #fde68a;
+}
+
+html[data-theme="dark"] .nstt-tabs-nav,
+.theme-dark .nstt-tabs-nav {
+  border-bottom-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .tab-btn,
+.theme-dark .tab-btn {
+  color: var(--muted, #9aaeb7);
+}
+
+html[data-theme="dark"] .tab-btn:hover,
+.theme-dark .tab-btn:hover {
+  color: var(--accent, #2dd4bf);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+html[data-theme="dark"] .tab-btn.active,
+.theme-dark .tab-btn.active {
+  color: #5eead4;
+  border-bottom-color: #2dd4bf;
+  background: rgba(45, 212, 191, 0.12);
+}
+
