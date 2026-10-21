@@ -79,9 +79,10 @@ def _classify_different_nstt(incident_impact: Optional[str], auto_impact: Option
 
 def apply_different_nstt(records: List[Dict[str, Any]], remedy_impact_map: Optional[Dict[str, Optional[str]]] = None) -> None:
     """
-    Mutates records in-place, setting 'diff_nstt_category' for Different NSTT records.
+    Mutates records in-place, setting 'diff_nstt_category' and 'AUTOMATION_IMPACT' for Different NSTT records.
 
-    The field 'diff_nstt_category' contains one of the 4 spec-defined labels.
+    The field 'diff_nstt_category' contains one of the 5 spec-defined labels.
+    The field 'AUTOMATION_IMPACT' contains 'SA', 'NSA', or None based on AUTOMATION_UPDATE_NSTT_NUMBER lookup.
 
     Args:
         records: List of record dicts from the Master Response.
@@ -93,6 +94,8 @@ def apply_different_nstt(records: List[Dict[str, Any]], remedy_impact_map: Optio
         if rec.get("nstt_type") != "Different NSTT":
             if "diff_nstt_category" not in rec:
                 rec["diff_nstt_category"] = None
+            if "AUTOMATION_IMPACT" not in rec:
+                rec["AUTOMATION_IMPACT"] = None
             continue
 
         incident_impact = rec.get("INCIDENT_IMPACT")
@@ -103,7 +106,7 @@ def apply_different_nstt(records: List[Dict[str, Any]], remedy_impact_map: Optio
         auto_nstt_num = rec.get("AUTOMATION_UPDATE_NSTT_NUMBER")
         auto_impact: Optional[str] = None
 
-        if remedy_impact_map and auto_nstt_num:
+        if remedy_impact_map is not None and auto_nstt_num:
             import re
             auto_tokens = [t.strip().upper() for t in re.split(r"[,;\s/|]+", str(auto_nstt_num)) if t.strip()]
             for tok in auto_tokens:
@@ -112,9 +115,25 @@ def apply_different_nstt(records: List[Dict[str, Any]], remedy_impact_map: Optio
                     break
             if auto_impact is None and auto_tokens:
                 auto_impact = remedy_impact_map.get(auto_tokens[0])
-        else:
-            # Fallback: use INCIDENT_IMPACT as a proxy when no separate lookup available
-            # This means the category will be "Both SA" or "Both NSA" by default
-            auto_impact = incident_impact
-
         rec["diff_nstt_category"] = _classify_different_nstt(incident_impact, auto_impact)
+
+        # Explicitly categorize AUTOMATION_IMPACT and INCIDENT_IMPACT across all 5 categories
+        cat = rec["diff_nstt_category"]
+        if cat == DIFF_CAT_INCIDENT_SA_AUTO_NSA:
+            rec["INCIDENT_IMPACT"] = "SA"
+            rec["AUTOMATION_IMPACT"] = "NSA"
+        elif cat == DIFF_CAT_INCIDENT_NSA_AUTO_SA:
+            rec["INCIDENT_IMPACT"] = "NSA"
+            rec["AUTOMATION_IMPACT"] = "SA"
+        elif cat == DIFF_CAT_BOTH_NSA:
+            rec["INCIDENT_IMPACT"] = "NSA"
+            rec["AUTOMATION_IMPACT"] = "NSA"
+        elif cat == DIFF_CAT_BOTH_SA:
+            rec["INCIDENT_IMPACT"] = "SA"
+            rec["AUTOMATION_IMPACT"] = "SA"
+        elif cat == DIFF_CAT_UNKNOWN:
+            rec["AUTOMATION_IMPACT"] = auto_impact if auto_impact in ("SA", "NSA") else "Unknown"
+            if rec.get("INCIDENT_IMPACT") not in ("SA", "NSA"):
+                rec["INCIDENT_IMPACT"] = "Unknown"
+        else:
+            rec["AUTOMATION_IMPACT"] = auto_impact if auto_impact in ("SA", "NSA") else None

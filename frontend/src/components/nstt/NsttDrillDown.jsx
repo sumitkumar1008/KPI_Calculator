@@ -36,6 +36,26 @@ export default function NsttDrillDown() {
     return Array.isArray(drilldownData?.records) ? drilldownData.records : []
   }, [drilldownData])
 
+  // Only display AUTOMATION_IMPACT for the 5 Different NSTT categories
+  const isDifferentNsttCategory = useMemo(() => {
+    const cat = String(drilldownCategory || '').toLowerCase()
+    if (cat.includes('different_nstt') || cat.includes('diff_nstt')) return true
+    if (records.length > 0 && records.every((r) => Boolean(r.diff_nstt_category))) return true
+    return false
+  }, [drilldownCategory, records])
+
+  // Detect if current drilldown is part of the Manual Captured section
+  const isManualCaptured = useMemo(() => {
+    const cat = String(drilldownCategory || '').toLowerCase()
+    if (cat === 'manual' || cat.startsWith('manual.') || cat.includes('engineer')) {
+      return true
+    }
+    if (records.length > 0 && records.every((r) => r.capture_type === 'Manual')) {
+      return true
+    }
+    return false
+  }, [drilldownCategory, records])
+
   // Search filter across key fields
   const filteredRecords = useMemo(() => {
     if (!searchTerm.trim()) return records
@@ -45,14 +65,16 @@ export default function NsttDrillDown() {
       return (
         srNum.toLowerCase().includes(term) ||
         String(rec.INCIDENTID || '').toLowerCase().includes(term) ||
-        String(rec.AUTOMATION_UPDATE_NSTT_NUMBER || '').toLowerCase().includes(term) ||
+        (!isManualCaptured && String(rec.AUTOMATION_UPDATE_NSTT_NUMBER || '').toLowerCase().includes(term)) ||
         String(rec.ATTRIBUTEDTO || '').toLowerCase().includes(term) ||
         String(rec.FACTORY || '').toLowerCase().includes(term) ||
         String(rec.DESCRIPTION || '').toLowerCase().includes(term) ||
-        String(rec.AUTOMATION_RCA_CONCLUSION_TEXT || '').toLowerCase().includes(term)
+        String(rec.AUTOMATION_RCA_CONCLUSION_TEXT || '').toLowerCase().includes(term) ||
+        String(rec.INCIDENT_IMPACT || '').toLowerCase().includes(term) ||
+        (isDifferentNsttCategory && String(rec.AUTOMATION_IMPACT || '').toLowerCase().includes(term))
       )
     })
-  }, [records, searchTerm])
+  }, [records, searchTerm, isDifferentNsttCategory, isManualCaptured])
 
   // Pagination slice
   const totalRecords = filteredRecords.length
@@ -75,7 +97,23 @@ export default function NsttDrillDown() {
 
   const exportToCsv = () => {
     if (!filteredRecords.length) return
-    const headers = Object.keys(filteredRecords[0])
+    const excludedCols = new Set([
+      'capture_type',
+      'nstt_type',
+      'CAPTURE_TYPE',
+      'NSTT_TYPE',
+      'is_total_sr',
+      'is_nstt',
+    ])
+    if (!isDifferentNsttCategory) {
+      excludedCols.add('AUTOMATION_IMPACT')
+      excludedCols.add('automation_impact')
+    }
+    if (isManualCaptured) {
+      excludedCols.add('AUTOMATION_UPDATE_NSTT_NUMBER')
+      excludedCols.add('automation_update_nstt_number')
+    }
+    const headers = Object.keys(filteredRecords[0]).filter((h) => !excludedCols.has(h))
     const csvRows = [
       headers.join(','),
       ...filteredRecords.map((r) =>
@@ -186,13 +224,12 @@ export default function NsttDrillDown() {
                     <th className="sticky-col">#</th>
                     <th className="sticky-col-2">INCIDENTID</th>
                     <th>SR NUMBER</th>
-                    <th>AUTOMATION UPDATE NSTT NUMBER</th>
+                    {!isManualCaptured && <th>AUTOMATION UPDATE NSTT NUMBER</th>}
                     <th>ATTRIBUTEDTO</th>
                     <th>FACTORY</th>
                     <th>AUTO_ALLOCATION</th>
                     <th>INCIDENT_IMPACT</th>
-                    <th>CAPTURE_TYPE</th>
-                    <th>NSTT_TYPE</th>
+                    {isDifferentNsttCategory && <th>AUTOMATION_IMPACT</th>}
                     <th>SRCREATIONTIME</th>
                     <th>UP_TIME</th>
                     <th>Submit Date</th>
@@ -202,6 +239,24 @@ export default function NsttDrillDown() {
                 <tbody>
                   {paginatedRecords.map((r, i) => {
                     const rowIdx = (currentPage - 1) * pageSize + i + 1
+
+                    // Determine AUTOMATION_IMPACT and INCIDENT_IMPACT
+                    let autoImp = r.AUTOMATION_IMPACT
+                    let incImp = r.INCIDENT_IMPACT
+                    const diffCat = r.diff_nstt_category || ''
+
+                    if (!autoImp && diffCat) {
+                      if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both NSA') autoImp = 'NSA'
+                      else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both SA') autoImp = 'SA'
+                      else if (diffCat === 'Impact Unknown / Not Found in Remedy' || r.nstt_type === 'Different NSTT') autoImp = 'Unknown'
+                    }
+
+                    if (!incImp && diffCat) {
+                      if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both SA') incImp = 'SA'
+                      else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both NSA') incImp = 'NSA'
+                      else if (diffCat === 'Impact Unknown / Not Found in Remedy') incImp = 'Unknown'
+                    }
+
                     return (
                       <tr key={r.INCIDENTID || i}>
                         <td className="sticky-col text-muted">{rowIdx}</td>
@@ -211,9 +266,11 @@ export default function NsttDrillDown() {
                         <td className="font-mono">
                           {r.SRNUMBER || r.SR_NUMBER || r['SR NUMBER'] || r.SRNO || r['SR NO'] || '—'}
                         </td>
-                        <td className="font-mono text-sm" title={r.AUTOMATION_UPDATE_NSTT_NUMBER || ''}>
-                          {r.AUTOMATION_UPDATE_NSTT_NUMBER || '—'}
-                        </td>
+                        {!isManualCaptured && (
+                          <td className="font-mono text-sm" title={r.AUTOMATION_UPDATE_NSTT_NUMBER || ''}>
+                            {r.AUTOMATION_UPDATE_NSTT_NUMBER || '—'}
+                          </td>
+                        )}
                         <td>{r.ATTRIBUTEDTO || '—'}</td>
                         <td>
                           {r.FACTORY ? (
@@ -224,14 +281,21 @@ export default function NsttDrillDown() {
                         </td>
                         <td>{r.AUTO_ALLOCATION || '—'}</td>
                         <td>
-                          {r.INCIDENT_IMPACT ? (
-                            <span className={`pill-impact ${r.INCIDENT_IMPACT === 'SA' ? 'sa' : 'nsa'}`}>
-                              {r.INCIDENT_IMPACT}
+                          {incImp ? (
+                            <span className={`pill-impact ${incImp === 'SA' ? 'sa' : (incImp === 'NSA' ? 'nsa' : 'unknown')}`}>
+                              {incImp}
                             </span>
                           ) : '—'}
                         </td>
-                        <td>{r.capture_type || '—'}</td>
-                        <td>{r.nstt_type || '—'}</td>
+                        {isDifferentNsttCategory && (
+                          <td>
+                            {autoImp ? (
+                              <span className={`pill-impact ${autoImp === 'SA' ? 'sa' : (autoImp === 'NSA' ? 'nsa' : 'unknown')}`}>
+                                {autoImp}
+                              </span>
+                            ) : '—'}
+                          </td>
+                        )}
                         <td className="font-mono text-sm">{r.SRCREATIONTIME || '—'}</td>
                         <td className="font-mono text-sm">{r.UP_TIME || '—'}</td>
                         <td className="font-mono text-sm">{r['Submit Date'] || '—'}</td>

@@ -19,6 +19,7 @@ from app.services.nstt.aggregator import (
     FAIL_RING,
     FAIL_SECTION,
     FAIL_UNSTITCHED,
+    FAIL_OTHERS,
     DIFF_INC_SA_AUTO_NSA,
     DIFF_INC_NSA_AUTO_SA,
     DIFF_BOTH_NSA,
@@ -130,6 +131,7 @@ class TestNSTTAggregatorStructure:
         records.append(_make_classified_record(INCIDENTID="F2", failure_category=FAIL_RING))
         records.append(_make_classified_record(INCIDENTID="F3", failure_category=FAIL_SECTION))
         records.append(_make_classified_record(INCIDENTID="F4", failure_category=FAIL_UNSTITCHED))
+        records.append(_make_classified_record(INCIDENTID="F5", failure_category=FAIL_OTHERS))
 
         agg = build_nstt_aggregation(records)
 
@@ -170,11 +172,11 @@ class TestNSTTAggregatorStructure:
 
         # Resolved NSTT
         res = auto["resolved_nstt"]
-        assert res["im"]["auto"] == 1
-        assert res["im"]["manual"] == 1
+        assert res["im"]["auto"]["count"] == 1
+        assert res["im"]["manual"]["count"] == 1
         assert res["im"]["count"] == 2
-        assert res["non_im"]["auto"] == 1
-        assert res["non_im"]["manual"] == 0
+        assert res["non_im"]["auto"]["count"] == 1
+        assert res["non_im"]["manual"]["count"] == 0
         assert res["non_im"]["count"] == 1
         assert res["count"] == 3
 
@@ -207,6 +209,7 @@ class TestNSTTAggregatorStructure:
         assert agg["failures"]["ring_failure"] == 1
         assert agg["failures"]["section_failure"] == 1
         assert agg["failures"]["unstitched"] == 1
+        assert agg["failures"]["others"] == 1
         assert agg["failures"]["grand_total"] == 4
 
         # Percentage Verification (Base for sub-bifurcations = nstt_count)

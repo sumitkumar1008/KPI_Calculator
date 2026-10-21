@@ -12,8 +12,13 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .drilldown-drawer {
@@ -28,8 +33,13 @@
 }
 
 @keyframes slideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 /* Header */
@@ -247,10 +257,12 @@
   font-weight: 600;
   font-size: 0.75rem;
 }
+
 .pill-factory.im {
   background: rgba(59, 130, 246, 0.12);
   color: #2563eb;
 }
+
 .pill-factory.non-im {
   background: rgba(107, 114, 128, 0.12);
   color: #4b5563;
@@ -262,13 +274,20 @@
   font-weight: 700;
   font-size: 0.75rem;
 }
+
 .pill-impact.sa {
   background: rgba(239, 68, 68, 0.12);
   color: #dc2626;
 }
+
 .pill-impact.nsa {
   background: rgba(16, 185, 129, 0.12);
   color: #059669;
+}
+
+.pill-impact.unknown {
+  background: rgba(148, 163, 184, 0.15);
+  color: #64748b;
 }
 
 .pill-warning {
@@ -521,4 +540,3 @@ html[data-theme="dark"] .page-indicator,
 .theme-dark .page-indicator {
   color: var(--ink, #d7e2e7);
 }
-

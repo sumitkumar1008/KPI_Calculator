@@ -57,3 +57,5 @@ def apply_resolved_nstt(records: List[Dict[str, Any]]) -> None:
 
         rec["factory_type"] = _get_factory_type(rec)
         rec["allocation_type"] = _get_allocation_type(rec)
+        impact = rec.get("INCIDENT_IMPACT")
+        rec["impact_type"] = impact if impact in ("SA", "NSA") else None

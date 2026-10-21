@@ -273,6 +273,7 @@ class TestDifferentNstt:
         remedy_map = {"INC999": "NSA"}
         apply_different_nstt([rec], remedy_impact_map=remedy_map)
         assert rec["diff_nstt_category"] == "Incident SA auto NSA"
+        assert rec["AUTOMATION_IMPACT"] == "NSA"
 
     def test_incident_nsa_auto_sa(self):
         from app.services.nstt.rules.different_nstt import apply_different_nstt
@@ -281,6 +282,7 @@ class TestDifferentNstt:
         remedy_map = {"INC999": "SA"}
         apply_different_nstt([rec], remedy_impact_map=remedy_map)
         assert rec["diff_nstt_category"] == "Incident NSA auto SA"
+        assert rec["AUTOMATION_IMPACT"] == "SA"
 
     def test_both_nsa(self):
         from app.services.nstt.rules.different_nstt import apply_different_nstt
@@ -289,6 +291,7 @@ class TestDifferentNstt:
         remedy_map = {"INC999": "NSA"}
         apply_different_nstt([rec], remedy_impact_map=remedy_map)
         assert rec["diff_nstt_category"] == "Both NSA"
+        assert rec["AUTOMATION_IMPACT"] == "NSA"
 
     def test_both_sa(self):
         from app.services.nstt.rules.different_nstt import apply_different_nstt
@@ -297,12 +300,23 @@ class TestDifferentNstt:
         remedy_map = {"INC999": "SA"}
         apply_different_nstt([rec], remedy_impact_map=remedy_map)
         assert rec["diff_nstt_category"] == "Both SA"
+        assert rec["AUTOMATION_IMPACT"] == "SA"
+
+    def test_unknown_or_not_found(self):
+        from app.services.nstt.rules.different_nstt import apply_different_nstt
+        rec = make_record(nstt_type="Different NSTT", INCIDENTID="INC001", INCIDENT_IMPACT="SA",
+                          AUTOMATION_UPDATE_NSTT_NUMBER="INC999")
+        remedy_map = {}  # not found
+        apply_different_nstt([rec], remedy_impact_map=remedy_map)
+        assert rec["diff_nstt_category"] == "Impact Unknown / Not Found in Remedy"
+        assert rec["AUTOMATION_IMPACT"] == "Unknown"
 
     def test_non_different_nstt_gets_null(self):
         from app.services.nstt.rules.different_nstt import apply_different_nstt
         rec = make_record(nstt_type="Same NSTT")
         apply_different_nstt([rec])
         assert rec["diff_nstt_category"] is None
+        assert rec["AUTOMATION_IMPACT"] is None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -531,6 +545,29 @@ class TestFailureAnalysis:
         apply_failure_analysis([rec])
         assert rec["failure_category"] is None
 
+    def test_before_sr_creation_no_match_becomes_others(self):
+        """Before SR Creation records that do not match Ring/Section/Unstitched become Others."""
+        from app.services.nstt.rules.failure_analysis import apply_failure_analysis, FAIL_OTHERS
+        rec = make_record(
+            is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
+            DESCRIPTION="Fiber link down without keyword",
+            AUTOMATION_RCA_CONCLUSION_TEXT="Normal RCA text",
+        )
+        apply_failure_analysis([rec])
+        assert rec["failure_category"] == FAIL_OTHERS
+
+    def test_timing_resolved_excluded_from_failure_analysis(self):
+        """Resolved manual records do not belong to Before SR Creation failure table."""
+        from app.services.nstt.rules.failure_analysis import apply_failure_analysis
+        rec = make_record(
+            is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Resolved",
+            DESCRIPTION="Ring failure detected",
+        )
+        apply_failure_analysis([rec])
+        assert rec["failure_category"] is None
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Full Rule Engine Orchestrator
@@ -651,6 +688,18 @@ class TestRuleEngineOrchestrator:
         assert rec["is_total_sr"] is False
         assert rec["is_nstt"] is False
         assert result["classification_stats"]["total_sr"] == 0
+
+    def test_classification_stats_consistency(self):
+        """automation_count + manual_count should equal nstt_count."""
+        from app.services.nstt.rule_engine import run_rule_engine
+        records = [
+            make_record(ATTRIBUTEDTO="TXN", INCIDENTID=f"INC{i:03d}",
+                        AUTOMATION_UPDATE_NSTT_NUMBER=f"INC{i:03d}" if i % 2 == 0 else "")
+            for i in range(10)
+        ]
+        result = run_rule_engine(self._build_master_response(records))
+        stats = result["classification_stats"]
+        assert stats["automation_count"] + stats["manual_count"] == stats["nstt_count"]
 
     def test_classification_stats_consistency(self):
         """automation_count + manual_count should equal nstt_count."""

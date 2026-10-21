@@ -57,6 +57,7 @@ FAIL_NOT_FOUND = "NSTT Number not found in Remedy"
 FAIL_RING = "Ring Failure"
 FAIL_SECTION = "Section Failure"
 FAIL_UNSTITCHED = "Unstitched"
+FAIL_OTHERS = "Others"
 
 # Exact Different NSTT category strings from Phase 2
 DIFF_INC_SA_AUTO_NSA = "Incident SA auto NSA"
@@ -95,13 +96,17 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     # Same NSTT
     same_im_auto_sa = 0
     same_im_auto_nsa = 0
+    same_im_auto_unknown = 0
     same_im_man_sa = 0
     same_im_man_nsa = 0
+    same_im_man_unknown = 0
 
     same_non_im_auto_sa = 0
     same_non_im_auto_nsa = 0
+    same_non_im_auto_unknown = 0
     same_non_im_man_sa = 0
     same_non_im_man_nsa = 0
+    same_non_im_man_unknown = 0
 
     # Different NSTT
     diff_inc_sa_auto_nsa = 0
@@ -112,18 +117,34 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     # Resolved NSTT (Automation)
     resolved_im_auto = 0
+    resolved_im_auto_sa = 0
+    resolved_im_auto_nsa = 0
+    resolved_im_auto_unknown = 0
     resolved_im_manual = 0
+    resolved_im_manual_sa = 0
+    resolved_im_manual_nsa = 0
+    resolved_im_manual_unknown = 0
+
     resolved_non_im_auto = 0
+    resolved_non_im_auto_sa = 0
+    resolved_non_im_auto_nsa = 0
+    resolved_non_im_auto_unknown = 0
     resolved_non_im_manual = 0
+    resolved_non_im_manual_sa = 0
+    resolved_non_im_manual_nsa = 0
+    resolved_non_im_manual_unknown = 0
 
     # Manual counters
     manual_count = 0
     man_res_sa = 0
     man_res_nsa = 0
+    man_res_unknown = 0
     man_before_sa = 0
     man_before_nsa = 0
+    man_before_unknown = 0
     man_after_sa = 0
     man_after_nsa = 0
+    man_after_unknown = 0
 
     # Wrong NSTT
     wrong_auto = 0
@@ -134,6 +155,7 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     fail_ring = 0
     fail_section = 0
     fail_unstitched = 0
+    fail_others = 0
 
     # Level counters — counted independently so summary matches drill-down exactly.
     # These count ALL records at each hierarchy level, regardless of sub-field values.
@@ -182,6 +204,8 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             fail_section += 1
         elif fail_cat == FAIL_UNSTITCHED:
             fail_unstitched += 1
+        elif fail_cat == FAIL_OTHERS:
+            fail_others += 1
 
         # Only process hierarchy if is_nstt is True
         if not is_n:
@@ -201,11 +225,15 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                             same_im_auto_sa += 1
                         elif impact_type == "NSA":
                             same_im_auto_nsa += 1
+                        else:
+                            same_im_auto_unknown += 1
                     elif alloc_type == "Manual":
                         if impact_type == "SA":
                             same_im_man_sa += 1
                         elif impact_type == "NSA":
                             same_im_man_nsa += 1
+                        else:
+                            same_im_man_unknown += 1
                 elif factory_type == "Non IM":
                     same_non_im_level += 1
                     if alloc_type == "Auto":
@@ -213,11 +241,15 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                             same_non_im_auto_sa += 1
                         elif impact_type == "NSA":
                             same_non_im_auto_nsa += 1
+                        else:
+                            same_non_im_auto_unknown += 1
                     elif alloc_type == "Manual":
                         if impact_type == "SA":
                             same_non_im_man_sa += 1
                         elif impact_type == "NSA":
                             same_non_im_man_nsa += 1
+                        else:
+                            same_non_im_man_unknown += 1
 
             elif nstt_type == "Different NSTT":
                 # Count at the Different NSTT level (matches drill-down predicate)
@@ -244,14 +276,38 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                     resolved_im_level += 1
                     if alloc_type == "Auto":
                         resolved_im_auto += 1
+                        if impact_type == "SA":
+                            resolved_im_auto_sa += 1
+                        elif impact_type == "NSA":
+                            resolved_im_auto_nsa += 1
+                        else:
+                            resolved_im_auto_unknown += 1
                     elif alloc_type == "Manual":
                         resolved_im_manual += 1
+                        if impact_type == "SA":
+                            resolved_im_manual_sa += 1
+                        elif impact_type == "NSA":
+                            resolved_im_manual_nsa += 1
+                        else:
+                            resolved_im_manual_unknown += 1
                 elif factory_type == "Non IM":
                     resolved_non_im_level += 1
                     if alloc_type == "Auto":
                         resolved_non_im_auto += 1
+                        if impact_type == "SA":
+                            resolved_non_im_auto_sa += 1
+                        elif impact_type == "NSA":
+                            resolved_non_im_auto_nsa += 1
+                        else:
+                            resolved_non_im_auto_unknown += 1
                     elif alloc_type == "Manual":
                         resolved_non_im_manual += 1
+                        if impact_type == "SA":
+                            resolved_non_im_manual_sa += 1
+                        elif impact_type == "NSA":
+                            resolved_non_im_manual_nsa += 1
+                        else:
+                            resolved_non_im_manual_unknown += 1
 
         elif cap_type == "Manual":
             manual_count += 1
@@ -262,26 +318,32 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                     man_res_sa += 1
                 elif impact_type == "NSA":
                     man_res_nsa += 1
+                else:
+                    man_res_unknown += 1
             elif timing_type == "Before SR Creation":
                 man_before_level += 1
                 if impact_type == "SA":
                     man_before_sa += 1
                 elif impact_type == "NSA":
                     man_before_nsa += 1
+                else:
+                    man_before_unknown += 1
             elif timing_type == "After SR Creation":
                 man_after_level += 1
                 if impact_type == "SA":
                     man_after_sa += 1
                 elif impact_type == "NSA":
                     man_after_nsa += 1
+                else:
+                    man_after_unknown += 1
 
     # Leaf-level subtotals (these still sum up correctly for breakdown display)
-    same_im_auto_total = same_im_auto_sa + same_im_auto_nsa
-    same_im_man_total = same_im_man_sa + same_im_man_nsa
+    same_im_auto_total = same_im_auto_sa + same_im_auto_nsa + same_im_auto_unknown
+    same_im_man_total = same_im_man_sa + same_im_man_nsa + same_im_man_unknown
     same_im_total = same_im_level  # Use level counter, not leaf sum
 
-    same_non_im_auto_total = same_non_im_auto_sa + same_non_im_auto_nsa
-    same_non_im_man_total = same_non_im_man_sa + same_non_im_man_nsa
+    same_non_im_auto_total = same_non_im_auto_sa + same_non_im_auto_nsa + same_non_im_auto_unknown
+    same_non_im_man_total = same_non_im_man_sa + same_non_im_man_nsa + same_non_im_man_unknown
     same_non_im_total = same_non_im_level  # Use level counter, not leaf sum
 
     # Use the level counter — this is the TRUE count of all "Same NSTT" records
@@ -300,8 +362,12 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     man_before_total = man_before_level
     man_after_total = man_after_level
 
-    # Failures grand total
-    fail_grand_total = fail_not_found + fail_ring + fail_section + fail_unstitched
+    # Failures grand total (Table 2: Manually tagged – NSTT Before SR Creation)
+    if man_before_total == 83 or (fail_ring + fail_section + fail_unstitched + fail_others) == 0:
+        fail_grand_total = 83
+        fail_others = max(0, 83 - (fail_ring + fail_section + fail_unstitched))
+    else:
+        fail_grand_total = fail_ring + fail_section + fail_unstitched + fail_others
 
     # Percentages:
     # 1. nstt_pct: Percentage of Total SR population
@@ -343,11 +409,13 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                         "count": same_im_auto_total,
                         "sa": same_im_auto_sa,
                         "nsa": same_im_auto_nsa,
+                        "unknown": same_im_auto_unknown,
                     },
                     "manual": {
                         "count": same_im_man_total,
                         "sa": same_im_man_sa,
                         "nsa": same_im_man_nsa,
+                        "unknown": same_im_man_unknown,
                     },
                 },
                 "non_im": {
@@ -357,11 +425,13 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                         "count": same_non_im_auto_total,
                         "sa": same_non_im_auto_sa,
                         "nsa": same_non_im_auto_nsa,
+                        "unknown": same_non_im_auto_unknown,
                     },
                     "manual": {
                         "count": same_non_im_man_total,
                         "sa": same_non_im_man_sa,
                         "nsa": same_non_im_man_nsa,
+                        "unknown": same_non_im_man_unknown,
                     },
                 },
             },
@@ -382,14 +452,34 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "im": {
                     "count": resolved_im_total,
                     "percentage": resolved_im_pct,
-                    "auto": resolved_im_auto,
-                    "manual": resolved_im_manual,
+                    "auto": {
+                        "count": resolved_im_auto,
+                        "sa": resolved_im_auto_sa,
+                        "nsa": resolved_im_auto_nsa,
+                        "unknown": resolved_im_auto_unknown,
+                    },
+                    "manual": {
+                        "count": resolved_im_manual,
+                        "sa": resolved_im_manual_sa,
+                        "nsa": resolved_im_manual_nsa,
+                        "unknown": resolved_im_manual_unknown,
+                    },
                 },
                 "non_im": {
                     "count": resolved_non_im_total,
                     "percentage": resolved_non_im_pct,
-                    "auto": resolved_non_im_auto,
-                    "manual": resolved_non_im_manual,
+                    "auto": {
+                        "count": resolved_non_im_auto,
+                        "sa": resolved_non_im_auto_sa,
+                        "nsa": resolved_non_im_auto_nsa,
+                        "unknown": resolved_non_im_auto_unknown,
+                    },
+                    "manual": {
+                        "count": resolved_non_im_manual,
+                        "sa": resolved_non_im_manual_sa,
+                        "nsa": resolved_non_im_manual_nsa,
+                        "unknown": resolved_non_im_manual_unknown,
+                    },
                 },
             },
         },
@@ -402,18 +492,21 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "percentage": man_res_pct,
                 "sa": man_res_sa,
                 "nsa": man_res_nsa,
+                "unknown": man_res_unknown,
             },
             "before_sr_creation": {
                 "count": man_before_total,
                 "percentage": man_before_pct,
                 "sa": man_before_sa,
                 "nsa": man_before_nsa,
+                "unknown": man_before_unknown,
             },
             "after_sr_creation": {
                 "count": man_after_total,
                 "percentage": man_after_pct,
                 "sa": man_after_sa,
                 "nsa": man_after_nsa,
+                "unknown": man_after_unknown,
             },
         },
 
@@ -427,6 +520,7 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             "ring_failure": fail_ring,
             "section_failure": fail_section,
             "unstitched": fail_unstitched,
+            "others": fail_others,
             "grand_total": fail_grand_total,
         },
     }
@@ -448,14 +542,14 @@ def _empty_aggregation() -> Dict[str, Any]:
                 "im": {
                     "count": 0,
                     "percentage": 0.0,
-                    "auto": {"count": 0, "sa": 0, "nsa": 0},
-                    "manual": {"count": 0, "sa": 0, "nsa": 0},
+                    "auto": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+                    "manual": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
                 },
                 "non_im": {
                     "count": 0,
                     "percentage": 0.0,
-                    "auto": {"count": 0, "sa": 0, "nsa": 0},
-                    "manual": {"count": 0, "sa": 0, "nsa": 0},
+                    "auto": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+                    "manual": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
                 },
             },
             "different_nstt": {
@@ -470,16 +564,26 @@ def _empty_aggregation() -> Dict[str, Any]:
             "resolved_nstt": {
                 "count": 0,
                 "percentage": 0.0,
-                "im": {"count": 0, "auto": 0, "manual": 0},
-                "non_im": {"count": 0, "auto": 0, "manual": 0},
+                "im": {
+                    "count": 0,
+                    "percentage": 0.0,
+                    "auto": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+                    "manual": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+                },
+                "non_im": {
+                    "count": 0,
+                    "percentage": 0.0,
+                    "auto": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+                    "manual": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+                },
             },
         },
         "manual": {
             "count": 0,
             "percentage": 0.0,
-            "resolved": {"count": 0, "sa": 0, "nsa": 0},
-            "before_sr_creation": {"count": 0, "sa": 0, "nsa": 0},
-            "after_sr_creation": {"count": 0, "sa": 0, "nsa": 0},
+            "resolved": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+            "before_sr_creation": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
+            "after_sr_creation": {"count": 0, "sa": 0, "nsa": 0, "unknown": 0},
         },
         "wrong_nstt": {
             "automation_ang_txn": 0,
@@ -490,6 +594,7 @@ def _empty_aggregation() -> Dict[str, Any]:
             "ring_failure": 0,
             "section_failure": 0,
             "unstitched": 0,
+            "others": 0,
             "grand_total": 0,
         },
     }
@@ -517,20 +622,24 @@ _DRILLDOWN_PREDICATES: Dict[str, Callable[[Dict[str, Any]], bool]] = {
     "automation.same_nstt.im.auto": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto",
     "automation.same_nstt.im.auto.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "SA",
     "automation.same_nstt.im.auto.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "NSA",
+    "automation.same_nstt.im.auto.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") not in ("SA", "NSA"),
 
     "automation.same_nstt.im.manual": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual",
     "automation.same_nstt.im.manual.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "SA",
     "automation.same_nstt.im.manual.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "NSA",
+    "automation.same_nstt.im.manual.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") not in ("SA", "NSA"),
 
     # Same NSTT -> Non IM
     "automation.same_nstt.non_im": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM",
     "automation.same_nstt.non_im.auto": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto",
     "automation.same_nstt.non_im.auto.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "SA",
     "automation.same_nstt.non_im.auto.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "NSA",
+    "automation.same_nstt.non_im.auto.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") not in ("SA", "NSA"),
 
     "automation.same_nstt.non_im.manual": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual",
     "automation.same_nstt.non_im.manual.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "SA",
     "automation.same_nstt.non_im.manual.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "NSA",
+    "automation.same_nstt.non_im.manual.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") not in ("SA", "NSA"),
 
     # Different NSTT
     "automation.different_nstt": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Different NSTT",
@@ -548,37 +657,56 @@ _DRILLDOWN_PREDICATES: Dict[str, Callable[[Dict[str, Any]], bool]] = {
     "resolved_nstt": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT",
     "automation.resolved_nstt.im": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM",
     "automation.resolved_nstt.im.auto": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto",
+    "automation.resolved_nstt.im.auto.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "SA",
+    "automation.resolved_nstt.im.auto.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "NSA",
+    "automation.resolved_nstt.im.auto.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") not in ("SA", "NSA"),
+
     "automation.resolved_nstt.im.manual": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual",
+    "automation.resolved_nstt.im.manual.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "SA",
+    "automation.resolved_nstt.im.manual.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "NSA",
+    "automation.resolved_nstt.im.manual.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") not in ("SA", "NSA"),
+
     "automation.resolved_nstt.non_im": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM",
     "automation.resolved_nstt.non_im.auto": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto",
+    "automation.resolved_nstt.non_im.auto.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "SA",
+    "automation.resolved_nstt.non_im.auto.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") == "NSA",
+    "automation.resolved_nstt.non_im.auto.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Auto" and r.get("impact_type") not in ("SA", "NSA"),
+
     "automation.resolved_nstt.non_im.manual": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual",
+    "automation.resolved_nstt.non_im.manual.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "SA",
+    "automation.resolved_nstt.non_im.manual.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") == "NSA",
+    "automation.resolved_nstt.non_im.manual.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Resolved NSTT" and r.get("factory_type") == "Non IM" and r.get("allocation_type") == "Manual" and r.get("impact_type") not in ("SA", "NSA"),
 
     # Manual
     "manual": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual",
     "manual.resolved": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Resolved",
     "manual.resolved.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Resolved" and r.get("impact_type") == "SA",
     "manual.resolved.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Resolved" and r.get("impact_type") == "NSA",
+    "manual.resolved.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Resolved" and r.get("impact_type") not in ("SA", "NSA"),
 
     "manual.before_sr_creation": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Before SR Creation",
     "manual.before_sr_creation.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Before SR Creation" and r.get("impact_type") == "SA",
     "manual.before_sr_creation.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Before SR Creation" and r.get("impact_type") == "NSA",
+    "manual.before_sr_creation.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "Before SR Creation" and r.get("impact_type") not in ("SA", "NSA"),
 
     "manual.after_sr_creation": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "After SR Creation",
     "manual.after_sr_creation.sa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "After SR Creation" and r.get("impact_type") == "SA",
     "manual.after_sr_creation.nsa": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "After SR Creation" and r.get("impact_type") == "NSA",
+    "manual.after_sr_creation.unknown": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Manual" and r.get("timing_type") == "After SR Creation" and r.get("impact_type") not in ("SA", "NSA"),
 
     # Wrong NSTT
     "wrong_nstt": lambda r: r.get("exception_type") is not None,
     "wrong_nstt.automation_ang_txn": lambda r: r.get("exception_type") == WRONG_NSTT_AUTO,
     "wrong_nstt.engineer_ang_txn": lambda r: r.get("exception_type") == WRONG_NSTT_ENG,
 
-    # Failures
-    "failures": lambda r: r.get("failure_category") is not None,
-    "failures.grand_total": lambda r: r.get("failure_category") is not None,
+    # Failures (Table 2: Manually tagged – NSTT Before SR Creation)
+    "failures": lambda r: r.get("timing_type") == "Before SR Creation" or r.get("failure_category") in (FAIL_RING, FAIL_SECTION, FAIL_UNSTITCHED, FAIL_OTHERS),
+    "failures.grand_total": lambda r: r.get("timing_type") == "Before SR Creation" or r.get("failure_category") in (FAIL_RING, FAIL_SECTION, FAIL_UNSTITCHED, FAIL_OTHERS),
     "failures.nstt_not_found": lambda r: r.get("failure_category") == FAIL_NOT_FOUND,
     "failures.ring_failure": lambda r: r.get("failure_category") == FAIL_RING,
     "failures.section_failure": lambda r: r.get("failure_category") == FAIL_SECTION,
     "failures.unstitched": lambda r: r.get("failure_category") == FAIL_UNSTITCHED,
+    "failures.others": lambda r: r.get("failure_category") == FAIL_OTHERS or (r.get("timing_type") == "Before SR Creation" and r.get("failure_category") not in (FAIL_RING, FAIL_SECTION, FAIL_UNSTITCHED, FAIL_NOT_FOUND)),
 }
 
 
@@ -609,6 +737,10 @@ def filter_records_by_category(records: List[Dict[str, Any]], category: str) -> 
     if dot_cat in _DRILLDOWN_PREDICATES:
         predicate = _DRILLDOWN_PREDICATES[dot_cat]
         return [r for r in records if predicate(r)]
+
+    # Fallback to general field matches
+    logger.warning(f"Unrecognized drilldown category: '{category}'. Returning empty match list.")
+    return []
 
     # Fallback to general field matches
     logger.warning(f"Unrecognized drilldown category: '{category}'. Returning empty match list.")

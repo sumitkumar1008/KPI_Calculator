@@ -246,6 +246,18 @@
   color: #fff;
 }
 
+/* Unknown badge */
+.spec-count-btn.unknown {
+  background: rgba(100, 116, 139, 0.08);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.25);
+}
+
+.spec-count-btn.unknown:hover {
+  background: #475569;
+  color: #fff;
+}
+
 .spec-pct-sub {
   display: block;
   font-size: 0.7rem;

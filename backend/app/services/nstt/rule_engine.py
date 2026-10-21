@@ -173,8 +173,13 @@ def run_rule_engine(master_response: Dict[str, Any]) -> Dict[str, Any]:
         "processing_time_ms": elapsed_ms,
     }
 
+    columns = list(master_response.get("columns", []))
+    if "AUTOMATION_IMPACT" not in columns:
+        columns.append("AUTOMATION_IMPACT")
+
     return {
         **master_response,
         "records": records,
+        "columns": columns,
         "classification_stats": classification_stats,
     }
