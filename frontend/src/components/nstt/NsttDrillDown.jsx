@@ -1,6 +1,165 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNstt } from '../../context/NsttContext'
+import ExcelFilterDropdown from './ExcelFilterDropdown'
 import './NsttDrillDown.css'
+
+/**
+ * Normalizes and extracts the column value for a record.
+ */
+export function getRecordValue(r, colId) {
+  if (!r) return ''
+  switch (colId) {
+    case 'INCIDENTID': {
+      const v =
+        r.INCIDENTID ??
+        r.INCIDENT_ID ??
+        r['INCIDENT ID'] ??
+        r.IncidentID ??
+        r.incident_id ??
+        r.INCIDENT_NUMBER ??
+        r['Incident Number'] ??
+        r.incident_number ??
+        ''
+      return String(v).trim()
+    }
+    case 'SR_NUMBER': {
+      const v =
+        r.SRNUMBER ??
+        r.SR_NUMBER ??
+        r['SR NUMBER'] ??
+        r.SRNO ??
+        r['SR NO'] ??
+        r['Sr Number'] ??
+        r.sr_number ??
+        ''
+      return String(v).trim()
+    }
+    case 'AUTOMATION_UPDATE_NSTT_NUMBER': {
+      const v =
+        r.AUTOMATION_UPDATE_NSTT_NUMBER ??
+        r['AUTOMATION UPDATE NSTT NUMBER'] ??
+        r.automation_update_nstt_number ??
+        ''
+      return String(v).trim()
+    }
+    case 'ATTRIBUTEDTO': {
+      const v =
+        r.ATTRIBUTEDTO ??
+        r['ATTRIBUTED TO'] ??
+        r.AttributedTo ??
+        r.attributed_to ??
+        ''
+      return String(v).trim()
+    }
+    case 'FACTORY': {
+      const v = r.FACTORY ?? r.Factory ?? r.factory ?? ''
+      return String(v).trim()
+    }
+    case 'AUTO_ALLOCATION': {
+      const v =
+        r.AUTO_ALLOCATION ??
+        r['AUTO ALLOCATION'] ??
+        r.auto_allocation ??
+        ''
+      return String(v).trim()
+    }
+    case 'INCIDENT_IMPACT': {
+      let incImp =
+        r.INCIDENT_IMPACT ??
+        r['INCIDENT IMPACT'] ??
+        r.incident_impact
+      const diffCat = r.diff_nstt_category || ''
+      if (!incImp && diffCat) {
+        if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both SA') incImp = 'SA'
+        else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both NSA') incImp = 'NSA'
+        else if (diffCat === 'Impact Unknown / Not Found in Remedy') incImp = 'Unknown'
+      }
+      return String(incImp ?? '').trim()
+    }
+    case 'AUTOMATION_IMPACT': {
+      let autoImp =
+        r.AUTOMATION_IMPACT ??
+        r['AUTOMATION IMPACT'] ??
+        r.automation_impact
+      const diffCat = r.diff_nstt_category || ''
+      if (!autoImp && diffCat) {
+        if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both NSA') autoImp = 'NSA'
+        else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both SA') autoImp = 'SA'
+        else if (
+          diffCat === 'Impact Unknown / Not Found in Remedy' ||
+          r.nstt_type === 'Different NSTT'
+        )
+          autoImp = 'Unknown'
+      }
+      return String(autoImp ?? '').trim()
+    }
+    case 'SRCREATIONTIME': {
+      const v =
+        r.SRCREATIONTIME ??
+        r['SR CREATION TIME'] ??
+        r.srcreationtime ??
+        r.SR_CREATION_TIME ??
+        ''
+      return String(v).trim()
+    }
+    case 'UP_TIME': {
+      const v =
+        r.UP_TIME ??
+        r['UP TIME'] ??
+        r.up_time ??
+        ''
+      return String(v).trim()
+    }
+    case 'Submit Date': {
+      const v =
+        r['Submit Date'] ??
+        r.SUBMIT_DATE ??
+        r.submit_date ??
+        r['SubmitDate'] ??
+        ''
+      return String(v).trim()
+    }
+    case 'DESCRIPTION': {
+      const v =
+        r.DESCRIPTION ??
+        r.Description ??
+        r.description ??
+        ''
+      return String(v).trim()
+    }
+    default:
+      return String(r[colId] ?? '').trim()
+  }
+}
+
+const toDisplayVal = (val) => (!val || val === '—' ? '(Blanks)' : val)
+
+function FilterIcon({ isFiltered }) {
+  if (isFiltered) {
+    return (
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .38.82L9.5 7.7V13.5a.5.5 0 0 1-.76.42l-2-1.25A.5.5 0 0 1 6.5 12.25V7.7L1.62 1.82A.5.5 0 0 1 1.5 1.5z" />
+      </svg>
+    )
+  }
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M1.5 2.5a.5.5 0 0 1 .5-.5h12a.5.5 0 0 1 .39.812l-4.89 5.868v4.82a.5.5 0 0 1-.74.436l-2-1.143A.5.5 0 0 1 6.5 11.45V8.68L1.61 2.812A.5.5 0 0 1 1.5 2.5z" />
+    </svg>
+  )
+}
 
 export default function NsttDrillDown() {
   const {
@@ -11,26 +170,45 @@ export default function NsttDrillDown() {
     closeDrilldown,
   } = useNstt()
 
-  const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
-  // Reset pagination on category change
+  // Column-wise filters: { [colId]: Set<string> }
+  const [columnFilters, setColumnFilters] = useState({})
+  // Sorting: { colId: string, direction: 'asc' | 'desc' } | null
+  const [sortConfig, setSortConfig] = useState(null)
+  // Track open filter dropdown by column id
+  const [openDropdownCol, setOpenDropdownCol] = useState(null)
+
+  // Reset pagination, filters, and sorting on category change
   useEffect(() => {
     setCurrentPage(1)
-    setSearchTerm('')
+    setColumnFilters({})
+    setSortConfig(null)
+    setOpenDropdownCol(null)
   }, [drilldownCategory])
 
-  // ESC key to close
+  // ESC key to close modal drawer when no dropdown is open
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isDrilldownOpen) {
+      if (e.key === 'Escape' && isDrilldownOpen && !openDropdownCol) {
         closeDrilldown()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isDrilldownOpen, closeDrilldown])
+  }, [isDrilldownOpen, openDropdownCol, closeDrilldown])
+
+  // Lock background window scroll when drilldown drawer is open
+  useEffect(() => {
+    if (isDrilldownOpen) {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [isDrilldownOpen])
 
   const records = useMemo(() => {
     return Array.isArray(drilldownData?.records) ? drilldownData.records : []
@@ -56,25 +234,296 @@ export default function NsttDrillDown() {
     return false
   }, [drilldownCategory, records])
 
-  // Search filter across key fields
+  // Define columns structure dynamically
+  const columns = useMemo(() => {
+    const cols = [
+      {
+        id: 'INCIDENTID',
+        label: 'INCIDENTID',
+        headerClass: 'sticky-col-2',
+        tdClass: 'sticky-col-2 font-mono font-bold',
+        render: (r) => r.INCIDENTID || '—',
+      },
+      {
+        id: 'SR_NUMBER',
+        label: 'SR NUMBER',
+        headerClass: '',
+        tdClass: 'font-mono',
+        render: (r) => r.SRNUMBER || r.SR_NUMBER || r['SR NUMBER'] || r.SRNO || r['SR NO'] || '—',
+      },
+    ]
+
+    if (!isManualCaptured) {
+      cols.push({
+        id: 'AUTOMATION_UPDATE_NSTT_NUMBER',
+        label: 'AUTOMATION UPDATE NSTT NUMBER',
+        headerClass: '',
+        tdClass: 'font-mono text-sm',
+        render: (r) => (
+          <span title={r.AUTOMATION_UPDATE_NSTT_NUMBER || ''}>
+            {r.AUTOMATION_UPDATE_NSTT_NUMBER || '—'}
+          </span>
+        ),
+      })
+    }
+
+    cols.push(
+      {
+        id: 'ATTRIBUTEDTO',
+        label: 'ATTRIBUTEDTO',
+        headerClass: '',
+        tdClass: '',
+        render: (r) => r.ATTRIBUTEDTO || '—',
+      },
+      {
+        id: 'FACTORY',
+        label: 'FACTORY',
+        headerClass: '',
+        tdClass: '',
+        render: (r) =>
+          r.FACTORY ? (
+            <span className={`pill-factory ${r.FACTORY === 'IM' ? 'im' : 'non-im'}`}>
+              {r.FACTORY}
+            </span>
+          ) : (
+            '—'
+          ),
+      },
+      {
+        id: 'AUTO_ALLOCATION',
+        label: 'AUTO_ALLOCATION',
+        headerClass: '',
+        tdClass: '',
+        render: (r) => r.AUTO_ALLOCATION || '—',
+      },
+      {
+        id: 'INCIDENT_IMPACT',
+        label: 'INCIDENT_IMPACT',
+        headerClass: '',
+        tdClass: '',
+        render: (r) => {
+          let incImp = r.INCIDENT_IMPACT
+          const diffCat = r.diff_nstt_category || ''
+          if (!incImp && diffCat) {
+            if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both SA') incImp = 'SA'
+            else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both NSA') incImp = 'NSA'
+            else if (diffCat === 'Impact Unknown / Not Found in Remedy') incImp = 'Unknown'
+          }
+          return incImp ? (
+            <span
+              className={`pill-impact ${
+                incImp === 'SA' ? 'sa' : incImp === 'NSA' ? 'nsa' : 'unknown'
+              }`}
+            >
+              {incImp}
+            </span>
+          ) : (
+            '—'
+          )
+        },
+      }
+    )
+
+    if (isDifferentNsttCategory) {
+      cols.push({
+        id: 'AUTOMATION_IMPACT',
+        label: 'AUTOMATION_IMPACT',
+        headerClass: '',
+        tdClass: '',
+        render: (r) => {
+          let autoImp = r.AUTOMATION_IMPACT
+          const diffCat = r.diff_nstt_category || ''
+          if (!autoImp && diffCat) {
+            if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both NSA') autoImp = 'NSA'
+            else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both SA') autoImp = 'SA'
+            else if (
+              diffCat === 'Impact Unknown / Not Found in Remedy' ||
+              r.nstt_type === 'Different NSTT'
+            )
+              autoImp = 'Unknown'
+          }
+          return autoImp ? (
+            <span
+              className={`pill-impact ${
+                autoImp === 'SA' ? 'sa' : autoImp === 'NSA' ? 'nsa' : 'unknown'
+              }`}
+            >
+              {autoImp}
+            </span>
+          ) : (
+            '—'
+          )
+        },
+      })
+    }
+
+    cols.push(
+      {
+        id: 'SRCREATIONTIME',
+        label: 'SRCREATIONTIME',
+        headerClass: '',
+        tdClass: 'font-mono text-sm',
+        render: (r) => r.SRCREATIONTIME || '—',
+      },
+      {
+        id: 'UP_TIME',
+        label: 'UP_TIME',
+        headerClass: '',
+        tdClass: 'font-mono text-sm',
+        render: (r) => r.UP_TIME || '—',
+      },
+      {
+        id: 'Submit Date',
+        label: 'Submit Date',
+        headerClass: '',
+        tdClass: 'font-mono text-sm',
+        render: (r) => r['Submit Date'] || '—',
+      },
+      {
+        id: 'DESCRIPTION',
+        label: 'DESCRIPTION',
+        headerClass: '',
+        tdClass: 'text-desc',
+        render: (r) => (
+          <span title={r.DESCRIPTION || ''}>
+            {r.DESCRIPTION
+              ? r.DESCRIPTION.length > 80
+                ? `${r.DESCRIPTION.slice(0, 80)}...`
+                : r.DESCRIPTION
+              : '—'}
+          </span>
+        ),
+      }
+    )
+
+    return cols
+  }, [isDifferentNsttCategory, isManualCaptured])
+
+  // Filter & sort records
   const filteredRecords = useMemo(() => {
-    if (!searchTerm.trim()) return records
-    const term = searchTerm.toLowerCase()
-    return records.filter((rec) => {
-      const srNum = String(rec.SRNUMBER || rec.SR_NUMBER || rec['SR NUMBER'] || rec.SRNO || rec['SR NO'] || '')
-      return (
-        srNum.toLowerCase().includes(term) ||
-        String(rec.INCIDENTID || '').toLowerCase().includes(term) ||
-        (!isManualCaptured && String(rec.AUTOMATION_UPDATE_NSTT_NUMBER || '').toLowerCase().includes(term)) ||
-        String(rec.ATTRIBUTEDTO || '').toLowerCase().includes(term) ||
-        String(rec.FACTORY || '').toLowerCase().includes(term) ||
-        String(rec.DESCRIPTION || '').toLowerCase().includes(term) ||
-        String(rec.AUTOMATION_RCA_CONCLUSION_TEXT || '').toLowerCase().includes(term) ||
-        String(rec.INCIDENT_IMPACT || '').toLowerCase().includes(term) ||
-        (isDifferentNsttCategory && String(rec.AUTOMATION_IMPACT || '').toLowerCase().includes(term))
-      )
+    let result = records
+
+    // Apply active column filters
+    const activeColIds = Object.keys(columnFilters).filter((colId) => {
+      const selected = columnFilters[colId]
+      return selected instanceof Set
     })
-  }, [records, searchTerm, isDifferentNsttCategory, isManualCaptured])
+
+    if (activeColIds.length > 0) {
+      result = result.filter((rec) => {
+        return activeColIds.every((colId) => {
+          const allowedSet = columnFilters[colId]
+          const val = getRecordValue(rec, colId)
+          const displayVal = toDisplayVal(val)
+          return allowedSet.has(displayVal)
+        })
+      })
+    }
+
+    // Apply sorting if configured
+    if (sortConfig && sortConfig.colId) {
+      const { colId, direction } = sortConfig
+      result = [...result].sort((a, b) => {
+        const valA = getRecordValue(a, colId)
+        const valB = getRecordValue(b, colId)
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+        return direction === 'desc' ? -cmp : cmp
+      })
+    }
+
+    return result
+  }, [records, columnFilters, sortConfig])
+
+  // Compute available distinct values and counts for a column
+  // (evaluates against records matching all other active filters to provide accurate contextual counts)
+  const getAvailableValuesForColumn = useCallback(
+    (colId) => {
+      const otherColIds = Object.keys(columnFilters).filter(
+        (id) => id !== colId && columnFilters[id] instanceof Set
+      )
+
+      let baseRecords = records
+      if (otherColIds.length > 0) {
+        baseRecords = baseRecords.filter((rec) => {
+          return otherColIds.every((otherId) => {
+            const allowedSet = columnFilters[otherId]
+            const val = getRecordValue(rec, otherId)
+            const displayVal = toDisplayVal(val)
+            return allowedSet.has(displayVal)
+          })
+        })
+      }
+
+      const countsMap = new Map()
+      baseRecords.forEach((rec) => {
+        const val = getRecordValue(rec, colId)
+        const displayVal = toDisplayVal(val)
+        countsMap.set(displayVal, (countsMap.get(displayVal) || 0) + 1)
+      })
+
+      // Include all distinct values from all records so user can always re-enable options
+      records.forEach((rec) => {
+        const val = getRecordValue(rec, colId)
+        const displayVal = toDisplayVal(val)
+        if (!countsMap.has(displayVal)) {
+          countsMap.set(displayVal, 0)
+        }
+      })
+
+      const sortedValues = Array.from(countsMap.keys()).sort((a, b) => {
+        if (a === '(Blanks)') return 1
+        if (b === '(Blanks)') return -1
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+      })
+
+      return sortedValues.map((val) => ({
+        value: val,
+        count: countsMap.get(val) || 0,
+      }))
+    },
+    [records, columnFilters]
+  )
+
+  // Filter actions
+  const handleApplyColumnFilter = (colId, selectedValuesSet) => {
+    setColumnFilters((prev) => ({
+      ...prev,
+      [colId]: selectedValuesSet,
+    }))
+    setCurrentPage(1)
+  }
+
+  const handleClearColumnFilter = (colId) => {
+    setColumnFilters((prev) => {
+      const next = { ...prev }
+      delete next[colId]
+      return next
+    })
+    setCurrentPage(1)
+  }
+
+  const handleClearAllFilters = () => {
+    setColumnFilters({})
+    setSortConfig(null)
+    setCurrentPage(1)
+  }
+
+  const handleSort = (colId, direction) => {
+    setSortConfig({ colId, direction })
+    setCurrentPage(1)
+  }
+
+  const toggleFilterDropdown = (colId, e) => {
+    e.stopPropagation()
+    setOpenDropdownCol((prev) => (prev === colId ? null : colId))
+  }
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    return Object.keys(columnFilters).filter(
+      (colId) => columnFilters[colId] instanceof Set
+    ).length
+  }, [columnFilters])
 
   // Pagination slice
   const totalRecords = filteredRecords.length
@@ -132,14 +581,19 @@ export default function NsttDrillDown() {
   return (
     <div className="drilldown-backdrop" onClick={closeDrilldown} role="dialog" aria-modal="true">
       <div className="drilldown-drawer" onClick={(e) => e.stopPropagation()}>
-        {/* Drawer Header */}
+        {/* ── Drawer Header ────────────────────────────────────── */}
         <div className="drilldown-header">
           <div className="drilldown-header-title">
             <span className="drilldown-badge">Drill-down Records</span>
             <h2>{formatCategoryTitle(drilldownCategory)}</h2>
             <p className="drilldown-meta">
               Showing <strong>{totalRecords.toLocaleString()}</strong> record{totalRecords === 1 ? '' : 's'}
-              {searchTerm && ` (filtered from ${records.length.toLocaleString()})`}
+              {activeFilterCount > 0 && (
+                <span className="filter-count-meta">
+                  {' '}
+                  (filtered from {records.length.toLocaleString()})
+                </span>
+              )}
             </p>
           </div>
 
@@ -160,29 +614,51 @@ export default function NsttDrillDown() {
           </div>
         </div>
 
-        {/* Search & Controls */}
+        {/* ── Excel-style Filter Summary Bar & Controls ────────── */}
         <div className="drilldown-controls">
-          <div className="drill-search-box">
-            <span className="search-icon" aria-hidden="true">🔍</span>
-            <input
-              type="text"
-              placeholder="Search by SR Number, Incident ID, Automation NSTT, Attributed To..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value)
-                setCurrentPage(1)
-              }}
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                className="clear-search"
-                onClick={() => setSearchTerm('')}
-                aria-label="Clear search"
-              >
-                ✕
-              </button>
-            )}
+          <div className="drill-filter-summary">
+            {activeFilterCount > 0 ? (
+              <div className="active-filters-bar">
+                <span className="filter-summary-label">
+                  Active Filters ({activeFilterCount}):
+                </span>
+                <div className="filter-pills-list">
+                  {Object.entries(columnFilters).map(([colId, valSet]) => {
+                    const col = columns.find((c) => c.id === colId)
+                    const label = col?.label || colId
+                    const valsArray = Array.from(valSet)
+                    const valText =
+                      valsArray.length === 0
+                        ? 'None selected'
+                        : valsArray.length <= 2
+                        ? valsArray.join(', ')
+                        : `${valsArray.slice(0, 2).join(', ')} +${valsArray.length - 2} more`
+
+                    return (
+                      <span key={colId} className="active-filter-pill">
+                        <strong className="pill-col-name">{label}:</strong> {valText}
+                        <button
+                          type="button"
+                          className="btn-remove-pill"
+                          onClick={() => handleClearColumnFilter(colId)}
+                          title={`Clear ${label} filter`}
+                          aria-label={`Clear ${label} filter`}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className="btn-clear-all-filters"
+                  onClick={handleClearAllFilters}
+                >
+                  ✕ Clear All Filters
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="drill-page-size">
@@ -203,7 +679,7 @@ export default function NsttDrillDown() {
           </div>
         </div>
 
-        {/* Content Table */}
+        {/* ── Table Body ───────────────────────────────────────── */}
         <div className="drilldown-body">
           {isDrilldownLoading ? (
             <div className="drilldown-loading">
@@ -214,7 +690,20 @@ export default function NsttDrillDown() {
             <div className="drilldown-empty">
               <span className="empty-icon">📂</span>
               <h3>No matching records</h3>
-              <p>{searchTerm ? 'Try adjusting your search query.' : 'No records found in this category.'}</p>
+              <p>
+                {activeFilterCount > 0
+                  ? 'No records match the active column filters. Try adjusting or clearing filters.'
+                  : 'No records found in this category.'}
+              </p>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  className="btn-drill-clear-empty"
+                  onClick={handleClearAllFilters}
+                >
+                  Clear All Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="drilldown-table-wrapper">
@@ -222,86 +711,84 @@ export default function NsttDrillDown() {
                 <thead>
                   <tr>
                     <th className="sticky-col">#</th>
-                    <th className="sticky-col-2">INCIDENTID</th>
-                    <th>SR NUMBER</th>
-                    {!isManualCaptured && <th>AUTOMATION UPDATE NSTT NUMBER</th>}
-                    <th>ATTRIBUTEDTO</th>
-                    <th>FACTORY</th>
-                    <th>AUTO_ALLOCATION</th>
-                    <th>INCIDENT_IMPACT</th>
-                    {isDifferentNsttCategory && <th>AUTOMATION_IMPACT</th>}
-                    <th>SRCREATIONTIME</th>
-                    <th>UP_TIME</th>
-                    <th>Submit Date</th>
-                    <th>DESCRIPTION</th>
+                    {columns.map((col, idx) => {
+                      const isFiltered = Boolean(
+                        columnFilters[col.id] && columnFilters[col.id] instanceof Set
+                      )
+                      const isSorted = sortConfig?.colId === col.id
+                      const isOpen = openDropdownCol === col.id
+                      const alignRight = idx >= columns.length - 3
+
+                      return (
+                        <th
+                          key={col.id}
+                          className={`${col.headerClass || ''} ${
+                            isOpen ? 'dropdown-open' : ''
+                          } ${isFiltered ? 'th-filtered' : ''}`}
+                        >
+                          <div className="th-cell-wrapper">
+                            <span className="th-label" title={col.label}>
+                              {col.label}
+                            </span>
+                            <div className="th-actions">
+                              {isSorted && (
+                                <span
+                                  className="th-sort-badge"
+                                  title={`Sorted ${
+                                    sortConfig.direction === 'asc' ? 'A to Z' : 'Z to A'
+                                  }`}
+                                >
+                                  {sortConfig.direction === 'asc' ? '▲' : '▼'}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className={`th-filter-btn ${isFiltered ? 'is-filtered' : ''}`}
+                                onClick={(e) => toggleFilterDropdown(col.id, e)}
+                                title={
+                                  isFiltered
+                                    ? `Filtered by ${col.label} (click to modify)`
+                                    : `Filter by ${col.label}`
+                                }
+                                aria-label={`Filter by ${col.label}`}
+                                data-col={col.id}
+                              >
+                                <FilterIcon isFiltered={isFiltered} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {isOpen && (
+                            <ExcelFilterDropdown
+                              column={col}
+                              alignRight={alignRight}
+                              availableValues={getAvailableValuesForColumn(col.id)}
+                              currentFilter={columnFilters[col.id]}
+                              currentSort={sortConfig}
+                              onApplyFilter={(newSelected) =>
+                                handleApplyColumnFilter(col.id, newSelected)
+                              }
+                              onClearFilter={() => handleClearColumnFilter(col.id)}
+                              onSort={(dir) => handleSort(col.id, dir)}
+                              onClose={() => setOpenDropdownCol(null)}
+                            />
+                          )}
+                        </th>
+                      )
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedRecords.map((r, i) => {
                     const rowIdx = (currentPage - 1) * pageSize + i + 1
-
-                    // Determine AUTOMATION_IMPACT and INCIDENT_IMPACT
-                    let autoImp = r.AUTOMATION_IMPACT
-                    let incImp = r.INCIDENT_IMPACT
-                    const diffCat = r.diff_nstt_category || ''
-
-                    if (!autoImp && diffCat) {
-                      if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both NSA') autoImp = 'NSA'
-                      else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both SA') autoImp = 'SA'
-                      else if (diffCat === 'Impact Unknown / Not Found in Remedy' || r.nstt_type === 'Different NSTT') autoImp = 'Unknown'
-                    }
-
-                    if (!incImp && diffCat) {
-                      if (diffCat === 'Incident SA auto NSA' || diffCat === 'Both SA') incImp = 'SA'
-                      else if (diffCat === 'Incident NSA auto SA' || diffCat === 'Both NSA') incImp = 'NSA'
-                      else if (diffCat === 'Impact Unknown / Not Found in Remedy') incImp = 'Unknown'
-                    }
-
                     return (
                       <tr key={r.INCIDENTID || i}>
                         <td className="sticky-col text-muted">{rowIdx}</td>
-                        <td className="sticky-col-2 font-mono font-bold">
-                          {r.INCIDENTID || '—'}
-                        </td>
-                        <td className="font-mono">
-                          {r.SRNUMBER || r.SR_NUMBER || r['SR NUMBER'] || r.SRNO || r['SR NO'] || '—'}
-                        </td>
-                        {!isManualCaptured && (
-                          <td className="font-mono text-sm" title={r.AUTOMATION_UPDATE_NSTT_NUMBER || ''}>
-                            {r.AUTOMATION_UPDATE_NSTT_NUMBER || '—'}
+                        {columns.map((col) => (
+                          <td key={col.id} className={col.tdClass}>
+                            {col.render(r)}
                           </td>
-                        )}
-                        <td>{r.ATTRIBUTEDTO || '—'}</td>
-                        <td>
-                          {r.FACTORY ? (
-                            <span className={`pill-factory ${r.FACTORY === 'IM' ? 'im' : 'non-im'}`}>
-                              {r.FACTORY}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td>{r.AUTO_ALLOCATION || '—'}</td>
-                        <td>
-                          {incImp ? (
-                            <span className={`pill-impact ${incImp === 'SA' ? 'sa' : (incImp === 'NSA' ? 'nsa' : 'unknown')}`}>
-                              {incImp}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        {isDifferentNsttCategory && (
-                          <td>
-                            {autoImp ? (
-                              <span className={`pill-impact ${autoImp === 'SA' ? 'sa' : (autoImp === 'NSA' ? 'nsa' : 'unknown')}`}>
-                                {autoImp}
-                              </span>
-                            ) : '—'}
-                          </td>
-                        )}
-                        <td className="font-mono text-sm">{r.SRCREATIONTIME || '—'}</td>
-                        <td className="font-mono text-sm">{r.UP_TIME || '—'}</td>
-                        <td className="font-mono text-sm">{r['Submit Date'] || '—'}</td>
-                        <td className="text-desc" title={r.DESCRIPTION}>
-                          {r.DESCRIPTION ? (r.DESCRIPTION.length > 80 ? `${r.DESCRIPTION.slice(0, 80)}...` : r.DESCRIPTION) : '—'}
-                        </td>
+                        ))}
                       </tr>
                     )
                   })}
@@ -311,11 +798,12 @@ export default function NsttDrillDown() {
           )}
         </div>
 
-        {/* Footer with Pagination */}
+        {/* ── Footer with Pagination ───────────────────────────── */}
         {totalRecords > 0 && (
           <div className="drilldown-footer">
             <span className="pagination-info">
-              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} records
+              Showing {(currentPage - 1) * pageSize + 1} to{' '}
+              {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} records
             </span>
             <div className="pagination-btns">
               <button
