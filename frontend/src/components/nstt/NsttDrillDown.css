@@ -1104,3 +1104,38 @@ html[data-theme="dark"] .page-indicator,
 .theme-dark .page-indicator {
   color: var(--ink, #d7e2e7);
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   LOCATOR HIGHLIGHTED RECORD ROW IN DRILLDOWN TABLE: EXECUTIVE ROYAL BLUE
+   ══════════════════════════════════════════════════════════════════ */
+
+.drilldown-table tr.drilldown-row-highlighted td {
+  background-color: #dbeafe !important;
+  color: #1e3a8a !important;
+  font-weight: 600 !important;
+  border-top: 2px solid #2563eb !important;
+  border-bottom: 2px solid #2563eb !important;
+}
+
+.drilldown-table tr.drilldown-row-highlighted td.sticky-col,
+.drilldown-table tr.drilldown-row-highlighted td.sticky-col-2 {
+  background-color: #bfdbfe !important;
+  color: #172554 !important;
+  font-weight: 700 !important;
+}
+
+html[data-theme="dark"] .drilldown-table tr.drilldown-row-highlighted td,
+.theme-dark .drilldown-table tr.drilldown-row-highlighted td {
+  background-color: #172554 !important;
+  color: #bfdbfe !important;
+  border-top: 2px solid #3b82f6 !important;
+  border-bottom: 2px solid #3b82f6 !important;
+}
+
+html[data-theme="dark"] .drilldown-table tr.drilldown-row-highlighted td.sticky-col,
+html[data-theme="dark"] .drilldown-table tr.drilldown-row-highlighted td.sticky-col-2,
+.theme-dark .drilldown-table tr.drilldown-row-highlighted td.sticky-col,
+.theme-dark .drilldown-table tr.drilldown-row-highlighted td.sticky-col-2 {
+  background-color: #1e3a8a !important;
+  color: #eff6ff !important;
+}

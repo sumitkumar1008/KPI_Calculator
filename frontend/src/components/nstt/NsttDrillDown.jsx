@@ -168,6 +168,7 @@ export default function NsttDrillDown() {
     drilldownCategory,
     drilldownData,
     closeDrilldown,
+    bifurcationQuery,
   } = useNstt()
 
   const [currentPage, setCurrentPage] = useState(1)
@@ -179,6 +180,16 @@ export default function NsttDrillDown() {
   const [sortConfig, setSortConfig] = useState(null)
   // Track open filter dropdown by column id
   const [openDropdownCol, setOpenDropdownCol] = useState(null)
+
+  // Check if a record matches the searched Incident ID / SR Number
+  const isRecordMatchingSearch = useCallback((r) => {
+    const q = String(bifurcationQuery || '').trim().toUpperCase()
+    if (!q) return false
+    const incId = getRecordValue(r, 'INCIDENTID').toUpperCase()
+    const srNo = getRecordValue(r, 'SR_NUMBER').toUpperCase()
+    const autoNo = String(r.AUTOMATION_UPDATE_NSTT_NUMBER || '').trim().toUpperCase()
+    return incId === q || srNo === q || autoNo === q || (q.length >= 3 && (incId.includes(q) || srNo.includes(q)))
+  }, [bifurcationQuery])
 
   // Reset pagination, filters, and sorting on category change
   useEffect(() => {
@@ -198,6 +209,19 @@ export default function NsttDrillDown() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isDrilldownOpen, openDropdownCol, closeDrilldown])
+
+  // Auto-scroll to highlighted record row inside drilldown table
+  useEffect(() => {
+    if (isDrilldownOpen && bifurcationQuery && !isDrilldownLoading) {
+      const timer = setTimeout(() => {
+        const highlightedRow = document.querySelector('.drilldown-row-highlighted')
+        if (highlightedRow) {
+          highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 180)
+      return () => clearTimeout(timer)
+    }
+  }, [isDrilldownOpen, bifurcationQuery, isDrilldownLoading, currentPage])
 
   // Lock background window scroll when drilldown drawer is open
   useEffect(() => {
@@ -781,11 +805,15 @@ export default function NsttDrillDown() {
                 <tbody>
                   {paginatedRecords.map((r, i) => {
                     const rowIdx = (currentPage - 1) * pageSize + i + 1
+                    const isMatched = isRecordMatchingSearch(r)
                     return (
-                      <tr key={r.INCIDENTID || i}>
-                        <td className="sticky-col text-muted">{rowIdx}</td>
+                      <tr
+                        key={r.INCIDENTID || i}
+                        className={isMatched ? 'drilldown-row-highlighted' : ''}
+                      >
+                        <td className={`sticky-col text-muted${isMatched ? ' drilldown-cell-highlighted' : ''}`}>{rowIdx}</td>
                         {columns.map((col) => (
-                          <td key={col.id} className={col.tdClass}>
+                          <td key={col.id} className={`${col.tdClass}${isMatched ? ' drilldown-cell-highlighted' : ''}`}>
                             {col.render(r)}
                           </td>
                         ))}

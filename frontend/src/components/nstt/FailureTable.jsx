@@ -12,7 +12,7 @@ import './FailureTable.css'
  * Rows: Ring Failure | Section Failure | Unstitched | Others | Grand Total (83)
  */
 export default function FailureTable() {
-  const { aggregatedResult, openDrilldown } = useNstt()
+  const { aggregatedResult, openDrilldown, highlightedBifurcationKeys } = useNstt()
 
   if (!aggregatedResult || !aggregatedResult.failures) return null
 
@@ -65,25 +65,28 @@ export default function FailureTable() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.key} className="spec-fail-row">
-                <td className="spec-fail-td spec-fail-td-cat">
-                  <span className="spec-fail-dot" aria-hidden="true" />
-                  {r.label}
-                </td>
-                <td className="spec-fail-td spec-fail-td-num">
-                  <button
-                    type="button"
-                    className="spec-fail-btn"
-                    onClick={() => openDrilldown(r.key)}
-                    title={`View ${r.count} records`}
-                  >
-                    {r.count.toLocaleString()}
-                  </button>
-                </td>
-                <td className="spec-fail-td spec-fail-td-pct">{pct(r.count)}</td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const isHighlighted = Boolean(highlightedBifurcationKeys?.has(r.key))
+              return (
+                <tr key={r.key} className="spec-fail-row">
+                  <td className="spec-fail-td spec-fail-td-cat">
+                    <span className="spec-fail-dot" aria-hidden="true" />
+                    {r.label}
+                  </td>
+                  <td className={`spec-fail-td spec-fail-td-num${isHighlighted ? ' bifurcation-cell-highlighted' : ''}`}>
+                    <button
+                      type="button"
+                      className={`spec-fail-btn${isHighlighted ? ' bifurcation-highlighted' : ''}`}
+                      onClick={() => openDrilldown(r.key)}
+                      title={`View ${r.count} records`}
+                    >
+                      {r.count.toLocaleString()}
+                    </button>
+                  </td>
+                  <td className="spec-fail-td spec-fail-td-pct">{pct(r.count)}</td>
+                </tr>
+              )
+            })}
           </tbody>
           <tfoot>
             <tr className="spec-fail-total-row">

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 import { uploadNsttFiles, processNstt, getNsttDrilldown, exportNstt } from '../services/nsttApi'
+import { findBifurcationsForQuery } from '../utils/nsttBifurcationLocator'
 
 const NsttContext = createContext(null)
 
@@ -23,6 +24,26 @@ export function NsttProvider({ children }) {
   const [drilldownData, setDrilldownData] = useState(null)
   const [isDrilldownLoading, setIsDrilldownLoading] = useState(false)
   const [isDrilldownOpen, setIsDrilldownOpen] = useState(false)
+
+  // Bifurcation Locator search & blinking state
+  const [bifurcationQuery, setBifurcationQuery] = useState('')
+
+  const bifurcationResult = useMemo(() => {
+    const q = bifurcationQuery.trim()
+    if (!q) return null
+    const records = classifiedMasterResponse?.records || masterResponse?.records || []
+    return findBifurcationsForQuery(records, q)
+  }, [bifurcationQuery, classifiedMasterResponse, masterResponse])
+
+  const highlightedBifurcationKeys = useMemo(() => {
+    if (!bifurcationResult?.allKeys) return new Set()
+    return new Set(bifurcationResult.allKeys)
+  }, [bifurcationResult])
+
+  const highlightedRowKeys = useMemo(() => {
+    if (!bifurcationResult?.allRowKeys) return new Set()
+    return new Set(bifurcationResult.allRowKeys)
+  }, [bifurcationResult])
 
   /**
    * Main Pipeline Execution:
@@ -153,6 +174,7 @@ export function NsttProvider({ children }) {
     setIsProcessing(false)
     setIsComplete(false)
     setError(null)
+    setBifurcationQuery('')
     closeDrilldown()
   }, [])
 
@@ -195,6 +217,11 @@ export function NsttProvider({ children }) {
         processFiles,
         reset,
         handleExport,
+        bifurcationQuery,
+        setBifurcationQuery,
+        bifurcationResult,
+        highlightedBifurcationKeys,
+        highlightedRowKeys,
       }}
     >
       {children}
