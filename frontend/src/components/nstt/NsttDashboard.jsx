@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNstt } from '../../context/NsttContext'
 import NsttSummaryTable from './NsttSummaryTable'
 import FailureTable from './FailureTable'
@@ -26,6 +26,48 @@ export default function NsttDashboard() {
     handleExport,
   } = useNstt()
 
+  const [isExportOpen, setIsExportOpen] = useState(false)
+  const [exportingType, setExportingType] = useState(null)
+  const exportDropdownRef = useRef(null)
+
+  // Close dropdown on click outside or Escape key
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
+        setIsExportOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsExportOpen(false)
+      }
+    }
+
+    if (isExportOpen) {
+      document.addEventListener('mousedown', handleOutsideClick)
+      document.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isExportOpen])
+
+  const triggerExport = async (type) => {
+    if (exportingType) return
+    setExportingType(type)
+    try {
+      await handleExport(type)
+    } catch {
+      // Alert already handled in NsttContext
+    } finally {
+      setExportingType(null)
+      setIsExportOpen(false)
+    }
+  }
+
   if (!aggregatedResult) return null
 
   return (
@@ -45,14 +87,107 @@ export default function NsttDashboard() {
           </p>
         </div>
         <div className="dash-actions">
-          <button
-            type="button"
-            className="export-excel-btn"
-            onClick={handleExport}
-            title="Download NSTT_Output.xlsx"
-          >
-            <span aria-hidden="true">📊</span> Export Excel
-          </button>
+          {/* Active Export Dropdown with 2 options */}
+          <div className="nstt-export-dropdown" ref={exportDropdownRef}>
+            <button
+              type="button"
+              className={`export-excel-btn ${isExportOpen ? 'is-active' : ''}`}
+              onClick={() => setIsExportOpen((prev) => !prev)}
+              disabled={Boolean(exportingType)}
+              aria-expanded={isExportOpen}
+              aria-haspopup="true"
+              title="Download Excel reports"
+            >
+              {exportingType ? (
+                <span className="export-btn-spinner" aria-hidden="true" />
+              ) : (
+                <span aria-hidden="true" className="export-btn-icon">📊</span>
+              )}
+              <span>
+                {exportingType
+                  ? exportingType === 'dashboard'
+                    ? 'Exporting Dashboard...'
+                    : exportingType === 'raw'
+                    ? 'Exporting Raw Data...'
+                    : 'Exporting...'
+                  : 'Export Excel'}
+              </span>
+              <svg
+                className={`export-chevron ${isExportOpen ? 'is-rotated' : ''}`}
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+
+            {isExportOpen && (
+              <div className="nstt-export-menu" role="menu" aria-label="Export options">
+                <div className="nstt-export-menu-header">Select Export Option</div>
+
+                {/* Option 1: Dashboard Table (formatted summary & failure table in excel sheet) */}
+                <button
+                  type="button"
+                  className="nstt-export-item"
+                  role="menuitem"
+                  onClick={() => triggerExport('dashboard')}
+                  disabled={Boolean(exportingType)}
+                >
+                  <div className="nstt-export-item-badge badge--dash" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="3" y1="15" x2="21" y2="15" />
+                      <line x1="9" y1="3" x2="9" y2="21" />
+                      <line x1="15" y1="3" x2="15" y2="21" />
+                    </svg>
+                  </div>
+                  <div className="nstt-export-item-content">
+                    <div className="nstt-export-item-title-row">
+                      <span className="nstt-export-item-title">Dashboard Table</span>
+                      <span className="nstt-export-file-tag">.XLSX</span>
+                    </div>
+                    <span className="nstt-export-item-desc">
+                      Replicates the dashboard summary matrix &amp; failure table in an Excel sheet
+                    </span>
+                  </div>
+                </button>
+
+                {/* Option 2: Processed Raw data formed after V-lookup and operations (.csv) */}
+                <button
+                  type="button"
+                  className="nstt-export-item"
+                  role="menuitem"
+                  onClick={() => triggerExport('csv')}
+                  disabled={Boolean(exportingType)}
+                >
+                  <div className="nstt-export-item-badge badge--csv" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="8" y1="13" x2="16" y2="13" />
+                      <line x1="8" y1="17" x2="16" y2="17" />
+                    </svg>
+                  </div>
+                  <div className="nstt-export-item-content">
+                    <div className="nstt-export-item-title-row">
+                      <span className="nstt-export-item-title">Processed Raw Data</span>
+                      <span className="nstt-export-file-tag tag--csv">.CSV</span>
+                    </div>
+                    <span className="nstt-export-item-desc">
+                      Enriched dataset formed after V-lookup with all operations and classifications
+                    </span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button type="button" className="upload-new-btn" onClick={reset}>
             <span aria-hidden="true">↺</span> New Upload
           </button>

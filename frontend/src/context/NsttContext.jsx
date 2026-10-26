@@ -217,15 +217,18 @@ export function NsttProvider({ children }) {
 
   /**
    * Excel export trigger
+   * @param {'dashboard' | 'raw' | 'all'} exportType
    */
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(async (exportType = 'all') => {
     try {
       await exportNstt({
         uploadId,
         masterResponse: classifiedMasterResponse || masterResponse,
+        exportType,
       })
     } catch (err) {
       alert(`Export failed: ${err.message}`)
+      throw err
     }
   }, [uploadId, classifiedMasterResponse, masterResponse])
 

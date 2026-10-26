@@ -74,26 +74,214 @@
   flex-shrink: 0;
 }
 
-/* ── Action buttons ─────────────────────────────────────────── */
+/* ── Action buttons & Export Dropdown ─────────────────────────── */
+.nstt-export-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
 .export-excel-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: #059669;
   color: #ffffff;
   border: none;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: 7px;
   font-weight: 600;
   font-size: 0.84rem;
   cursor: pointer;
   box-shadow: 0 2px 5px rgba(5, 150, 105, 0.25);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 
-.export-excel-btn:hover {
+.export-excel-btn:hover:not(:disabled) {
   background: #047857;
   transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3);
+}
+
+.export-excel-btn.is-active {
+  background: #047857;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.35);
+}
+
+.export-excel-btn:disabled {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+.export-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.export-chevron.is-rotated {
+  transform: rotate(180deg);
+}
+
+.export-btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: nsttSpin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes nsttSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Export Dropdown Menu ─────────────────────────────────────── */
+.nstt-export-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 330px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.06);
+  padding: 6px;
+  z-index: 1000;
+  animation: nsttMenuFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes nsttMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.nstt-export-menu-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px 4px;
+}
+
+.nstt-export-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: inherit;
+  font-family: inherit;
+}
+
+.nstt-export-item:hover:not(:disabled) {
+  background: rgba(5, 150, 105, 0.08);
+}
+
+.nstt-export-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nstt-export-item-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  flex-shrink: 0;
+}
+
+.nstt-export-item-badge svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nstt-export-item-badge.badge--dash {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.nstt-export-item-badge.badge--raw {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.nstt-export-item-badge.badge--all {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.nstt-export-item-badge.badge--csv {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.nstt-export-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nstt-export-item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nstt-export-item-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink, #1e293b);
+}
+
+.nstt-export-file-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
+  letter-spacing: 0.03em;
+}
+
+.nstt-export-file-tag.tag--csv {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.nstt-export-item-desc {
+  font-size: 0.72rem;
+  color: var(--muted, #64748b);
+  line-height: 1.35;
+}
+
+.nstt-export-menu-divider {
+  height: 1px;
+  background: var(--line, #e2e8f0);
+  margin: 4px 6px;
 }
 
 .upload-new-btn {
@@ -336,4 +524,74 @@ html[data-theme="dark"] .tab-btn.active,
   border-bottom-color: #2dd4bf;
   background: rgba(45, 212, 191, 0.12);
 }
+
+/* ── Dark Theme Overrides for Export Menu ─────────────────────── */
+html[data-theme="dark"] .nstt-export-menu,
+.theme-dark .nstt-export-menu {
+  background: var(--surface, #18262d);
+  border-color: var(--line, #2c4149);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="dark"] .nstt-export-menu-header,
+.theme-dark .nstt-export-menu-header {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .nstt-export-item:hover:not(:disabled),
+.theme-dark .nstt-export-item:hover:not(:disabled) {
+  background: rgba(45, 212, 191, 0.1);
+}
+
+html[data-theme="dark"] .nstt-export-item-title,
+.theme-dark .nstt-export-item-title {
+  color: #f0fdfa;
+}
+
+html[data-theme="dark"] .nstt-export-item-desc,
+.theme-dark .nstt-export-item-desc {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .nstt-export-item-badge.badge--dash,
+.theme-dark .nstt-export-item-badge.badge--dash {
+  background: rgba(45, 212, 191, 0.16);
+  color: #2dd4bf;
+}
+
+html[data-theme="dark"] .nstt-export-item-badge.badge--raw,
+.theme-dark .nstt-export-item-badge.badge--raw {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+
+html[data-theme="dark"] .nstt-export-item-badge.badge--all,
+.theme-dark .nstt-export-item-badge.badge--all {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+}
+
+html[data-theme="dark"] .nstt-export-item-badge.badge--csv,
+.theme-dark .nstt-export-item-badge.badge--csv {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
+html[data-theme="dark"] .nstt-export-file-tag,
+.theme-dark .nstt-export-file-tag {
+  background: rgba(45, 212, 191, 0.16);
+  color: #2dd4bf;
+}
+
+html[data-theme="dark"] .nstt-export-file-tag.tag--csv,
+.theme-dark .nstt-export-file-tag.tag--csv {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
+html[data-theme="dark"] .nstt-export-menu-divider,
+.theme-dark .nstt-export-menu-divider {
+  background: var(--line, #2c4149);
+}
+
 

@@ -138,12 +138,14 @@ export async function getNsttDrilldown({ category, uploadId, records } = {}) {
 
 /**
  * Triggers NSTT Excel export generation and file download.
- * @param {object} params - { uploadId?: string, masterResponse?: object }
+ * @param {object} params - { uploadId?: string, masterResponse?: object, exportType?: 'dashboard' | 'raw' | 'all' }
  */
-export async function exportNstt({ uploadId, masterResponse } = {}) {
-  const payload = {}
+export async function exportNstt({ uploadId, masterResponse, exportType = 'all' } = {}) {
+  const payload = {
+    export_type: exportType,
+  }
   if (uploadId) payload.upload_id = uploadId
-  if (masterResponse) payload.master_response = masterResponse
+  if (masterResponse && !uploadId) payload.master_response = masterResponse
 
   const response = await fetch(`${API_BASE}/export`, {
     method: 'POST',
@@ -157,11 +159,29 @@ export async function exportNstt({ uploadId, masterResponse } = {}) {
     await safeParseJson(response) // Will throw formatted error
   }
 
+  // Extract filename from Content-Disposition header if present
+  let filename = ''
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+  if (filenameMatch && filenameMatch[1]) {
+    filename = filenameMatch[1].replace(/['"]/g, '').trim()
+  }
+  if (!filename) {
+    const ts = new Date().toISOString().slice(0, 10)
+    if (exportType === 'dashboard') {
+      filename = `NSTT_Dashboard_Table_${ts}.xlsx`
+    } else if (exportType === 'raw') {
+      filename = `NSTT_Raw_Data_VLookup_${ts}.xlsx`
+    } else {
+      filename = `NSTT_Output_${ts}.xlsx`
+    }
+  }
+
   const blob = await response.blob()
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `NSTT_Output_${new Date().toISOString().slice(0, 10)}.xlsx`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   window.URL.revokeObjectURL(url)

@@ -25,6 +25,7 @@ from app.services.nstt.rule_engine import run_rule_engine
 from app.services.nstt.aggregator import build_nstt_aggregation, filter_records_by_category
 from app.services.nstt.excel_generator import generate_nstt_excel_workbook
 from app.services.nstt.cache_store import save_nstt_to_cache, get_nstt_from_cache
+from app.services.export_service import generate_csv_export
 
 
 # Logger for NSTT module
@@ -456,31 +457,45 @@ def get_nstt_drilldown():
     }), 200
 
 
-@nstt_bp.route("/export", methods=["POST"])
+@nstt_bp.route("/export", methods=["POST", "GET"])
 def export_nstt_excel():
     """
-    Generates and streams the styled NSTT_Output.xlsx Excel report.
+    Generates and streams the styled NSTT Excel report.
 
-    Accepts JSON body:
+    Accepts JSON body or query params:
       {
         "upload_id": "optional-uuid",
-        "master_response": { ...optional inline master response... }
+        "master_response": { ...optional inline master response... },
+        "export_type": "dashboard" | "raw" | "all"
       }
 
     Returns:
-      Streaming attachment of NSTT_Output.xlsx
+      Streaming attachment of:
+        - NSTT_Dashboard_Table_<timestamp>.xlsx (if export_type == "dashboard")
+        - NSTT_Raw_Data_VLookup_<timestamp>.xlsx (if export_type == "raw")
+        - NSTT_Output_<timestamp>.xlsx (if export_type == "all")
     """
     body: Dict[str, Any] = request.get_json(silent=True) or {}
-    upload_id = body.get("upload_id")
+    upload_id = body.get("upload_id") or request.args.get("upload_id")
     master_response = body.get("master_response")
+    export_type = str(
+        body.get("export_type")
+        or body.get("type")
+        or request.args.get("export_type")
+        or request.args.get("type")
+        or "all"
+    ).lower().strip()
 
     cached = None
-    if not master_response:
+    if upload_id:
         cached = get_nstt_from_cache(upload_id)
-        if not cached:
-            return jsonify({
-                "error": "No cached data found to export. Provide 'master_response' inline or specify a valid 'upload_id'."
-            }), 400
+    if not cached and not master_response:
+        cached = get_nstt_from_cache(None)
+
+    if not cached and not master_response:
+        return jsonify({
+            "error": "No cached data found to export. Provide 'master_response' inline or specify a valid 'upload_id'."
+        }), 400
 
     if cached:
         classified = cached.get("classified_master_response")
@@ -501,17 +516,44 @@ def export_nstt_excel():
     if not records:
         return jsonify({"error": "No records available for export."}), 400
 
+    timestamp = time.strftime('%Y%m%d_%H%M%S')
+
+    # Instant CSV export path for raw data
+    if export_type in ("csv", "raw_csv"):
+        try:
+            columns = [{"key": h, "label": h} for h in (records[0].keys() if records else [])]
+            csv_buffer = generate_csv_export(columns, records)
+        except Exception as exc:
+            nstt_logger.error(f"CSV generation failed: {str(exc)}", exc_info=True)
+            return jsonify({"error": f"Failed to generate CSV export: {str(exc)}"}), 500
+
+        filename = f"NSTT_Raw_Data_VLookup_{timestamp}.csv"
+        return send_file(
+            csv_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="text/csv",
+        )
+
     try:
         excel_buffer = generate_nstt_excel_workbook(
             master_records=records,
             aggregated_result=aggregated,
             stats=stats,
+            export_type=export_type,
         )
     except Exception as exc:
         nstt_logger.error(f"Excel generation failed: {str(exc)}", exc_info=True)
         return jsonify({"error": f"Failed to generate Excel export: {str(exc)}"}), 500
 
-    filename = f"NSTT_Output_{time.strftime('%Y%m%d_%H%M%S')}.xlsx"
+    timestamp = time.strftime('%Y%m%d_%H%M%S')
+    if export_type in ("dashboard", "summary"):
+        filename = f"NSTT_Dashboard_Table_{timestamp}.xlsx"
+    elif export_type in ("raw", "raw_data"):
+        filename = f"NSTT_Raw_Data_VLookup_{timestamp}.xlsx"
+    else:
+        filename = f"NSTT_Output_{timestamp}.xlsx"
+
     return send_file(
         excel_buffer,
         as_attachment=True,

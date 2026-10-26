@@ -44,10 +44,10 @@ export default function FailureTable() {
         <span className="spec-fail-title">Manually tagged – NSTT Before SR Creation</span>
         <div className="spec-tag-chips" style={{ display: 'inline-flex', gap: '8px' }}>
           <span className="spec-tag-chip" style={{ background: '#255d8f', color: '#ffffff', padding: '3px 10px', borderRadius: '4px', fontSize: '0.8rem' }}>
-            SA: <strong>{(manBefore.sa || 0).toLocaleString()}</strong>
+            SA: <strong style={{ color: '#ffffff' }}>{(manBefore.sa || 0).toLocaleString()}</strong>
           </span>
           <span className="spec-tag-chip" style={{ background: '#255d8f', color: '#ffffff', padding: '3px 10px', borderRadius: '4px', fontSize: '0.8rem' }}>
-            NSA: <strong>{(manBefore.nsa || 0).toLocaleString()}</strong>
+            NSA: <strong style={{ color: '#ffffff' }}>{(manBefore.nsa || 0).toLocaleString()}</strong>
           </span>
         </div>
       </div>

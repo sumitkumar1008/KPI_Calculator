@@ -27,6 +27,12 @@
   text-transform: uppercase;
 }
 
+/* ── SA / NSA chips in Failure Table ─────────────────────────── */
+.spec-fail-wrapper .spec-tag-chip strong {
+  color: #ffffff !important;
+}
+
+
 /* ── Scroll container ────────────────────────────────────────── */
 .spec-fail-scroll {
   overflow-x: auto;

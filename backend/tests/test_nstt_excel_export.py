@@ -150,3 +150,52 @@ def test_export_endpoint_inline_master_response(client, sample_master_records):
     excel_file = io.BytesIO(resp.data)
     wb = openpyxl.load_workbook(excel_file)
     assert wb["RAW"].max_row == 3
+
+
+def test_export_endpoint_dashboard_only(client, sample_master_records):
+    resp = client.post(
+        "/api/v1/nstt/export",
+        json={
+            "master_response": {"records": sample_master_records},
+            "export_type": "dashboard",
+        },
+    )
+    assert resp.status_code == 200
+    assert "NSTT_Dashboard_Table_" in resp.headers.get("Content-Disposition", "")
+    wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+    assert wb.sheetnames == ["Dashboard"]
+    assert "RAW" not in wb.sheetnames
+
+
+def test_export_endpoint_raw_only(client, sample_master_records):
+    resp = client.post(
+        "/api/v1/nstt/export",
+        json={
+            "master_response": {"records": sample_master_records},
+            "export_type": "raw",
+        },
+    )
+    assert resp.status_code == 200
+    assert "NSTT_Raw_Data_VLookup_" in resp.headers.get("Content-Disposition", "")
+    wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+    assert wb.sheetnames == ["RAW"]
+    assert "Dashboard" not in wb.sheetnames
+    assert wb["RAW"].max_row == 3
+
+
+def test_export_endpoint_raw_csv(client, sample_master_records):
+    resp = client.post(
+        "/api/v1/nstt/export",
+        json={
+            "master_response": {"records": sample_master_records},
+            "export_type": "csv",
+        },
+    )
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers.get("Content-Type", "")
+    assert ".csv" in resp.headers.get("Content-Disposition", "")
+    text = resp.data.decode("utf-8-sig")
+    assert "INCIDENTID" in text
+    assert len(text.strip().split("\n")) == 3
+
+

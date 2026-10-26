@@ -23,27 +23,12 @@ from app.services.nstt.aggregator import build_nstt_aggregation
 logger = logging.getLogger(__name__)
 
 
-def generate_nstt_excel_workbook(
+def _populate_dashboard_sheet(
+    ws_dash,
+    aggregated_result: Dict[str, Any],
+    stats: Dict[str, Any],
     master_records: List[Dict[str, Any]],
-    aggregated_result: Optional[Dict[str, Any]] = None,
-    stats: Optional[Dict[str, Any]] = None,
-) -> io.BytesIO:
-    """
-    Constructs the complete NSTT_Output.xlsx in-memory buffer.
-
-    Args:
-        master_records: List of classified / enriched record dicts.
-        aggregated_result: Optional precomputed hierarchical aggregation dict.
-        stats: Optional stats dict from file ingestion.
-
-    Returns:
-        io.BytesIO positioned at 0.
-    """
-    if aggregated_result is None:
-        aggregated_result = build_nstt_aggregation(master_records)
-
-    wb = openpyxl.Workbook()
-
+) -> None:
     # Style definitions
     font_family = "Calibri"
     
@@ -83,11 +68,6 @@ def generate_nstt_excel_workbook(
     align_left = Alignment(horizontal="left", vertical="center")
     align_right = Alignment(horizontal="right", vertical="center")
 
-    # =========================================================================
-    # SHEET 1: DASHBOARD
-    # =========================================================================
-    ws_dash = wb.active
-    ws_dash.title = "Dashboard"
     ws_dash.views.sheetView[0].showGridLines = True
 
     # Title Banner
@@ -431,48 +411,90 @@ def generate_nstt_excel_workbook(
         col_letter = get_column_letter(col[0].column)
         ws_dash.column_dimensions[col_letter].width = max(max_len + 4, 14)
 
-    # =========================================================================
-    # SHEET 2: RAW ENRICHED DATASET
-    # =========================================================================
-    ws_raw = wb.create_sheet(title="RAW")
+def _populate_raw_sheet(ws_raw, master_records: List[Dict[str, Any]]) -> None:
     ws_raw.views.sheetView[0].showGridLines = True
+    if not master_records:
+        return
 
-    if master_records:
-        raw_headers = list(master_records[0].keys())
-        ws_raw.row_dimensions[1].height = 24
+    font_family = "Calibri"
+    header_font = Font(name=font_family, size=10, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_align = Alignment(horizontal="left", vertical="center")
 
-        # Header Row
-        for col_idx, h in enumerate(raw_headers, start=1):
-            cell = ws_raw.cell(row=1, column=col_idx, value=h)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.border = header_border
-            cell.alignment = Alignment(horizontal="left", vertical="center")
+    raw_headers = list(master_records[0].keys())
 
-        # Data Rows
-        for row_idx, rec in enumerate(master_records, start=2):
-            for col_idx, h in enumerate(raw_headers, start=1):
-                val = rec.get(h)
-                if val is None:
-                    val = ""
-                elif isinstance(val, bool):
-                    val = "TRUE" if val else "FALSE"
-                cell = ws_raw.cell(row=row_idx, column=col_idx, value=val)
-                cell.font = regular_font
-                cell.border = cell_border
-                cell.alignment = Alignment(horizontal="left", vertical="center")
+    # 1. Append styled header row
+    ws_raw.append(raw_headers)
+    ws_raw.row_dimensions[1].height = 24
+    for cell in ws_raw[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
 
-        # Auto-adjust widths on RAW sheet (sample first 100 rows for speed)
-        for col in ws_raw.iter_cols(min_row=1, max_row=min(len(master_records) + 1, 100)):
-            max_len = max(len(str(cell.value or '')) for cell in col)
-            col_letter = get_column_letter(col[0].column)
-            ws_raw.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 50)
+    # 2. Append data rows in bulk (drastically faster than cell-by-cell creation)
+    for rec in master_records:
+        row_vals = []
+        for h in raw_headers:
+            val = rec.get(h)
+            if val is None:
+                val = ""
+            elif isinstance(val, bool):
+                val = "TRUE" if val else "FALSE"
+            row_vals.append(val)
+        ws_raw.append(row_vals)
+
+    # 3. Calculate column widths fast from headers + small sample
+    sample_recs = master_records[:25]
+    for col_idx, h in enumerate(raw_headers, start=1):
+        max_len = len(str(h))
+        for r in sample_recs:
+            v = r.get(h)
+            if v is not None:
+                max_len = max(max_len, len(str(v)))
+        col_letter = get_column_letter(col_idx)
+        ws_raw.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 45)
+
+
+def generate_nstt_excel_workbook(
+    master_records: List[Dict[str, Any]],
+    aggregated_result: Optional[Dict[str, Any]] = None,
+    stats: Optional[Dict[str, Any]] = None,
+    export_type: str = "all",
+) -> io.BytesIO:
+    """
+    Constructs the NSTT Excel report buffer with selective sheets based on export_type:
+      - 'dashboard': Only the Dashboard summary matrix & failure analysis table
+      - 'raw': Only the raw enriched dataset formed after V-lookup and operations
+      - 'all': Both Dashboard and RAW sheets
+    """
+    mode = str(export_type or "all").lower().strip()
+    include_dashboard = mode in ("all", "dashboard", "summary")
+    include_raw = mode in ("all", "raw", "raw_data")
+    if not include_dashboard and not include_raw:
+        include_dashboard = True
+        include_raw = True
+
+    # Only run hierarchical aggregation if dashboard sheet is actually needed
+    if include_dashboard and aggregated_result is None:
+        aggregated_result = build_nstt_aggregation(master_records)
+
+    wb = openpyxl.Workbook()
+
+    if include_dashboard:
+        ws_dash = wb.active
+        ws_dash.title = "Dashboard"
+        _populate_dashboard_sheet(ws_dash, aggregated_result or {}, stats or {}, master_records)
+
+    if include_raw:
+        if include_dashboard:
+            ws_raw = wb.create_sheet(title="RAW")
+        else:
+            ws_raw = wb.active
+            ws_raw.title = "RAW"
+        _populate_raw_sheet(ws_raw, master_records)
 
     output_stream = io.BytesIO()
     wb.save(output_stream)
     output_stream.seek(0)
     return output_stream
-    output_stream = io.BytesIO()
-    wb.save(output_stream)
-    output_stream.seek(0)
-    return output_stream
+
