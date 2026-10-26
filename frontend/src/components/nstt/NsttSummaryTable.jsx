@@ -19,10 +19,66 @@ import './NsttSummaryTable.css'
  *
  * Features:
  *   - Bifurcation Search Bar: searching any Incident ID or SR Number changes the color
- *     of the particular box related to that incident ID (no blinking / no animation),
  *     and smoothly centers it in view.
  *   - Clickable counts open the drilldown drawer for that category.
  */
+
+const TableContext = React.createContext({
+  openDrilldown: () => {},
+  isKeyHighlighted: () => false,
+  calcSubPct: () => '–',
+  cnt: (v) => (v == null ? 0 : v),
+})
+
+/** Reusable count button with solid highlighted color (no blinking) */
+const CountBtn = ({ catKey, cls = '', count, title, onClick }) => {
+  const { openDrilldown, isKeyHighlighted, cnt } = React.useContext(TableContext)
+  const isHighlighted = isKeyHighlighted(catKey)
+  return (
+    <button
+      type="button"
+      className={`spec-count-btn${cls ? ' ' + cls : ''}${isHighlighted ? ' bifurcation-highlighted' : ''}`}
+      onClick={onClick || (() => openDrilldown(catKey))}
+      title={title || `View ${cnt(count)} records`}
+      data-cat-key={catKey}
+    >
+      {cnt(count).toLocaleString()}
+    </button>
+  )
+}
+
+/** SA + NSA + Unknown triad with count and percentage in the same row */
+const ImpactBreakdown = ({ saKey, nsaKey, unknownKey, sa, nsa, unknown }) => {
+  const { isKeyHighlighted, calcSubPct, cnt } = React.useContext(TableContext)
+  return (
+    <>
+      <td className={`spec-td spec-count${isKeyHighlighted(saKey) ? ' bifurcation-cell-highlighted' : ''}`}>
+        <CountBtn catKey={saKey} cls="sa" count={sa} title={`SA: ${cnt(sa)}`} />
+        <span className="spec-pct-sub">{calcSubPct(sa)}</span>
+      </td>
+      <td className={`spec-td spec-count${isKeyHighlighted(nsaKey) ? ' bifurcation-cell-highlighted' : ''}`}>
+        <CountBtn catKey={nsaKey} cls="nsa" count={nsa} title={`NSA: ${cnt(nsa)}`} />
+        <span className="spec-pct-sub">{calcSubPct(nsa)}</span>
+      </td>
+      <td className={`spec-td spec-count${isKeyHighlighted(unknownKey) ? ' bifurcation-cell-highlighted' : ''}`}>
+        <CountBtn catKey={unknownKey} cls="unknown" count={unknown} title={`Impact Unknown / Not Found in Remedy: ${cnt(unknown)}`} />
+        <span className="spec-pct-sub">{calcSubPct(unknown)}</span>
+      </td>
+    </>
+  )
+}
+
+/** Plain text cell */
+const TC = ({ children, rowSpan, colSpan, cls }) => (
+  <td
+    className={`spec-td${cls ? ' ' + cls : ''}`}
+    rowSpan={rowSpan}
+    colSpan={colSpan}
+  >
+    {children}
+  </td>
+)
+
 export default function NsttSummaryTable() {
   const {
     aggregatedResult,
@@ -80,56 +136,12 @@ export default function NsttSummaryTable() {
   // Check if a specific bifurcation key is currently highlighted
   const isKeyHighlighted = (key) => Boolean(key && highlightedBifurcationKeys?.has(key))
 
-  /** Reusable count button with solid highlighted color (no blinking) */
-  const CountBtn = ({ catKey, cls = '', count, title, onClick }) => {
-    const isHighlighted = isKeyHighlighted(catKey)
-    return (
-      <button
-        type="button"
-        className={`spec-count-btn${cls ? ' ' + cls : ''}${isHighlighted ? ' bifurcation-highlighted' : ''}`}
-        onClick={onClick || (() => openDrilldown(catKey))}
-        title={title || `View ${cnt(count)} records`}
-        data-cat-key={catKey}
-      >
-        {cnt(count).toLocaleString()}
-      </button>
-    )
-  }
-
-  /** SA + NSA + Unknown triad with count and percentage in the same row */
-  const ImpactBreakdown = ({ saKey, nsaKey, unknownKey, sa, nsa, unknown }) => (
-    <>
-      <td className={`spec-td spec-count${isKeyHighlighted(saKey) ? ' bifurcation-cell-highlighted' : ''}`}>
-        <CountBtn catKey={saKey} cls="sa" count={sa} title={`SA: ${cnt(sa)}`} />
-        <span className="spec-pct-sub">{calcSubPct(sa)}</span>
-      </td>
-      <td className={`spec-td spec-count${isKeyHighlighted(nsaKey) ? ' bifurcation-cell-highlighted' : ''}`}>
-        <CountBtn catKey={nsaKey} cls="nsa" count={nsa} title={`NSA: ${cnt(nsa)}`} />
-        <span className="spec-pct-sub">{calcSubPct(nsa)}</span>
-      </td>
-      <td className={`spec-td spec-count${isKeyHighlighted(unknownKey) ? ' bifurcation-cell-highlighted' : ''}`}>
-        <CountBtn catKey={unknownKey} cls="unknown" count={unknown} title={`Impact Unknown / Not Found in Remedy: ${cnt(unknown)}`} />
-        <span className="spec-pct-sub">{calcSubPct(unknown)}</span>
-      </td>
-    </>
-  )
-
-  /** Plain text cell */
-  const TC = ({ children, rowSpan, colSpan, cls }) => (
-    <td
-      className={`spec-td${cls ? ' ' + cls : ''}`}
-      rowSpan={rowSpan}
-      colSpan={colSpan}
-    >
-      {children}
-    </td>
-  )
-
   const handleClearSearch = () => {
     if (setBifurcationQuery) setBifurcationQuery('')
   }
 
   return (
+    <TableContext.Provider value={{ openDrilldown, isKeyHighlighted, calcSubPct, cnt }}>
     <div className="spec-dashboard-wrapper" id="nstt-summary-matrix">
 
       {/* ── Title bar ──────────────────────────────────────────── */}
@@ -636,5 +648,6 @@ export default function NsttSummaryTable() {
       </div>
 
     </div>
+    </TableContext.Provider>
   )
 }

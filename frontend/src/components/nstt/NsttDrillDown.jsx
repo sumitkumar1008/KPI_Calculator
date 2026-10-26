@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNstt } from '../../context/NsttContext'
 import ExcelFilterDropdown from './ExcelFilterDropdown'
 import './NsttDrillDown.css'
@@ -6,7 +6,7 @@ import './NsttDrillDown.css'
 /**
  * Normalizes and extracts the column value for a record.
  */
-export function getRecordValue(r, colId) {
+function getRecordValue(r, colId) {
   if (!r) return ''
   switch (colId) {
     case 'INCIDENTID': {

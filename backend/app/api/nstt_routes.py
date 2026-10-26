@@ -15,6 +15,7 @@ from flask import Blueprint, jsonify, request, send_file
 from werkzeug.exceptions import HTTPException
 
 from app.services.nstt.column_validator import validate_both_files_columns
+from app.services.nstt.file_validator import validate_nstt_uploads
 from app.services.nstt.namo_reader import parse_namo_file
 from app.services.nstt.remedy_reader import parse_remedy_file
 from app.services.nstt.vlookup import perform_vlookup
@@ -49,6 +50,36 @@ nstt_bp = Blueprint("nstt_api", __name__, url_prefix="/api/v1/nstt")
 def nstt_health():
     """Health check endpoint for NSTT module."""
     return jsonify({"status": "healthy", "module": "nstt_analytics"})
+
+
+@nstt_bp.route("/validate-files", methods=["POST"])
+def validate_files_endpoint():
+    """
+    Fast pre-validation of uploaded Namo and Remedy files before upload.
+    Detects swapped files, missing columns, and file format issues.
+    """
+    namo_keys = ["namo_file", "namo", "namofile", "namoFile", "namo_report", "namoReport"]
+    namo_file = None
+    for k in namo_keys:
+        if k in request.files and request.files[k].filename:
+            namo_file = request.files[k]
+            break
+
+    remedy_keys = ["remedy_file", "remedy", "remedyfile", "remedyFile", "remedy_report", "remedyReport"]
+    remedy_file = None
+    for k in remedy_keys:
+        if k in request.files and request.files[k].filename:
+            remedy_file = request.files[k]
+            break
+
+    result = validate_nstt_uploads(
+        namo_file_input=namo_file,
+        remedy_file_input=remedy_file,
+        namo_filename=namo_file.filename if namo_file else "",
+        remedy_filename=remedy_file.filename if remedy_file else "",
+    )
+    status_code = 200 if result.get("valid") else 400
+    return jsonify(result), status_code
 
 
 @nstt_bp.route("/upload", methods=["POST"])
@@ -100,13 +131,23 @@ def upload_nstt_files():
 
     if not validation["valid"]:
         nstt_logger.error(f"\n{validation['internal_error']}")
+        file1_info = validation.get("files", {}).get("file1", {})
+        file2_info = validation.get("files", {}).get("file2", {})
+        is_swapped = (
+            file1_info.get("status") == "mismatch" and
+            file2_info.get("status") == "mismatch" and
+            ("in_namo" in str(namo_file.filename).lower() or "in_remedy" in str(remedy_file.filename).lower())
+        )
         return jsonify({
             "error": validation["error"],
-            "error_type": validation["error_type"],
+            "error_type": "SWAPPED_FILES" if is_swapped else validation["error_type"],
             "files": validation["files"],
             "missing_columns": validation["missing_columns"],
             "internal_error": validation["internal_error"],
             "perf_breakdown": {"file_validation_ms": val_ms},
+            "can_auto_swap": is_swapped,
+            "namo_slot": file1_info,
+            "remedy_slot": file2_info,
         }), 400
 
     namo_df = validation["namo_df"]

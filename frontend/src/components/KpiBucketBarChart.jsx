@@ -53,13 +53,9 @@ function bucketizeRows(rows) {
   rows.forEach((row) => {
     KPI_CONFIG.forEach(({ key }) => {
       const secKey = `${key}_seconds`
-      let seconds = null
-
-      if (row[secKey] !== undefined && row[secKey] !== null && !isNaN(row[secKey])) {
-        seconds = Number(row[secKey])
-      } else {
-        seconds = parseDurationToSeconds(row[key])
-      }
+      const seconds = (row[secKey] !== undefined && row[secKey] !== null && !isNaN(row[secKey]))
+        ? Number(row[secKey])
+        : parseDurationToSeconds(row[key])
 
       if (seconds === null || seconds < 0) return
 

@@ -14,7 +14,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [theme, setTheme] = useState('light')
   const [activeModule, setActiveModule] = useState('kpi')
-  const [fileFormat, setFileFormat] = useState(() => localStorage.getItem('kpi-calculator-file-format') || 'xlsx')
+  const [fileFormat] = useState(() => localStorage.getItem('kpi-calculator-file-format') || 'xlsx')
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme

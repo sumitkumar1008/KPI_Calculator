@@ -11,6 +11,7 @@ import LongResponseTimeLineChart from './LongResponseTimeLineChart'
 import KpiBucketBarChart from './KpiBucketBarChart'
 import { useGlobalFilter } from '../context/GlobalFilterContext'
 import { formatFileSize, validateFile } from '../utils/fileValidation'
+import { safeParseJson } from '../utils/apiUtils'
 import './FileUpload.css'
 
 function FileUpload({ fileFormat = 'all' }) {
@@ -63,29 +64,6 @@ function FileUpload({ fileFormat = 'all' }) {
     event.preventDefault()
     setIsDragging(false)
     selectFile(event.dataTransfer.files?.[0])
-  }
-
-  const safeParseJson = async (response) => {
-    const text = await response.text()
-    let data
-    try {
-      data = JSON.parse(text)
-    } catch {
-      try {
-        const sanitized = text.replace(/:\s*NaN\b/g, ': null')
-        data = JSON.parse(sanitized)
-      } catch {
-        const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-        const preview = cleanText ? cleanText.slice(0, 150) : (response.statusText || 'Server Error')
-        throw new Error(`Server Error HTTP ${response.status}: ${preview}`)
-      }
-    }
-
-    if (!response.ok) {
-      const serverMsg = data?.error || data?.detail || data?.message || `Server error HTTP ${response.status}.`
-      throw new Error(serverMsg)
-    }
-    return data
   }
 
   const uploadFile = async () => {

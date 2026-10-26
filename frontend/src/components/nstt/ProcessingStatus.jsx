@@ -1,7 +1,6 @@
-import React from 'react'
 import './ProcessingStatus.css'
 
-export const NSTT_PIPELINE_STEPS = [
+const NSTT_PIPELINE_STEPS = [
   { id: 'namo_loaded', label: 'Namo file loaded' },
   { id: 'remedy_loaded', label: 'Remedy file loaded' },
   { id: 'columns_validated', label: 'Required columns validated' },

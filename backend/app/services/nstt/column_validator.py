@@ -64,7 +64,7 @@ def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFram
                 bytes_target.seek(0)
             df = parse_csv_file(bytes_target)
 
-        if df is None or df.empty or len(df.columns) == 0:
+        if df is None or len(df.columns) == 0:
             return None, [], "File is empty or contains no parseable tabular columns."
 
         # Ensure all column headers are clean strings
@@ -238,14 +238,14 @@ def validate_both_files_columns(
         f"  - Required Columns Needed ({len(REQUIRED_NAMO_COLUMNS)}): {REQUIRED_NAMO_COLUMNS}\n"
         f"  - Missing Columns ({len(missing_namo_1)}): {missing_namo_1}\n"
         f"  - Columns Found in File ({len(headers1)}): {headers1}\n"
-        f"{'  * Note: Columns found strongly match Remedy Report schema (swapped file).' if f1_is_remedy_like else ''}\n\n"
+        f"{'  * Note: Columns found strongly match Remedy Report schema (swapped file). Dataset 01 appears to be a Remedy Report instead of Namo Report.' if f1_is_remedy_like else ''}\n\n"
         f"Dataset 02 (Remedy Slot: '{file2_name}'):\n"
         f"  - Target Dataset: Remedy Report\n"
         f"  - Status: {'MISMATCH' if missing_remedy_2 else 'VALID'}\n"
         f"  - Required Columns Needed ({len(REQUIRED_REMEDY_COLUMNS)}): {REQUIRED_REMEDY_COLUMNS}\n"
         f"  - Missing Columns ({len(missing_remedy_2)}): {missing_remedy_2}\n"
         f"  - Columns Found in File ({len(headers2)}): {headers2}\n"
-        f"{'  * Note: Columns found strongly match Namo Report schema (swapped file).' if f2_is_namo_like else ''}\n"
+        f"{'  * Note: Columns found strongly match Namo Report schema (swapped file). Dataset 02 appears to be a Namo Report instead of Remedy Report.' if f2_is_namo_like else ''}\n"
         f"--------------------------------------------------------------------------------\n"
         f"Result: Fast-fail triggered. No calculations (VLOOKUP, Rule Engine, Aggregation) performed.\n"
         f"================================================================================"

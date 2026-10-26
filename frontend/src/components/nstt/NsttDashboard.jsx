@@ -1,4 +1,7 @@
+<<<<<<< Updated upstream
 import React, { useState, useRef, useEffect } from 'react'
+=======
+>>>>>>> Stashed changes
 import { useNstt } from '../../context/NsttContext'
 import NsttSummaryTable from './NsttSummaryTable'
 import FailureTable from './FailureTable'
@@ -19,7 +22,6 @@ export default function NsttDashboard() {
   const {
     aggregatedResult,
     stats,
-    warnings,
     namoFile,
     remedyFile,
     reset,

@@ -1,4 +1,3 @@
-import React from 'react'
 import { useNstt } from '../../context/NsttContext'
 import './FailureTable.css'
 

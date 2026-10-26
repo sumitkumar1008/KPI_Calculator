@@ -301,7 +301,7 @@
 .spec-subsub-type-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   text-align: left;
   font-size: 0.76rem;
   font-weight: 600;
@@ -312,15 +312,31 @@
 .spec-subsub-count-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
 }
 
-.spec-subsub-item {
-  min-height: 24px;
+.spec-subsub-type-list .spec-subsub-item {
+  min-height: 38px;
   display: flex;
   align-items: center;
-  gap: 4px;
+}
+
+.spec-subsub-count-list .spec-subsub-item {
+  min-height: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.spec-subsub-count-list .spec-subsub-item .spec-pct-sub {
+  margin-top: 0;
+  display: block;
+  font-size: 0.7rem;
+  line-height: 1.1;
+  text-align: center;
 }
 
 /* ── Manually tagged strip ───────────────────────────────────── */

@@ -139,16 +139,38 @@ def run_rule_engine(master_response: Dict[str, Any]) -> Dict[str, Any]:
     # Step 10: Failure Analysis (Manual population only)
     apply_failure_analysis(records)
 
-    # Compute classification statistics
-    total_sr = sum(1 for r in records if r.get("is_total_sr"))
-    nstt_count = sum(1 for r in records if r.get("is_nstt"))
-    auto_count = sum(1 for r in records if r.get("capture_type") == "Automation")
-    manual_count = sum(1 for r in records if r.get("capture_type") == "Manual")
-    same_nstt = sum(1 for r in records if r.get("nstt_type") == "Same NSTT")
-    diff_nstt = sum(1 for r in records if r.get("nstt_type") == "Different NSTT")
-    resolved_nstt = sum(1 for r in records if r.get("nstt_type") == "Resolved NSTT")
-    wrong_nstt = sum(1 for r in records if r.get("exception_type") is not None)
-    failures = sum(1 for r in records if r.get("failure_category") is not None)
+    # Compute classification statistics in a single pass O(N)
+    total_sr = 0
+    nstt_count = 0
+    auto_count = 0
+    manual_count = 0
+    same_nstt = 0
+    diff_nstt = 0
+    resolved_nstt = 0
+    wrong_nstt = 0
+    failures = 0
+
+    for r in records:
+        if r.get("is_total_sr"):
+            total_sr += 1
+        if r.get("is_nstt"):
+            nstt_count += 1
+        c_type = r.get("capture_type")
+        if c_type == "Automation":
+            auto_count += 1
+        elif c_type == "Manual":
+            manual_count += 1
+        n_type = r.get("nstt_type")
+        if n_type == "Same NSTT":
+            same_nstt += 1
+        elif n_type == "Different NSTT":
+            diff_nstt += 1
+        elif n_type == "Resolved NSTT":
+            resolved_nstt += 1
+        if r.get("exception_type") is not None:
+            wrong_nstt += 1
+        if r.get("failure_category") is not None:
+            failures += 1
 
     elapsed_ms = round((time.time() - start_time) * 1000, 2)
 
