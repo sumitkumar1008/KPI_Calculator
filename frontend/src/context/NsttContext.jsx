@@ -67,18 +67,31 @@ export function NsttProvider({ children }) {
     setError(null)
     setIsComplete(false)
 
-    console.group('%c[NSTT Pipeline] Starting Processing Pipeline', 'color: #3b82f6; font-weight: bold; font-size: 13px;')
-    console.log(`[Step 1/5] Namo file selected: ${file1.name} (${(file1.size / 1024).toFixed(1)} KB)`)
-    console.log(`[Step 2/5] Remedy file selected: ${file2.name} (${(file2.size / 1024).toFixed(1)} KB)`)
+    const t0Client = performance.now()
+
+    console.group('%c⏱️ [NSTT Performance Counter] Pipeline Execution Started', 'color: #3b82f6; font-weight: bold; font-size: 13px;')
+    console.log(`[Start] Namo file: ${file1.name} (${(file1.size / 1024).toFixed(1)} KB) | Remedy file: ${file2.name} (${(file2.size / 1024).toFixed(1)} KB)`)
 
     try {
-      // Step 3: Column validation, VLOOKUP join, impact conversion & Master Response generation
-      console.log('[Step 3/5] Uploading files, validating required columns & executing VLOOKUP join...')
+      // Phase 1: Upload (Validation, VLOOKUP, Impact Mapping, Master JSON)
+      const tUploadStart = performance.now()
+      console.log('🔄 [Upload Phase] Uploading datasets, running header validation & VLOOKUP join...')
       const uploadResult = await uploadNsttFiles(file1, file2)
+      const tUploadEnd = performance.now()
+      const clientUploadMs = Math.round(tUploadEnd - tUploadStart)
 
-      console.log('[Step 3/5] VLOOKUP Join complete! Ingestion stats:', uploadResult.stats)
+      const uBreak = uploadResult?.stats?.perf_breakdown || {}
+      console.log(
+        `✅ [Upload Phase Complete] Network + Server: ${clientUploadMs} ms | Server Perf Counter: ${uploadResult.stats?.processing_time_ms} ms\n` +
+        `   ├─ 1. Validation & Reading: ${uBreak.file_validation_ms || '—'} ms\n` +
+        `   ├─ 2. VLOOKUP Left-Join:    ${uBreak.vlookup_join_ms || '—'} ms\n` +
+        `   ├─ 3. Impact & Duplicates:  ${uBreak.impact_and_duplicate_ms || '—'} ms\n` +
+        `   ├─ 4. Master Response:      ${uBreak.master_builder_ms || '—'} ms\n` +
+        `   └─ 5. Cache Storage:        ${uBreak.cache_store_ms || '—'} ms`
+      )
+
       if (uploadResult.warnings?.length > 0) {
-        console.warn('[Step 3/5] Ingestion warnings:', uploadResult.warnings)
+        console.warn('⚠️ [Upload Warnings]:', uploadResult.warnings)
       }
 
       setUploadId(uploadResult.upload_id)
@@ -86,19 +99,43 @@ export function NsttProvider({ children }) {
       setStats(uploadResult.stats)
       setWarnings(uploadResult.warnings || [])
 
-      // Step 4 & 5: Rule Engine classification & hierarchical dashboard aggregation
-      console.log('[Step 4/5] Executing NSTT Rule Engine business classification...')
-      console.log('[Step 5/5] Computing hierarchical dashboard aggregations...')
+      // Phase 2: Process (Rule Engine, Hierarchical Aggregator, Cache Sync)
+      const tProcStart = performance.now()
+      console.log('🔄 [Process Phase] Executing Rule Engine classification & hierarchical aggregations...')
 
       const processResult = await processNstt({
         uploadId: uploadResult.upload_id,
         masterResponse: uploadResult.master_response,
       })
+      const tProcEnd = performance.now()
+      const clientProcMs = Math.round(tProcEnd - tProcStart)
 
-      console.log('[Step 5/5] Aggregation complete! Total SR:', processResult.aggregated_result?.total_sr, '| NSTT Count:', processResult.aggregated_result?.nstt_count)
-      console.log('%c[NSTT Pipeline] Complete! Successfully generated dashboard metrics.', 'color: #10b981; font-weight: bold;')
+      const pBreak = processResult?.perf_breakdown || {}
+      const combinedStats = {
+        ...uploadResult.stats,
+        ...(processResult.stats || {}),
+        perf_breakdown: {
+          ...(uploadResult.stats?.perf_breakdown || {}),
+          ...pBreak,
+          client_total_ms: Math.round(performance.now() - t0Client),
+        },
+      }
+
+      console.log(
+        `✅ [Process Phase Complete] Network + Server: ${clientProcMs} ms | Server Perf Counter: ${processResult.processing_time_ms} ms\n` +
+        `   ├─ 1. Rule Engine Classification: ${pBreak.rule_engine_ms || '—'} ms\n` +
+        `   ├─ 2. Hierarchical Aggregation:   ${pBreak.aggregation_ms || '—'} ms\n` +
+        `   └─ 3. Cache Sync & Final Output:  ${pBreak.cache_sync_ms || '—'} ms`
+      )
+
+      const totalMs = Math.round(performance.now() - t0Client)
+      console.log(
+        `%c🏁 [Final Output Delivered] Total End-to-End Elapsed Time: ${totalMs} ms (${(totalMs / 1000).toFixed(3)} s) | Total Records: ${processResult.aggregated_result?.total_sr || 0} | NSTT Count: ${processResult.aggregated_result?.nstt_count || 0}`,
+        'color: #10b981; font-weight: bold; font-size: 13px;'
+      )
       console.groupEnd()
 
+      setStats(combinedStats)
       setClassifiedMasterResponse(processResult.classified_master_response)
       setAggregatedResult(processResult.aggregated_result)
       setIsComplete(true)

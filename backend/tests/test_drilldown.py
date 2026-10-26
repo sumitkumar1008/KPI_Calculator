@@ -15,8 +15,24 @@ from app.services.drilldown_service import (
 def sample_rows():
     return [
         {
+            "SRNUMBER": "SR1000",
+            "SRCREATIONTIME": "2026-08-01T11:00:00",  # Saturday -> Week 1
+            "AUTOMATION_RUN": "Y",
+            "AUTOMATION_RCA_CONCLUSION": "Y",
+            "MTTI": "00:03:00",
+            "MTTA": "00:06:00",
+            "MTTAck": "00:02:00",
+            "MTTR": "00:40:00",
+            "MTTr": "00:30:00",
+            "MTTI_seconds": 180,
+            "MTTA_seconds": 360,
+            "MTTAck_seconds": 120,
+            "MTTR_seconds": 2400,
+            "MTTr_seconds": 1800,
+        },
+        {
             "SRNUMBER": "SR1001",
-            "SRCREATIONTIME": "2026-08-02T10:00:00",
+            "SRCREATIONTIME": "2026-08-02T10:00:00",  # Sunday -> Week 1
             "AUTOMATION_RUN": "Y",
             "AUTOMATION_RCA_CONCLUSION": "Y",
             "MTTI": "00:05:00",
@@ -32,7 +48,7 @@ def sample_rows():
         },
         {
             "SRNUMBER": "SR1002",
-            "SRCREATIONTIME": "2026-08-05T14:30:00",
+            "SRCREATIONTIME": "2026-08-05T14:30:00",  # Wednesday -> Week 2
             "AUTOMATION_RUN": "N",
             "AUTOMATION_RCA_CONCLUSION": "Y",
             "MTTI": "00:10:00",
@@ -48,7 +64,7 @@ def sample_rows():
         },
         {
             "SRNUMBER": "SR1003",
-            "SRCREATIONTIME": "2026-08-10T09:00:00",  # Week 2
+            "SRCREATIONTIME": "2026-08-10T09:00:00",  # Monday -> Week 3
             "AUTOMATION_RUN": "Y",
             "AUTOMATION_RCA_CONCLUSION": "N",
             "MTTI": "00:08:00",
@@ -83,34 +99,40 @@ def sample_rows():
 
 def test_filter_rows_by_month(sample_rows):
     aug_rows = filter_rows_by_month(sample_rows, "2026-08")
-    assert len(aug_rows) == 3
+    assert len(aug_rows) == 4
     assert all(r["SRNUMBER"].startswith("SR10") for r in aug_rows)
 
 
 def test_filter_rows_by_week(sample_rows):
     week1_rows = filter_rows_by_week(sample_rows, "2026-08", 1)
     assert len(week1_rows) == 2
-    assert week1_rows[0]["SRNUMBER"] == "SR1001"
-    assert week1_rows[1]["SRNUMBER"] == "SR1002"
+    assert week1_rows[0]["SRNUMBER"] == "SR1000"
+    assert week1_rows[1]["SRNUMBER"] == "SR1001"
 
     week2_rows = filter_rows_by_week(sample_rows, "2026-08", 2)
     assert len(week2_rows) == 1
-    assert week2_rows[0]["SRNUMBER"] == "SR1003"
+    assert week2_rows[0]["SRNUMBER"] == "SR1002"
+
+    week3_rows = filter_rows_by_week(sample_rows, "2026-08", 3)
+    assert len(week3_rows) == 1
+    assert week3_rows[0]["SRNUMBER"] == "SR1003"
 
 
 def test_get_table_drilldown_level_1_weekly(sample_rows):
     result = get_table_drilldown(sample_rows, table_type="avg", month="2026-08")
     assert result["level"] == "weekly"
-    assert len(result["summary"]) == 2  # Week 1 and Week 2 exist in sample
+    assert len(result["summary"]) == 3  # Week 1, Week 2, Week 3
     assert result["summary"][0]["period_label"] == "August 2026 - Week 1"
+    assert result["summary"][1]["period_label"] == "August 2026 - Week 2"
+    assert result["summary"][2]["period_label"] == "August 2026 - Week 3"
 
 
 def test_get_table_drilldown_level_2_daily(sample_rows):
     result = get_table_drilldown(sample_rows, table_type="avg", month="2026-08", week=1)
     assert result["level"] == "daily"
-    assert len(result["summary"]) == 2  # Aug 2 and Aug 5
-    assert result["summary"][0]["period"] == "2026-08-02"
-    assert result["summary"][1]["period"] == "2026-08-05"
+    assert len(result["summary"]) == 2  # Aug 1 and Aug 2
+    assert result["summary"][0]["period"] == "2026-08-01"
+    assert result["summary"][1]["period"] == "2026-08-02"
 
 
 def test_drilldown_api_endpoint(client, sample_rows):
@@ -123,7 +145,7 @@ def test_drilldown_api_endpoint(client, sample_rows):
     assert response.status_code == 200
     data = response.get_json()
     assert data["level"] == "weekly"
-    assert len(data["summary"]) == 2
+    assert len(data["summary"]) == 3
 
     # Level 2 drilldown
     payload["week"] = 1
@@ -131,3 +153,4 @@ def test_drilldown_api_endpoint(client, sample_rows):
     assert response_l2.status_code == 200
     data_l2 = response_l2.get_json()
     assert data_l2["level"] == "daily"
+    assert len(data_l2["summary"]) == 2

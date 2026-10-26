@@ -144,7 +144,7 @@ export function classifyRecordBifurcation(r) {
     const nsttType = (r.nstt_type ?? r.NSTT_TYPE ?? '').trim()
 
     // 4a. Same NSTT
-    if (nsttType === 'Same NSTT' || (!nsttType && r.AUTOMATION_UPDATE_NSTT_NUMBER === extractIncidentId(r))) {
+    if (nsttType === 'Same NSTT') {
       const isNonIm =
         r.factory_type === 'Non IM' ||
         r.FACTORY === 'Non IM' ||
@@ -349,7 +349,7 @@ export function getAllDrilldownKeysForRecord(r) {
     const nsttType = (r.nstt_type ?? r.NSTT_TYPE ?? '').trim()
 
     // 5a. Same NSTT
-    if (nsttType === 'Same NSTT' || (!nsttType && r.AUTOMATION_UPDATE_NSTT_NUMBER === extractIncidentId(r))) {
+    if (nsttType === 'Same NSTT') {
       keys.add('automation.same_nstt')
       keys.add('same_nstt')
 

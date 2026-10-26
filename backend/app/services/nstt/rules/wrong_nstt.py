@@ -45,11 +45,22 @@ def apply_wrong_nstt(records: List[Dict[str, Any]]) -> None:
     Mutates records in-place, setting 'exception_type' for records matching
     the Wrong NSTT condition.
 
-    CONTAINS check on both ASSIGNED_SUPPORT_COMPANY and ATTRIBUTEDTO.
+    CONTAINS check on both ASSIGNED_SUPPORT_COMPANY and ATTRIBUTEDTO:
+      ASSIGNED_SUPPORT_COMPANY contains "ANG" (case-insensitive)
+      AND ATTRIBUTEDTO contains "TXN" (case-insensitive)
+
+    Automation records matching this condition receive:
+      exception_type = "wrong NSTT Attached by automation Ang in TXN Attribution"
+
+    Business Rule:
+      For records with Auto Capture Same NSTT and Wrong NSTT Attached, any Incident ID
+      that lies in both cases is removed from the Same NSTT bifurcation.
 
     Args:
         records: List of record dicts from the Master Response.
     """
+    wrong_auto_incident_ids = set()
+
     for rec in records:
         if not rec.get("is_nstt", False):
             rec["exception_type"] = None
@@ -63,9 +74,24 @@ def apply_wrong_nstt(records: List[Dict[str, Any]]) -> None:
             capture_type = rec.get("capture_type")
             if capture_type == "Automation":
                 rec["exception_type"] = WRONG_NSTT_AUTOMATION
+                inc_id = rec.get("INCIDENTID")
+                if inc_id is not None:
+                    wrong_auto_incident_ids.add(str(inc_id).strip().upper())
             elif capture_type == "Manual":
                 rec["exception_type"] = WRONG_NSTT_ENGINEER
             else:
                 rec["exception_type"] = None
         else:
             rec["exception_type"] = None
+
+    # Business Rule:
+    # "for the auto capture same nstt and wrong nstt attached the incident id that lies in both case
+    #  remove from the same nstt bifurcation"
+    for rec in records:
+        if rec.get("capture_type") == "Automation" and rec.get("nstt_type") == "Same NSTT":
+            inc_id = str(rec.get("INCIDENTID") or "").strip().upper()
+            if rec.get("exception_type") == WRONG_NSTT_AUTOMATION or inc_id in wrong_auto_incident_ids:
+                rec["nstt_type"] = None
+                rec["factory_type"] = None
+                rec["allocation_type"] = None
+

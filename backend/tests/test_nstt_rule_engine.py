@@ -466,6 +466,60 @@ class TestWrongNstt:
         apply_wrong_nstt([rec])
         assert rec["exception_type"] is None
 
+    def test_wrong_nstt_auto_removes_from_same_nstt(self):
+        """Incident ID lying in both Auto Capture Same NSTT and Wrong NSTT must be removed from Same NSTT."""
+        from app.services.nstt.rules.wrong_nstt import apply_wrong_nstt, WRONG_NSTT_AUTOMATION
+        # Case 1: Same record is both Same NSTT and Wrong NSTT
+        rec1 = make_record(
+            is_nstt=True,
+            capture_type="Automation",
+            nstt_type="Same NSTT",
+            factory_type="IM",
+            allocation_type="Auto",
+            INCIDENTID="INC100",
+            ASSIGNED_SUPPORT_COMPANY="ANG-XYZ",
+            ATTRIBUTEDTO="TXN",
+        )
+        # Case 2: Another record with same incident ID in Same NSTT
+        rec2 = make_record(
+            is_nstt=True,
+            capture_type="Automation",
+            nstt_type="Same NSTT",
+            factory_type="IM",
+            allocation_type="Auto",
+            INCIDENTID="INC100",
+            ASSIGNED_SUPPORT_COMPANY="OTHER",
+            ATTRIBUTEDTO="TXN",
+        )
+        # Case 3: Different record in Same NSTT without Wrong NSTT
+        rec3 = make_record(
+            is_nstt=True,
+            capture_type="Automation",
+            nstt_type="Same NSTT",
+            factory_type="IM",
+            allocation_type="Auto",
+            INCIDENTID="INC200",
+            ASSIGNED_SUPPORT_COMPANY="OTHER",
+            ATTRIBUTEDTO="TXN",
+        )
+        apply_wrong_nstt([rec1, rec2, rec3])
+
+        # rec1 matched Wrong NSTT -> removed from Same NSTT
+        assert rec1["exception_type"] == WRONG_NSTT_AUTOMATION
+        assert rec1["nstt_type"] is None
+        assert rec1["factory_type"] is None
+        assert rec1["allocation_type"] is None
+
+        # rec2 shares INCIDENTID INC100 with rec1 -> removed from Same NSTT
+        assert rec2["nstt_type"] is None
+        assert rec2["factory_type"] is None
+        assert rec2["allocation_type"] is None
+
+        # rec3 has distinct INCIDENTID INC200 -> remains in Same NSTT
+        assert rec3["nstt_type"] == "Same NSTT"
+        assert rec3["factory_type"] == "IM"
+        assert rec3["allocation_type"] == "Auto"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Rule 10: Failure Analysis — CONTAINS checks
@@ -479,21 +533,49 @@ class TestFailureAnalysis:
         assert rec["failure_category"] == FAIL_NOT_FOUND
 
     def test_ring_failure_contains(self):
-        """'Ring failure' substring in DESCRIPTION → Ring Failure."""
+        """'Ring failure' substring in DESCRIPTION (without node) → Ring Failure."""
         from app.services.nstt.rules.failure_analysis import apply_failure_analysis, FAIL_RING
         rec = make_record(
             is_nstt=True, capture_type="Manual", is_matched=True,
-            DESCRIPTION="Major Ring Failure detected on node"
+            timing_type="Before SR Creation",
+            DESCRIPTION="Major Ring Failure detected on circuit"
         )
         apply_failure_analysis([rec])
         assert rec["failure_category"] == FAIL_RING
 
+    def test_ring_failure_node_exclusion_to_others(self):
+        """Node or node isolation descriptions must NOT be in Ring Failure, even if ring fail is mentioned."""
+        from app.services.nstt.rules.failure_analysis import apply_failure_analysis, FAIL_OTHERS
+        # Case 1: Node mentioned with ring failure
+        rec1 = make_record(
+            is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
+            DESCRIPTION="Major Ring Failure detected on node"
+        )
+        # Case 2: Node isolation description
+        rec2 = make_record(
+            is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
+            DESCRIPTION="Cisco Node: AZW-CR51.45 is Isolated. Total 20GB Down"
+        )
+        # Case 3: Traffic utilization crosses threshold for Nodes
+        rec3 = make_record(
+            is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
+            DESCRIPTION="For Ring:GRG-2NP-R002 average traffic utilization crosses 90% for total Nodes:2"
+        )
+        apply_failure_analysis([rec1, rec2, rec3])
+        assert rec1["failure_category"] == FAIL_OTHERS
+        assert rec2["failure_category"] == FAIL_OTHERS
+        assert rec3["failure_category"] == FAIL_OTHERS
+
     def test_ring_failure_case_insensitive(self):
-        """'RING' in uppercase, space-stripped match."""
+        """'Ring Collapse' or 'RINGFAILURE' match Ring Failure when no node keywords present."""
         from app.services.nstt.rules.failure_analysis import apply_failure_analysis, FAIL_RING
         rec = make_record(
             is_nstt=True, capture_type="Manual", is_matched=True,
-            DESCRIPTION="ring issue observed"
+            timing_type="Before SR Creation",
+            DESCRIPTION="Ring Collapse observed in transmission path"
         )
         apply_failure_analysis([rec])
         assert rec["failure_category"] == FAIL_RING
@@ -503,6 +585,7 @@ class TestFailureAnalysis:
         from app.services.nstt.rules.failure_analysis import apply_failure_analysis, FAIL_SECTION
         rec = make_record(
             is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
             DESCRIPTION="Section 12 has degraded performance"
         )
         apply_failure_analysis([rec])
@@ -513,10 +596,28 @@ class TestFailureAnalysis:
         from app.services.nstt.rules.failure_analysis import apply_failure_analysis, FAIL_UNSTITCHED
         rec = make_record(
             is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
             AUTOMATION_RCA_CONCLUSION_TEXT="FLT Observations for Unstitched LSI - detected",
         )
         apply_failure_analysis([rec])
         assert rec["failure_category"] == FAIL_UNSTITCHED
+
+    def test_unstitched_whitespace_and_singular(self):
+        """AUTOMATION_RCA_CONCLUSION_TEXT with newline, extra space, or singular 'Observation' → Unstitched."""
+        from app.services.nstt.rules.failure_analysis import apply_failure_analysis, FAIL_UNSTITCHED
+        rec1 = make_record(
+            is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
+            AUTOMATION_RCA_CONCLUSION_TEXT="FLT  Observations\nfor  Unstitched  LSI",
+        )
+        rec2 = make_record(
+            is_nstt=True, capture_type="Manual", is_matched=True,
+            timing_type="Before SR Creation",
+            AUTOMATION_RCA_CONCLUSION_TEXT="FLT Observation for Unstitched LSI",
+        )
+        apply_failure_analysis([rec1, rec2])
+        assert rec1["failure_category"] == FAIL_UNSTITCHED
+        assert rec2["failure_category"] == FAIL_UNSTITCHED
 
     def test_not_found_takes_priority_over_ring(self):
         """is_matched=False has higher priority than ring keywords in DESCRIPTION."""
@@ -663,6 +764,8 @@ class TestRuleEngineOrchestrator:
         rec = result["records"][0]
         assert rec["exception_type"] == "wrong NSTT Attached by automation Ang in TXN Attribution"
         assert result["classification_stats"]["wrong_nstt_count"] == 1
+        assert rec["nstt_type"] is None
+        assert result["classification_stats"]["same_nstt"] == 0
 
     def test_failure_analysis_in_orchestrator(self):
         """Ring failure should be detected in full pipeline for Manual records."""
@@ -671,7 +774,7 @@ class TestRuleEngineOrchestrator:
             ATTRIBUTEDTO="TXN",
             INCIDENTID="INC004",
             AUTOMATION_UPDATE_NSTT_NUMBER="",  # Manual
-            DESCRIPTION="Ring Failure detected on the node",
+            DESCRIPTION="Ring Failure detected on the circuit",
             is_matched=True,
         )]
         result = run_rule_engine(self._build_master_response(records))

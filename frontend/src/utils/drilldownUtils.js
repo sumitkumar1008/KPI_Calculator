@@ -128,9 +128,19 @@ export function parseSRDate(val) {
   return isNaN(dt.getTime()) ? null : dt
 }
 
-// Month-relative week number: Days 1-7 = 1, Days 8-14 = 2, Days 15-21 = 3, Days 22+ = 4
+// Monday-to-Sunday week number:
+// Week 1 starts on day 1 of the month and ends on the first Sunday.
+// Week 2 and subsequent weeks run Monday to Sunday.
 export function getWeekNum(dt) {
-  return Math.min(Math.floor((dt.getDate() - 1) / 7) + 1, 4)
+  const year = dt.getFullYear()
+  const month = dt.getMonth()
+  const firstDayWeekday = (new Date(year, month, 1).getDay() + 6) % 7 // Monday=0 ... Sunday=6
+  const daysInFirstWeek = 7 - firstDayWeekday
+  const day = dt.getDate()
+  if (day <= daysInFirstWeek) {
+    return 1
+  }
+  return 2 + Math.floor((day - daysInFirstWeek - 1) / 7)
 }
 
 // Pre-calculate full period summary (daily, weekly, monthly) from rows in memory

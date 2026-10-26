@@ -120,6 +120,21 @@ OPTIONAL_KPI_MAPPINGS: dict[str, str] = {
     "ROSTER ALLOCATION": "ROSTER_ALLOCATION",
     "ROSTERALLOCATION": "ROSTER_ALLOCATION",
     "ROSTER": "ROSTER_ALLOCATION",
+    # Status column variants (for MTTR Closed/Resolved filter)
+    "SRSTATUS": "SRSTATUS",
+    "SR_STATUS": "SRSTATUS",
+    "SR STATUS": "SRSTATUS",
+    "STATUS": "SRSTATUS",
+    "INCIDENT_STATUS": "SRSTATUS",
+    "INCIDENT STATUS": "SRSTATUS",
+    # Subtype column variants (for MTTr Link Down filter)
+    "SUBTYPE": "SUBTYPE",
+    "SUB_TYPE": "SUBTYPE",
+    "SUB TYPE": "SUBTYPE",
+    "INCIDENT_SUBTYPE": "SUBTYPE",
+    "INCIDENT_SUB_TYPE": "SUBTYPE",
+    "INCIDENT SUBTYPE": "SUBTYPE",
+    "SUB-TYPE": "SUBTYPE",
 }
 for k, canonical in OPTIONAL_KPI_MAPPINGS.items():
     _CANONICAL_LOOKUP[normalize_column_name(k)] = canonical
@@ -298,6 +313,10 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
             r["MEDIA"] = None
         if "ROSTER_ALLOCATION" not in r:
             r["ROSTER_ALLOCATION"] = None
+        if "SRSTATUS" not in r:
+            r["SRSTATUS"] = None
+        if "SUBTYPE" not in r:
+            r["SUBTYPE"] = None
         clean_rows.append(r)
 
     return {

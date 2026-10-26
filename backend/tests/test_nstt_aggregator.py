@@ -209,8 +209,8 @@ class TestNSTTAggregatorStructure:
         assert agg["failures"]["ring_failure"] == 1
         assert agg["failures"]["section_failure"] == 1
         assert agg["failures"]["unstitched"] == 1
-        assert agg["failures"]["others"] == 1
-        assert agg["failures"]["grand_total"] == 4
+        assert agg["failures"]["others"] == 2
+        assert agg["failures"]["grand_total"] == 5
 
         # Percentage Verification (Base for sub-bifurcations = nstt_count)
         # nstt_percentage is relative to total_sr; all sub-bifurcation percentages are relative to nstt_count

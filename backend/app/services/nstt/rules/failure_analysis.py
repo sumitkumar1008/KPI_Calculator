@@ -1,35 +1,41 @@
 """
 Rule: Failure Analysis
 ========================
-Detects failure categories from the Manual NSTT population using CONTAINS checks.
+Detects failure categories from the Manual NSTT population for Table 2
+("Manually tagged – NSTT Before SR Creation") and Table 1 (Row 15: Not found in Remedy).
 
 Categories:
   1. "NSTT Number not found in Remedy"
        → is_matched == False (INCIDENTID not in Remedy)
 
-  2. "Ring Failure"
-       → DESCRIPTION contains ring-failure keywords:
-         "ring fail", "ring failure", "ringfailure", "Ring Collapse" (case/space-insensitive)
-         Whole word "ring" (word boundary, case-insensitive)
+  2. "Unstitched"
+       → In "AUTOMATION_RCA_CONCLUSION_TEXT" of NAMO, if
+         "FLT Observations for Unstitched LSI" appears (case/whitespace-flexible,
+         singular/plural Observations, or 'Unstitched LSI').
 
-  3. "Section Failure"
-       → DESCRIPTION contains "Section" (case-insensitive)
+  3. "Ring Failure"
+       → In "DESCRIPTION" column of Remedy, if the value contains:
+         "ring fail", "ring failure", "ringfailure", "Ring Collapse" (ignore uppercase, spaces etc.)
+       EXCLUSION:
+         For the ring fail, do NOT count node isolation / node descriptions.
+         All descriptions containing "node", "nodes", "node isolation", or "isolated"
+         are removed from Ring Failure and inserted into the "Others" category.
 
-  4. "Unstitched"
-       → AUTOMATION_RCA_CONCLUSION_TEXT contains
-         "FLT Observations for Unstitched LSI" (case-insensitive)
+  4. "Section Failure"
+       → In "DESCRIPTION" column of Remedy, if the value contains "Section" (ignore uppercase, spaces etc.)
 
   5. "Others"
-       → Any Manual NSTT Before SR Creation record that does not match 2, 3, or 4.
+       → Any Manual NSTT Before SR Creation record that does not match 2, 3, or 4
+         (including node / node isolation descriptions).
 
 Only applied to records where capture_type == "Manual" AND is_nstt == True.
-CONTAINS matching — NOT equality.
 """
 
 from __future__ import annotations
 
 import re
 from typing import Any, Dict, List, Optional
+import pandas as pd
 
 # Exact category labels from the business spec — DO NOT RENAME
 FAIL_NOT_FOUND = "NSTT Number not found in Remedy"
@@ -47,20 +53,38 @@ def _normalize_for_ring(text: str) -> str:
     return re.sub(r"[\s_\-]+", "", text.upper())
 
 
+def _is_node_description(val: Any) -> bool:
+    """
+    Returns True if DESCRIPTION contains node or node-isolation keywords:
+      - 'node', 'nodes' (whole word)
+      - 'node isolation', 'isolated', 'isolation'
+    These must NEVER be counted in Ring Failure and are moved to 'Others'.
+    """
+    if val is None:
+        return False
+    s = str(val).strip()
+    if not s or s.lower() in ("nan", "none"):
+        return False
+    # Check for whole-word node/nodes
+    if re.search(r"\bnodes?\b", s, re.IGNORECASE):
+        return True
+    # Check for isolated / isolation
+    if re.search(r"\bisolat(ed|ion)\b", s, re.IGNORECASE):
+        return True
+    return False
+
+
 def _contains_ring(val: Any) -> bool:
     """
     Returns True if DESCRIPTION contains ring-failure keywords:
       - 'ring fail', 'ring failure', 'ringfailure', 'Ring Collapse' (case/space-insensitive)
-      - Whole word 'ring' (word boundary, case-insensitive)
-    Avoids false positives on words like 'monitoring', 'sharing', 'spring', 'bearing'.
+    Does NOT match generic whole-word 'ring' to avoid false positives on node/traffic descriptions.
     """
     if val is None:
         return False
     s = str(val)
     normalized = _normalize_for_ring(s)
     if "RINGFAIL" in normalized or "RINGFAILURE" in normalized or "RINGCOLLAPSE" in normalized:
-        return True
-    if re.search(r"\bring\b", s, re.IGNORECASE):
         return True
     return False
 
@@ -72,14 +96,62 @@ def _contains_section(val: Any) -> bool:
     return "SECTION" in str(val).upper()
 
 
-def _contains_unstitched(val: Any) -> bool:
+def _get_rca_text(rec: Dict[str, Any]) -> str:
+    """
+    Extracts AUTOMATION_RCA_CONCLUSION_TEXT from a record,
+    checking canonical name and any common aliases or case variations.
+    """
+    for key in (
+        "AUTOMATION_RCA_CONCLUSION_TEXT",
+        "AUTOMATION RCA CONCLUSION TEXT",
+        "AUTOMATION_RCA_CONCLUSION",
+        "RCA_CONCLUSION_TEXT",
+        "RCA_CONCLUSION",
+        "AUTOMATION_RCA",
+    ):
+        v = rec.get(key)
+        if v is not None and not (isinstance(v, float) and pd.isna(v)):
+            s = str(v).strip()
+            if s and s.lower() not in ("nan", "none"):
+                return s
+
+    # Fallback: scan any key containing RCA and CONCLUSION
+    for k, v in rec.items():
+        if k and "RCA" in str(k).upper() and "CONCLUSION" in str(k).upper():
+            if v is not None and not (isinstance(v, float) and pd.isna(v)):
+                s = str(v).strip()
+                if s and s.lower() not in ("nan", "none"):
+                    return s
+
+    return ""
+
+
+def _contains_unstitched(rca_val: Any) -> bool:
     """
     Returns True if AUTOMATION_RCA_CONCLUSION_TEXT contains
-    'FLT Observations for Unstitched LSI' (case-insensitive).
+    'FLT Observations for Unstitched LSI' (case-insensitive, whitespace-flexible).
+    Also supports singular 'Observation' and 'Unstitched LSI'.
     """
-    if val is None:
+    if rca_val is None:
         return False
-    return _UNSTITCHED_PHRASE in str(val).strip().upper()
+    s = str(rca_val).strip()
+    if not s or s.lower() in ("nan", "none"):
+        return False
+
+    # Regex: 'FLT Observations for Unstitched LSI' with flexible whitespace/newlines and optional 's'
+    if re.search(r"FLT\s+Observations?\s+for\s+Unstitched\s+LSI", s, re.IGNORECASE):
+        return True
+
+    # Normalized whitespace match
+    norm = re.sub(r"\s+", " ", s).upper()
+    if "FLT OBSERVATIONS FOR UNSTITCHED LSI" in norm or "FLT OBSERVATION FOR UNSTITCHED LSI" in norm:
+        return True
+
+    # Unstitched LSI
+    if "UNSTITCHED LSI" in norm or "UNSTITCHED" in norm:
+        return True
+
+    return False
 
 
 def apply_failure_analysis(records: List[Dict[str, Any]]) -> None:
@@ -89,10 +161,11 @@ def apply_failure_analysis(records: List[Dict[str, Any]]) -> None:
     Categories:
       - "NSTT Number not found in Remedy": Manual records not found in Remedy (is_matched == False).
       - "Manually tagged – NSTT Before SR Creation" table categories:
-          1. Ring Failure
-          2. Section Failure
-          3. Unstitched
-          4. Others (any Before SR Creation records not falling into 1-3)
+          1. Unstitched (AUTOMATION_RCA_CONCLUSION_TEXT contains 'FLT Observations for Unstitched LSI')
+          2. Node Exclusion → Others (all node / node-isolation descriptions)
+          3. Ring Failure (DESCRIPTION contains 'ring fail'/'ring failure'/'Ring Collapse', NOT node)
+          4. Section Failure (DESCRIPTION contains 'Section')
+          5. Others (all remaining Before SR Creation records)
 
     Args:
         records: List of record dicts from the Master Response.
@@ -109,31 +182,42 @@ def apply_failure_analysis(records: List[Dict[str, Any]]) -> None:
             continue
 
         # For Table 2: Manually tagged – NSTT Before SR Creation
+        # Only "Before SR Creation" records get Ring/Section/Unstitched/Others
         timing = rec.get("timing_type")
-        if timing is not None and timing != "Before SR Creation":
+        if timing != "Before SR Creation":
             rec["failure_category"] = None
             continue
 
         description = rec.get("DESCRIPTION")
-        rca_text = rec.get("AUTOMATION_RCA_CONCLUSION_TEXT")
+        rca_text = _get_rca_text(rec)
 
-        # Priority 2: Ring Failure
+        # Priority 2: Unstitched
+        # In "AUTOMATION_RCA_CONCLUSION_TEXT" of NAMO, if "FLT Observations for Unstitched LSI"
+        # (also checks DESCRIPTION as fallback if RCA is blank)
+        if _contains_unstitched(rca_text) or (not rca_text and _contains_unstitched(description)):
+            rec["failure_category"] = FAIL_UNSTITCHED
+            continue
+
+        # Priority 3: Node / Node Isolation Exclusion
+        # "for the ring fail dont count the node isolation descriptions in this
+        #  remove all node description and insert it in other category"
+        if _is_node_description(description):
+            rec["failure_category"] = FAIL_OTHERS
+            continue
+
+        # Priority 4: Ring Failure
+        # In "DESCRIPTION" column of Remedy, if the value contains:
+        # "ring fail", "ring failure", "ringfailure", "Ring Collapse" (ignore uppercase, spaces etc.)
         if _contains_ring(description):
             rec["failure_category"] = FAIL_RING
             continue
 
-        # Priority 3: Section Failure
+        # Priority 5: Section Failure
+        # In "DESCRIPTION" column of Remedy, if the value contains "Section" (ignore uppercase, spaces etc.)
         if _contains_section(description):
             rec["failure_category"] = FAIL_SECTION
             continue
 
-        # Priority 4: Unstitched
-        if _contains_unstitched(rca_text):
-            rec["failure_category"] = FAIL_UNSTITCHED
-            continue
+        # Priority 6: All remaining "Before SR Creation" records → Others
+        rec["failure_category"] = FAIL_OTHERS
 
-        # If it is Before SR Creation and did not match any above category, classify as Others
-        if timing == "Before SR Creation":
-            rec["failure_category"] = FAIL_OTHERS
-        else:
-            rec["failure_category"] = None

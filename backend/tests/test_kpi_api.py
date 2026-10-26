@@ -64,6 +64,8 @@ def test_upload_kpi_success_complete_flow(client):
         "RESOLVEDTIME": ["2026-08-22 12:00:00", "2026-08-22 14:00:00"],
         "CREATIONTIME": ["2026-08-20 10:00:00", "2026-08-20 12:00:00"],
         "CIRCUIT_UPTIME": ["2026-08-22 12:00:00", "2026-08-22 14:00:00"],
+        "SRSTATUS": ["Closed", "Resolved"],
+        "SUBTYPE": ["Link Down", "Link Down"],
     }
     excel_buf = create_excel_bytes(sample_excel)
     data = {"file": (excel_buf, "sample_kpi.xlsx")}
@@ -158,15 +160,15 @@ def test_automation_run_returns_y_or_n_counts(client):
         "periods_count": 2,
         "summary": [
             {
-                "period": "2026-08-W3",
-                "period_label": "August 2026 - Week 3",
+                "period": "2026-08-W4",
+                "period_label": "August 2026 - Week 4",
                 "Y_count": 1,
                 "N_count": 0,
                 "total_count": 1,
             },
             {
-                "period": "2026-08-W4",
-                "period_label": "August 2026 - Week 4",
+                "period": "2026-08-W5",
+                "period_label": "August 2026 - Week 5",
                 "Y_count": 0,
                 "N_count": 1,
                 "total_count": 1,
@@ -247,8 +249,8 @@ def test_automation_run_parses_month_first_sr_creation_date(client):
 
 def test_upload_kpi_csv_success_flow(client):
     csv_content = (
-        "SRNUMBER,SRCREATIONTIME,AUTOMATION_END_TIME,ROSTER_ALLOCATION_TIME,FIRST_ACKNOWLEDGEMENT_TIME,RESOLVEDTIME,CREATIONTIME,CIRCUIT_UPTIME\n"
-        "SR-CSV-01,21-08-2026 08:00,21-08-2026 14:00,21-08-2026 09:00,21-08-2026 09:30,22-08-2026 12:00,20-08-2026 10:00,22-08-2026 12:00\n"
+        "SRNUMBER,SRCREATIONTIME,AUTOMATION_END_TIME,ROSTER_ALLOCATION_TIME,FIRST_ACKNOWLEDGEMENT_TIME,RESOLVEDTIME,CREATIONTIME,CIRCUIT_UPTIME,SRSTATUS,SUBTYPE\n"
+        "SR-CSV-01,21-08-2026 08:00,21-08-2026 14:00,21-08-2026 09:00,21-08-2026 09:30,22-08-2026 12:00,20-08-2026 10:00,22-08-2026 12:00,Closed,Link Down\n"
     )
     csv_buf = io.BytesIO(csv_content.encode("utf-8"))
     data = {"file": (csv_buf, "sample_kpi.csv")}

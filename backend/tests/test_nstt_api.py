@@ -160,3 +160,40 @@ def test_nstt_upload_both_files_missing_columns(client):
     assert len(json_data["files"]["file2"]["missing_columns"]) > 0
     assert "internal_error" in json_data
 
+
+def test_nstt_perf_counter_pipeline(client):
+    namo_csv = (
+        "INCIDENTID,ATTRIBUTEDTO,SRCREATIONTIME,FACTORY,AUTO_ALLOCATION,AUTOMATION_UPDATE_NSTT_NUMBER,AUTOMATION_RCA_CONCLUSION_TEXT\n"
+        "INC001,TXN,2026-09-01 10:00:00,IM,yes,INC001,Text\n"
+    )
+    remedy_csv = (
+        "INCIDENT_NUMBER,ASSIGNED_SUPPORT_COMPANY,UP_TIME,Submit Date,INCIDENT_IMPACT,DESCRIPTION\n"
+        "INC001,ANG,2026-09-01 12:00:00,2026-09-01 09:30:00,0,Desc\n"
+    )
+    data = {
+        "namo_file": (io.BytesIO(namo_csv.encode("utf-8")), "namo.csv"),
+        "remedy_file": (io.BytesIO(remedy_csv.encode("utf-8")), "remedy.csv"),
+    }
+    res = client.post("/api/v1/nstt/upload", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    u_json = res.get_json()
+    assert "perf_breakdown" in u_json["stats"]
+    u_perf = u_json["stats"]["perf_breakdown"]
+    assert "file_validation_ms" in u_perf
+    assert "vlookup_join_ms" in u_perf
+    assert "impact_and_duplicate_ms" in u_perf
+    assert "master_builder_ms" in u_perf
+    assert "total_upload_ms" in u_perf
+
+    upload_id = u_json["upload_id"]
+    p_res = client.post("/api/v1/nstt/process", json={"upload_id": upload_id})
+    assert p_res.status_code == 200
+    p_json = p_res.get_json()
+    assert "perf_breakdown" in p_json
+    p_perf = p_json["perf_breakdown"]
+    assert "rule_engine_ms" in p_perf
+    assert "aggregation_ms" in p_perf
+    assert "total_process_ms" in p_perf
+    assert "total_pipeline_ms" in p_perf
+
+

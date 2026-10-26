@@ -362,7 +362,7 @@ def generate_nstt_excel_workbook(
     ws_dash.cell(row=r_fail_h, column=3).border = cell_border
 
     failures = aggregated_result.get("failures", {})
-    fail_grand = failures.get("grand_total") or 83
+    fail_grand = failures.get("grand_total", 0)
     ring_cnt = failures.get("ring_failure", 0)
     section_cnt = failures.get("section_failure", 0)
     unstitched_cnt = failures.get("unstitched", 0)

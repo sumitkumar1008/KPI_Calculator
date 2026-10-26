@@ -20,10 +20,8 @@ export default function FailureTable() {
   const ring = failures.ring_failure || 0
   const section = failures.section_failure || 0
   const unstitched = failures.unstitched || 0
-  const grandTotal = 83
-  const others = (failures.others != null && (ring + section + unstitched + failures.others === grandTotal))
-    ? failures.others
-    : Math.max(0, grandTotal - (ring + section + unstitched))
+  const grandTotal = failures.grand_total || 0
+  const others = failures.others != null ? failures.others : Math.max(0, grandTotal - (ring + section + unstitched))
 
   const manBefore = aggregatedResult.manual?.before_sr_creation || {}
 

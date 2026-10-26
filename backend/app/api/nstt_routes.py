@@ -56,7 +56,7 @@ def upload_nstt_files():
     Ingests Namo and Remedy files, validates columns, executes VLOOKUP join,
     maps INCIDENT_IMPACT, flags duplicates, and constructs the Master Response JSON.
     """
-    start_time = time.time()
+    t_start = time.perf_counter()
 
     # Look for namo file under common key aliases
     namo_keys = ["namo_file", "namo", "namofile", "namoFile", "namo_report", "namoReport"]
@@ -87,13 +87,15 @@ def upload_nstt_files():
     nstt_logger.info(f"Received NSTT files: File 1='{namo_file.filename}', File 2='{remedy_file.filename}'")
 
     # Step 1: Upfront column validation for BOTH files (independent of file names or slots)
-    # Fast-fails immediately if any required columns are missing without running calculations.
+    t_val_start = time.perf_counter()
     validation = validate_both_files_columns(
         file1_input=namo_file,
         file1_name=namo_file.filename,
         file2_input=remedy_file,
         file2_name=remedy_file.filename,
     )
+    t_val_end = time.perf_counter()
+    val_ms = round((t_val_end - t_val_start) * 1000, 2)
 
     if not validation["valid"]:
         nstt_logger.error(f"\n{validation['internal_error']}")
@@ -103,6 +105,7 @@ def upload_nstt_files():
             "files": validation["files"],
             "missing_columns": validation["missing_columns"],
             "internal_error": validation["internal_error"],
+            "perf_breakdown": {"file_validation_ms": val_ms},
         }), 400
 
     namo_df = validation["namo_df"]
@@ -117,6 +120,7 @@ def upload_nstt_files():
         )
 
     # Step 2: VLOOKUP / Left Join on Namo.INCIDENTID = Remedy.INCIDENT_NUMBER
+    t_vlookup_start = time.perf_counter()
     try:
         join_result = perform_vlookup(namo_df, remedy_df)
     except Exception as exc:
@@ -129,6 +133,8 @@ def upload_nstt_files():
             "error_type": "FILE_MISMATCH",
             "internal_error": internal_err,
         }), 500
+    t_vlookup_end = time.perf_counter()
+    vlookup_ms = round((t_vlookup_end - t_vlookup_start) * 1000, 2)
 
     if join_result.get("matched_count", 0) == 0 and len(namo_df) > 0 and len(remedy_df) > 0:
         error_msg = (
@@ -155,17 +161,18 @@ def upload_nstt_files():
 
     enriched_df = join_result["df"]
 
-    # Step 4: Map INCIDENT_IMPACT (0->SA, 1->NSA)
+    # Step 3: Map INCIDENT_IMPACT (0->SA, 1->NSA) & Check Duplicates
+    t_impact_start = time.perf_counter()
     enriched_df = map_incident_impact(enriched_df)
-
-    # Step 5: Duplicate validation (flag duplicates, never auto-delete)
     dup_result = check_duplicates(enriched_df, id_col="INCIDENTID")
     final_df = dup_result["df"]
+    t_impact_end = time.perf_counter()
+    impact_dup_ms = round((t_impact_end - t_impact_start) * 1000, 2)
 
-    # Step 6: Build Master Response JSON
+    # Step 4: Build Master Response JSON & Remedy Impact Map
+    t_master_start = time.perf_counter()
     master_response = build_master_response(final_df)
 
-    # Build complete remedy impact map from remedy_df (maps INCIDENT_NUMBER -> SA/NSA)
     remedy_impact_df = map_incident_impact(remedy_df.copy())
     remedy_impact_map = {}
     for _, row in remedy_impact_df.iterrows():
@@ -178,6 +185,8 @@ def upload_nstt_files():
             elif k not in remedy_impact_map:
                 remedy_impact_map[k] = None
     master_response["remedy_impact_map"] = remedy_impact_map
+    t_master_end = time.perf_counter()
+    master_builder_ms = round((t_master_end - t_master_start) * 1000, 2)
 
     # Compile processing statistics & warnings
     warnings = []
@@ -191,6 +200,17 @@ def upload_nstt_files():
             f"{dup_result['duplicate_records_count']} records flagged as potential duplicate INCIDENTIDs."
         )
 
+    t_upload_now = time.perf_counter()
+    upload_total_ms = round((t_upload_now - t_start) * 1000, 2)
+
+    perf_breakdown = {
+        "file_validation_ms": val_ms,
+        "vlookup_join_ms": vlookup_ms,
+        "impact_and_duplicate_ms": impact_dup_ms,
+        "master_builder_ms": master_builder_ms,
+        "total_upload_ms": upload_total_ms,
+    }
+
     stats = {
         "namo_rows": int(len(namo_df)),
         "remedy_rows": int(len(remedy_df)),
@@ -198,15 +218,25 @@ def upload_nstt_files():
         "unmatched": int(join_result["unmatched_count"]),
         "duplicates": int(dup_result["duplicate_records_count"]),
         "unique_incident_ids": int(dup_result["unique_incident_ids"]),
-        "processing_time_ms": round((time.time() - start_time) * 1000, 2),
+        "processing_time_ms": upload_total_ms,
+        "perf_breakdown": perf_breakdown,
     }
 
-    # Step 7: Cache the Master Response
+    # Step 5: Cache the Master Response
+    t_cache_start = time.perf_counter()
     upload_id = save_nstt_to_cache(master_response, stats)
+    t_cache_end = time.perf_counter()
+    cache_store_ms = round((t_cache_end - t_cache_start) * 1000, 2)
+    perf_breakdown["cache_store_ms"] = cache_store_ms
 
     nstt_logger.info(
-        f"NSTT upload success: upload_id={upload_id}, Namo={stats['namo_rows']}, "
-        f"Remedy={stats['remedy_rows']}, Matched={stats['matched']}, Time={stats['processing_time_ms']}ms"
+        f"⏱️ [NSTT PERF COUNTER - UPLOAD COMPLETE]\n"
+        f"  ├─ [1. Start / Ingestion & Header Validation]: {val_ms:8.2f} ms ({val_ms / 1000:6.3f} s)\n"
+        f"  ├─ [2. VLOOKUP Join (INCIDENTID)]:            {vlookup_ms:8.2f} ms ({vlookup_ms / 1000:6.3f} s)\n"
+        f"  ├─ [3. Impact Mapping & Duplicate Check]:     {impact_dup_ms:8.2f} ms ({impact_dup_ms / 1000:6.3f} s)\n"
+        f"  ├─ [4. Master Response Construction]:         {master_builder_ms:8.2f} ms ({master_builder_ms / 1000:6.3f} s)\n"
+        f"  ├─ [5. Server-side Cache Storage]:            {cache_store_ms:8.2f} ms ({cache_store_ms / 1000:6.3f} s)\n"
+        f"  └─ Total Upload Phase Elapsed Time:           {upload_total_ms:8.2f} ms ({upload_total_ms / 1000:6.3f} s)"
     )
 
     return jsonify({
@@ -254,7 +284,7 @@ def process_nstt():
         "processing_time_ms": 12.3
       }
     """
-    start_time = time.time()
+    t_proc_start = time.perf_counter()
 
     body: Dict[str, Any] = request.get_json(silent=True) or {}
     upload_id = body.get("upload_id")
@@ -280,23 +310,40 @@ def process_nstt():
     )
 
     try:
+        # Step 1: Rule Engine Classification
+        t_rules_start = time.perf_counter()
         classified = run_rule_engine(master_response)
+        t_rules_end = time.perf_counter()
+        rule_engine_ms = round((t_rules_end - t_rules_start) * 1000, 2)
+
+        # Step 2: Hierarchical Matrix Aggregation
+        t_agg_start = time.perf_counter()
         records = classified.get("records", [])
         aggregated_result = build_nstt_aggregation(records)
+        t_agg_end = time.perf_counter()
+        aggregation_ms = round((t_agg_end - t_agg_start) * 1000, 2)
     except Exception as exc:
         nstt_logger.error(f"Rule Engine / Aggregator failed: {str(exc)}", exc_info=True)
         return jsonify({"error": f"Rule Engine / Aggregator processing failed: {str(exc)}"}), 500
 
-    elapsed_ms = round((time.time() - start_time) * 1000, 2)
-    nstt_logger.info(
-        f"Rule Engine complete: upload_id={upload_id}, "
-        f"total_sr={classified.get('classification_stats', {}).get('total_sr', '?')}, "
-        f"nstt={classified.get('classification_stats', {}).get('nstt_count', '?')}, "
-        f"time={elapsed_ms}ms"
-    )
-
-    # Update cache with classified master response and aggregated result
+    # Step 3: Cache Storage & Final Output Preparation
+    t_cache_start = time.perf_counter()
     stats = cached.get("stats", {}) if cached else {}
+    upload_ms = stats.get("processing_time_ms") or stats.get("perf_breakdown", {}).get("total_upload_ms", 0.0)
+
+    t_proc_now = time.perf_counter()
+    total_proc_ms = round((t_proc_now - t_proc_start) * 1000, 2)
+    total_pipeline_ms = round(upload_ms + total_proc_ms, 2)
+
+    proc_perf_breakdown = {
+        "rule_engine_ms": rule_engine_ms,
+        "aggregation_ms": aggregation_ms,
+        "total_process_ms": total_proc_ms,
+        "upload_ms": upload_ms,
+        "total_pipeline_ms": total_pipeline_ms,
+    }
+    stats["perf_breakdown"] = {**(stats.get("perf_breakdown") or {}), **proc_perf_breakdown}
+
     if upload_id:
         save_nstt_to_cache(
             master_response=master_response,
@@ -305,12 +352,27 @@ def process_nstt():
             classified_master_response=classified,
             aggregated_result=aggregated_result,
         )
+    t_cache_end = time.perf_counter()
+    cache_sync_ms = round((t_cache_end - t_cache_start) * 1000, 2)
+    proc_perf_breakdown["cache_sync_ms"] = cache_sync_ms
+
+    nstt_logger.info(
+        f"⏱️ [NSTT PERF COUNTER - PROCESS & FINAL OUTPUT]\n"
+        f"  ├─ [1. Rule Engine Classification]:   {rule_engine_ms:8.2f} ms ({rule_engine_ms / 1000:6.3f} s)\n"
+        f"  ├─ [2. Hierarchical Aggregation]:     {aggregation_ms:8.2f} ms ({aggregation_ms / 1000:6.3f} s)\n"
+        f"  ├─ [3. Cache Sync & Final Output]:    {cache_sync_ms:8.2f} ms ({cache_sync_ms / 1000:6.3f} s)\n"
+        f"  ├─ Process Phase Subtotal:            {total_proc_ms:8.2f} ms ({total_proc_ms / 1000:6.3f} s)\n"
+        f"  ├─ Upload Phase Subtotal:             {upload_ms:8.2f} ms ({upload_ms / 1000:6.3f} s)\n"
+        f"  └─ Full Pipeline End-to-End:          {total_pipeline_ms:8.2f} ms ({total_pipeline_ms / 1000:6.3f} s)"
+    )
 
     return jsonify({
         "upload_id": upload_id,
         "classified_master_response": classified,
         "aggregated_result": aggregated_result,
-        "processing_time_ms": elapsed_ms,
+        "processing_time_ms": total_proc_ms,
+        "perf_breakdown": proc_perf_breakdown,
+        "stats": stats,
     }), 200
 
 

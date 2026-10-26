@@ -48,8 +48,16 @@ def _is_matching_month(dt: datetime, target_month: str) -> bool:
 
 
 def _get_week_num(dt: datetime) -> int:
-    """Month-relative week number: Days 1-7 = 1, Days 8-14 = 2, Days 15-21 = 3, Days 22+ = 4."""
-    return min((dt.day - 1) // 7 + 1, 4)
+    """
+    Month-relative week number with Monday-to-Sunday boundaries.
+    Week 1 begins on Day 1 of the month and runs until the first Sunday.
+    Subsequent weeks run Monday to Sunday.
+    """
+    first_day_weekday = datetime(dt.year, dt.month, 1).weekday()  # Monday=0 ... Sunday=6
+    days_in_first_week = 7 - first_day_weekday
+    if dt.day <= days_in_first_week:
+        return 1
+    return 2 + (dt.day - days_in_first_week - 1) // 7
 
 
 def filter_rows_by_month(rows: list[dict[str, Any]], month_str: str) -> list[dict[str, Any]]:

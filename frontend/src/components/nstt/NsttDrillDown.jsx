@@ -127,6 +127,17 @@ export function getRecordValue(r, colId) {
         ''
       return String(v).trim()
     }
+    case 'AUTOMATION_RCA_CONCLUSION_TEXT': {
+      const v =
+        r.AUTOMATION_RCA_CONCLUSION_TEXT ??
+        r['AUTOMATION RCA CONCLUSION TEXT'] ??
+        r.AUTOMATION_RCA_CONCLUSION ??
+        r['AUTOMATION_RCA_CONCLUSION'] ??
+        r.automation_rca_conclusion_text ??
+        r.rca_conclusion_text ??
+        ''
+      return String(v).trim()
+    }
     default:
       return String(r[colId] ?? '').trim()
   }
@@ -253,6 +264,30 @@ export default function NsttDrillDown() {
       return true
     }
     if (records.length > 0 && records.every((r) => r.capture_type === 'Manual')) {
+      return true
+    }
+    return false
+  }, [drilldownCategory, records])
+
+  // Detect if current drilldown is for Unstitched or failure category containing Unstitched
+  const isUnstitchedCategory = useMemo(() => {
+    const cat = String(drilldownCategory || '').toLowerCase()
+    if (cat.includes('unstitched')) return true
+    if (
+      records.length > 0 &&
+      records.some((r) => {
+        const fc = String(r.failure_category || '').toLowerCase()
+        if (fc.includes('unstitched')) return true
+        const rca = String(
+          r.AUTOMATION_RCA_CONCLUSION_TEXT ??
+          r['AUTOMATION RCA CONCLUSION TEXT'] ??
+          r.AUTOMATION_RCA_CONCLUSION ??
+          r.automation_rca_conclusion_text ??
+          ''
+        ).toLowerCase()
+        return rca.includes('unstitched')
+      })
+    ) {
       return true
     }
     return false
@@ -420,8 +455,34 @@ export default function NsttDrillDown() {
       }
     )
 
+    if (isUnstitchedCategory) {
+      cols.push({
+        id: 'AUTOMATION_RCA_CONCLUSION_TEXT',
+        label: 'AUTOMATION RCA CONCLUSION',
+        headerClass: '',
+        tdClass: 'text-desc',
+        render: (r) => {
+          const val =
+            r.AUTOMATION_RCA_CONCLUSION_TEXT ??
+            r['AUTOMATION RCA CONCLUSION TEXT'] ??
+            r.AUTOMATION_RCA_CONCLUSION ??
+            r.automation_rca_conclusion_text ??
+            ''
+          return (
+            <span title={val || ''}>
+              {val
+                ? val.length > 80
+                  ? `${val.slice(0, 80)}...`
+                  : val
+                : '—'}
+            </span>
+          )
+        },
+      })
+    }
+
     return cols
-  }, [isDifferentNsttCategory, isManualCaptured])
+  }, [isDifferentNsttCategory, isManualCaptured, isUnstitchedCategory])
 
   // Filter & sort records
   const filteredRecords = useMemo(() => {

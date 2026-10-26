@@ -214,7 +214,7 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         if cap_type == "Automation":
             auto_count += 1
 
-            if nstt_type == "Same NSTT":
+            if nstt_type == "Same NSTT" and exc_type != WRONG_NSTT_AUTO:
                 # Count at the Same NSTT level (matches drill-down predicate)
                 same_nstt_level += 1
 
@@ -363,11 +363,11 @@ def build_nstt_aggregation(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     man_after_total = man_after_level
 
     # Failures grand total (Table 2: Manually tagged – NSTT Before SR Creation)
-    if man_before_total == 83 or (fail_ring + fail_section + fail_unstitched + fail_others) == 0:
-        fail_grand_total = 83
-        fail_others = max(0, 83 - (fail_ring + fail_section + fail_unstitched))
-    else:
-        fail_grand_total = fail_ring + fail_section + fail_unstitched + fail_others
+    # Grand total = all "Before SR Creation" records (man_before_total).
+    # "Others" = grand total minus the specifically-categorised failures.
+    fail_grand_total = man_before_total
+    categorised_failures = fail_ring + fail_section + fail_unstitched
+    fail_others = max(0, fail_grand_total - categorised_failures)
 
     # Percentages:
     # 1. nstt_pct: Percentage of Total SR population
@@ -614,8 +614,8 @@ _DRILLDOWN_PREDICATES: Dict[str, Callable[[Dict[str, Any]], bool]] = {
     "automation": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation",
 
     # Same NSTT
-    "automation.same_nstt": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT",
-    "same_nstt": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT",
+    "automation.same_nstt": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("exception_type") != WRONG_NSTT_AUTO,
+    "same_nstt": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("exception_type") != WRONG_NSTT_AUTO,
 
     # Same NSTT -> IM
     "automation.same_nstt.im": lambda r: bool(r.get("is_nstt")) and r.get("capture_type") == "Automation" and r.get("nstt_type") == "Same NSTT" and r.get("factory_type") == "IM",

@@ -38,14 +38,23 @@ def get_period_bucket(dt: datetime, group_by: str) -> tuple[str, str, datetime]:
         return key, label, sort_dt
         
     elif group_by_norm == "weekly":
-        # Month-relative 4 weeks
-        week_num = min((dt.day - 1) // 7 + 1, 4)
+        # Monday-to-Sunday month-relative weeks:
+        # Week 1 runs from Day 1 to the first Sunday of the month.
+        # Subsequent weeks run from Monday to Sunday.
+        first_day_weekday = datetime(dt.year, dt.month, 1).weekday()  # Monday=0 ... Sunday=6
+        days_in_first_week = 7 - first_day_weekday
+        if dt.day <= days_in_first_week:
+            week_num = 1
+            start_day_of_week = 1
+        else:
+            week_num = 2 + (dt.day - days_in_first_week - 1) // 7
+            start_day_of_week = days_in_first_week + 1 + (week_num - 2) * 7
+
         month_name = dt.strftime("%B")
         key = f"{dt.year}-{dt.month:02d}-W{week_num}"
         label = f"{month_name} {dt.year} - Week {week_num}"
         
-        # Sort key: month start + week offset
-        start_day_of_week = (week_num - 1) * 7 + 1
+        # Sort key: start of that week within the month
         sort_dt = datetime(dt.year, dt.month, start_day_of_week)
         return key, label, sort_dt
         
