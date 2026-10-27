@@ -172,6 +172,73 @@ function FilterIcon({ isFiltered }) {
   )
 }
 
+/**
+ * MultiIdCell - Formats single or multiple comma/space separated IDs.
+ * Places 3 to 4 IDs per row (chunked into 4), wrapping remaining IDs onto the next line.
+ */
+function MultiIdCell({ value, searchQuery }) {
+  if (!value || value === '—') {
+    return <span>—</span>
+  }
+
+  const rawStr = String(value).trim()
+  if (!rawStr) {
+    return <span>—</span>
+  }
+
+  const tokens = rawStr
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  if (tokens.length === 0) {
+    return <span>—</span>
+  }
+
+  const q = searchQuery && searchQuery.length >= 3 ? searchQuery.toUpperCase() : null
+
+  if (tokens.length === 1) {
+    const isMatched = q && tokens[0].toUpperCase().includes(q)
+    return (
+      <span
+        title={rawStr}
+        className={`multi-id-single ${isMatched ? 'multi-id-matched' : ''}`}
+      >
+        {tokens[0]}
+      </span>
+    )
+  }
+
+  // Chunk IDs into lines of up to 4 (e.g. 7 IDs -> Line 1: 4 IDs, Line 2: 3 IDs)
+  const chunks = []
+  for (let i = 0; i < tokens.length; i += 4) {
+    chunks.push(tokens.slice(i, i + 4))
+  }
+
+  return (
+    <div className="multi-id-cell" title={rawStr}>
+      {chunks.map((chunk, cIdx) => (
+        <div key={cIdx} className="multi-id-row">
+          {chunk.map((id, idIdx) => {
+            const isMatched = q && id.toUpperCase().includes(q)
+            const isLastInChunk = idIdx === chunk.length - 1
+            const isLastOverall = cIdx === chunks.length - 1 && isLastInChunk
+
+            return (
+              <span key={idIdx} className="multi-id-item">
+                <span className={`multi-id-token ${isMatched ? 'multi-id-matched' : ''}`}>
+                  {id}
+                </span>
+                {!isLastOverall && <span className="multi-id-comma">,</span>}
+              </span>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function NsttDrillDown() {
   const {
     isDrilldownOpen,
@@ -199,7 +266,12 @@ export default function NsttDrillDown() {
     const incId = getRecordValue(r, 'INCIDENTID').toUpperCase()
     const srNo = getRecordValue(r, 'SR_NUMBER').toUpperCase()
     const autoNo = String(r.AUTOMATION_UPDATE_NSTT_NUMBER || '').trim().toUpperCase()
-    return incId === q || srNo === q || autoNo === q || (q.length >= 3 && (incId.includes(q) || srNo.includes(q)))
+    return (
+      incId === q ||
+      srNo === q ||
+      autoNo === q ||
+      (q.length >= 3 && (incId.includes(q) || srNo.includes(q) || autoNo.includes(q)))
+    )
   }, [bifurcationQuery])
 
   // Reset pagination, filters, and sorting on category change
@@ -299,16 +371,21 @@ export default function NsttDrillDown() {
       {
         id: 'INCIDENTID',
         label: 'INCIDENTID',
-        headerClass: 'sticky-col-2',
-        tdClass: 'sticky-col-2 font-mono font-bold',
-        render: (r) => r.INCIDENTID || '—',
+        headerClass: 'sticky-col-2 col-incident-id',
+        tdClass: 'sticky-col-2 col-incident-id font-mono font-bold',
+        render: (r) => <MultiIdCell value={r.INCIDENTID} searchQuery={bifurcationQuery} />,
       },
       {
         id: 'SR_NUMBER',
         label: 'SR NUMBER',
-        headerClass: '',
-        tdClass: 'font-mono',
-        render: (r) => r.SRNUMBER || r.SR_NUMBER || r['SR NUMBER'] || r.SRNO || r['SR NO'] || '—',
+        headerClass: 'col-sr-number',
+        tdClass: 'col-sr-number font-mono',
+        render: (r) => (
+          <MultiIdCell
+            value={r.SRNUMBER || r.SR_NUMBER || r['SR NUMBER'] || r.SRNO || r['SR NO']}
+            searchQuery={bifurcationQuery}
+          />
+        ),
       },
     ]
 
@@ -316,12 +393,13 @@ export default function NsttDrillDown() {
       cols.push({
         id: 'AUTOMATION_UPDATE_NSTT_NUMBER',
         label: 'AUTOMATION UPDATE NSTT NUMBER',
-        headerClass: '',
-        tdClass: 'font-mono text-sm',
+        headerClass: 'col-automation-nstt',
+        tdClass: 'col-automation-nstt font-mono text-sm',
         render: (r) => (
-          <span title={r.AUTOMATION_UPDATE_NSTT_NUMBER || ''}>
-            {r.AUTOMATION_UPDATE_NSTT_NUMBER || '—'}
-          </span>
+          <MultiIdCell
+            value={r.AUTOMATION_UPDATE_NSTT_NUMBER}
+            searchQuery={bifurcationQuery}
+          />
         ),
       })
     }
@@ -330,15 +408,15 @@ export default function NsttDrillDown() {
       {
         id: 'ATTRIBUTEDTO',
         label: 'ATTRIBUTEDTO',
-        headerClass: '',
-        tdClass: '',
+        headerClass: 'col-attributed-to',
+        tdClass: 'col-attributed-to',
         render: (r) => r.ATTRIBUTEDTO || '—',
       },
       {
         id: 'FACTORY',
         label: 'FACTORY',
-        headerClass: '',
-        tdClass: '',
+        headerClass: 'col-factory',
+        tdClass: 'col-factory',
         render: (r) =>
           r.FACTORY ? (
             <span className={`pill-factory ${r.FACTORY === 'IM' ? 'im' : 'non-im'}`}>
@@ -351,15 +429,15 @@ export default function NsttDrillDown() {
       {
         id: 'AUTO_ALLOCATION',
         label: 'AUTO_ALLOCATION',
-        headerClass: '',
-        tdClass: '',
+        headerClass: 'col-auto-alloc',
+        tdClass: 'col-auto-alloc',
         render: (r) => r.AUTO_ALLOCATION || '—',
       },
       {
         id: 'INCIDENT_IMPACT',
         label: 'INCIDENT_IMPACT',
-        headerClass: '',
-        tdClass: '',
+        headerClass: 'col-impact',
+        tdClass: 'col-impact',
         render: (r) => {
           let incImp = r.INCIDENT_IMPACT
           const diffCat = r.diff_nstt_category || ''
@@ -386,8 +464,8 @@ export default function NsttDrillDown() {
       cols.push({
         id: 'AUTOMATION_IMPACT',
         label: 'AUTOMATION_IMPACT',
-        headerClass: '',
-        tdClass: '',
+        headerClass: 'col-impact',
+        tdClass: 'col-impact',
         render: (r) => {
           let autoImp = r.AUTOMATION_IMPACT
           const diffCat = r.diff_nstt_category || ''
@@ -418,29 +496,29 @@ export default function NsttDrillDown() {
       {
         id: 'SRCREATIONTIME',
         label: 'SRCREATIONTIME',
-        headerClass: '',
-        tdClass: 'font-mono text-sm',
+        headerClass: 'col-time',
+        tdClass: 'col-time font-mono text-sm',
         render: (r) => r.SRCREATIONTIME || '—',
       },
       {
         id: 'UP_TIME',
         label: 'UP_TIME',
-        headerClass: '',
-        tdClass: 'font-mono text-sm',
+        headerClass: 'col-time',
+        tdClass: 'col-time font-mono text-sm',
         render: (r) => r.UP_TIME || '—',
       },
       {
         id: 'Submit Date',
         label: 'Submit Date',
-        headerClass: '',
-        tdClass: 'font-mono text-sm',
+        headerClass: 'col-time',
+        tdClass: 'col-time font-mono text-sm',
         render: (r) => r['Submit Date'] || '—',
       },
       {
         id: 'DESCRIPTION',
         label: 'DESCRIPTION',
-        headerClass: '',
-        tdClass: 'text-desc',
+        headerClass: 'col-desc',
+        tdClass: 'col-desc text-desc',
         render: (r) => (
           <span title={r.DESCRIPTION || ''}>
             {r.DESCRIPTION
@@ -457,8 +535,8 @@ export default function NsttDrillDown() {
       cols.push({
         id: 'AUTOMATION_RCA_CONCLUSION_TEXT',
         label: 'AUTOMATION RCA CONCLUSION',
-        headerClass: '',
-        tdClass: 'text-desc',
+        headerClass: 'col-rca',
+        tdClass: 'col-rca text-desc',
         render: (r) => {
           const val =
             r.AUTOMATION_RCA_CONCLUSION_TEXT ??
@@ -480,7 +558,7 @@ export default function NsttDrillDown() {
     }
 
     return cols
-  }, [isDifferentNsttCategory, isManualCaptured, isUnstitchedCategory])
+  }, [isDifferentNsttCategory, isManualCaptured, isUnstitchedCategory, bifurcationQuery])
 
   // Filter & sort records
   const filteredRecords = useMemo(() => {
@@ -837,23 +915,23 @@ export default function NsttDrillDown() {
                                 <FilterIcon isFiltered={isFiltered} />
                               </button>
                             </div>
-                          </div>
 
-                          {isOpen && (
-                            <ExcelFilterDropdown
-                              column={col}
-                              alignRight={alignRight}
-                              availableValues={getAvailableValuesForColumn(col.id)}
-                              currentFilter={columnFilters[col.id]}
-                              currentSort={sortConfig}
-                              onApplyFilter={(newSelected) =>
-                                handleApplyColumnFilter(col.id, newSelected)
-                              }
-                              onClearFilter={() => handleClearColumnFilter(col.id)}
-                              onSort={(dir) => handleSort(col.id, dir)}
-                              onClose={() => setOpenDropdownCol(null)}
-                            />
-                          )}
+                            {isOpen && (
+                              <ExcelFilterDropdown
+                                column={col}
+                                alignRight={alignRight}
+                                availableValues={getAvailableValuesForColumn(col.id)}
+                                currentFilter={columnFilters[col.id]}
+                                currentSort={sortConfig}
+                                onApplyFilter={(newSelected) =>
+                                  handleApplyColumnFilter(col.id, newSelected)
+                                }
+                                onClearFilter={() => handleClearColumnFilter(col.id)}
+                                onSort={(dir) => handleSort(col.id, dir)}
+                                onClose={() => setOpenDropdownCol(null)}
+                              />
+                            )}
+                          </div>
                         </th>
                       )
                     })}

@@ -22,8 +22,8 @@
 }
 
 .drilldown-drawer {
-  width: 90vw;
-  max-width: 1280px;
+  width: 94vw;
+  max-width: 1560px;
   height: 100vh;
   max-height: 100vh;
   background: var(--surface, #ffffff);
@@ -274,24 +274,26 @@
 }
 
 .drilldown-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
 }
 
 .drilldown-table th {
   position: sticky;
   top: 0;
   background: var(--surface-raised, #f1f5f9);
-  padding: 8px 12px;
+  padding: 10px 14px;
   text-align: left;
   font-weight: 700;
   color: var(--muted, #475569);
   border-bottom: 2px solid var(--line, #cbd5e1);
   white-space: nowrap;
-  z-index: 10;
+  z-index: 20;
   user-select: none;
+  font-size: 0.92rem;
 }
 
 .drilldown-table th.dropdown-open {
@@ -301,7 +303,14 @@
 
 .drilldown-table th.th-filtered {
   border-bottom: 2px solid var(--accent, #157a8a);
-  background: rgba(21, 122, 138, 0.08);
+  background: #e6f3f5;
+  color: #0e5d6a;
+  z-index: 25;
+}
+
+.drilldown-table th.th-filtered.dropdown-open {
+  background: #dbeef2;
+  z-index: 150;
 }
 
 .th-cell-wrapper {
@@ -309,7 +318,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -317,6 +326,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .th-actions {
@@ -369,14 +380,16 @@
 /* Excel Filter Dropdown Component */
 .excel-filter-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 0;
-  width: 260px;
+  width: 320px;
+  min-width: 280px;
+  max-width: 440px;
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.2), 0 6px 12px -4px rgba(0, 0, 0, 0.1);
-  z-index: 200;
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.25), 0 6px 16px -4px rgba(0, 0, 0, 0.12);
+  z-index: 300;
   font-size: 0.82rem;
   font-weight: 400;
   text-transform: none;
@@ -695,10 +708,12 @@
 }
 
 .drilldown-table td {
-  padding: 10px 14px;
+  padding: 11px 15px;
   border-bottom: 1px solid var(--line, #e2e8f0);
   color: var(--ink, #334155);
   white-space: nowrap;
+  vertical-align: middle;
+  font-size: 0.95rem;
 }
 
 .drilldown-table tr:hover td {
@@ -709,6 +724,9 @@
 .drilldown-table th.sticky-col,
 .drilldown-table td.sticky-col {
   width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  text-align: center;
 }
 
 .drilldown-table th.sticky-col-2,
@@ -716,12 +734,143 @@
   border-right: 1px solid var(--line, #cbd5e1);
 }
 
+/* ── Standard Column Length & Width Rules ────────────────────────── */
+.drilldown-table th.col-incident-id,
+.drilldown-table td.col-incident-id {
+  width: max-content;
+  min-width: 155px;
+}
+
+.drilldown-table th.col-sr-number,
+.drilldown-table td.col-sr-number {
+  width: max-content;
+  min-width: 155px;
+}
+
+.drilldown-table th.col-automation-nstt,
+.drilldown-table td.col-automation-nstt {
+  width: max-content;
+  min-width: 440px;
+}
+
+.drilldown-table td.col-automation-nstt {
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.drilldown-table th.col-attributed-to,
+.drilldown-table td.col-attributed-to {
+  width: max-content;
+  min-width: 135px;
+  padding-left: 20px;
+}
+
+.drilldown-table th.col-factory,
+.drilldown-table td.col-factory {
+  width: max-content;
+  min-width: 95px;
+  text-align: center;
+}
+
+.drilldown-table th.col-auto-alloc,
+.drilldown-table td.col-auto-alloc {
+  width: max-content;
+  min-width: 125px;
+  text-align: center;
+}
+
+.drilldown-table th.col-impact,
+.drilldown-table td.col-impact {
+  width: max-content;
+  min-width: 125px;
+  text-align: center;
+}
+
+.drilldown-table th.col-time,
+.drilldown-table td.col-time {
+  width: max-content;
+  min-width: 155px;
+}
+
+.drilldown-table th.col-desc,
+.drilldown-table td.col-desc {
+  width: 260px;
+  min-width: 220px;
+  max-width: 300px;
+}
+
+.drilldown-table th.col-rca,
+.drilldown-table td.col-rca {
+  width: 260px;
+  min-width: 220px;
+  max-width: 300px;
+}
+
+/* ── Multi-ID Cell & Token Styling (3-4 IDs per line, rest below) ── */
+.multi-id-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.multi-id-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  white-space: nowrap;
+  line-height: 1.35;
+  gap: 6px;
+  width: max-content;
+}
+
+.multi-id-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.multi-id-token {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.90rem;
+  color: var(--ink, #1e293b);
+  transition: background-color 0.15s ease;
+}
+
+.multi-id-token.multi-id-matched {
+  background: #fef08a;
+  color: #854d0e;
+  font-weight: 700;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.multi-id-comma {
+  color: var(--muted, #64748b);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.90rem;
+  margin-left: 1px;
+}
+
+.multi-id-single {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.90rem;
+}
+
+.multi-id-single.multi-id-matched {
+  background: #fef08a;
+  color: #854d0e;
+  font-weight: 700;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
 /* Badges / Pills */
 .pill-factory {
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 4px;
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .pill-factory.im {
@@ -735,10 +884,10 @@
 }
 
 .pill-impact {
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 4px;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .pill-impact.sa {
@@ -757,19 +906,19 @@
 }
 
 .pill-warning {
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 4px;
   background: rgba(245, 158, 11, 0.12);
   color: #d97706;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .pill-error {
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 4px;
   background: rgba(239, 68, 68, 0.12);
   color: #dc2626;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .text-desc {
@@ -1039,6 +1188,26 @@ html[data-theme="dark"] .drilldown-table th,
   background: var(--surface-raised, #202f36);
   color: var(--ink, #d7e2e7);
   border-bottom-color: var(--line, #2c4149);
+}
+
+html[data-theme="dark"] .drilldown-table th.th-filtered,
+.theme-dark .drilldown-table th.th-filtered {
+  background: #193842;
+  color: #2dd4bf;
+  border-bottom-color: #2dd4bf;
+}
+
+html[data-theme="dark"] .drilldown-table th.dropdown-open,
+.theme-dark .drilldown-table th.dropdown-open {
+  background: #2a3d46;
+}
+
+html[data-theme="dark"] .excel-filter-dropdown,
+.theme-dark .excel-filter-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.7);
 }
 
 html[data-theme="dark"] .drilldown-table td,
