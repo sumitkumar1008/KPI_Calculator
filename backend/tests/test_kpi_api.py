@@ -375,4 +375,57 @@ def test_upload_kpi_zip_file(client):
     assert res_json["rows"][0]["SRNUMBER"] == "SR9001"
 
 
+def test_upload_kpi_excel_multiple_sheets_rejected(client):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df1 = pd.DataFrame({"SRCREATIONTIME": ["2026-08-21 08:00:00"]})
+        df2 = pd.DataFrame({"Notes": ["Summary", "Info"]})
+        df1.to_excel(writer, sheet_name="Data", index=False)
+        df2.to_excel(writer, sheet_name="Summary", index=False)
+    output.seek(0)
+
+    data = {"file": (output, "multi_sheets.xlsx")}
+    resp = client.post("/api/v1/kpi/upload", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 400
+    res_json = resp.get_json()
+    assert "File contains multiple sheets" in res_json["error"]
+
+
+def test_validate_kpi_file_endpoint_multiple_sheets(client):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df1 = pd.DataFrame({"Col1": [1]})
+        df2 = pd.DataFrame({"Col2": [2]})
+        df1.to_excel(writer, sheet_name="SheetA", index=False)
+        df2.to_excel(writer, sheet_name="SheetB", index=False)
+    output.seek(0)
+
+    data = {"file": (output, "multi.xlsx")}
+    resp = client.post("/api/v1/kpi/validate-file", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 400
+    res_json = resp.get_json()
+    assert res_json["valid"] is False
+    assert "File contains multiple sheets" in res_json["error"]
+
+
+def test_validate_kpi_file_endpoint_single_sheet_valid(client):
+    sample_excel = {
+        "SRNUMBER": ["SR-1001"],
+        "SRCREATIONTIME": ["2026-08-21 08:00:00"],
+        "AUTOMATION_END_TIME": ["2026-08-21 14:00:00"],
+        "ROSTER_ALLOCATION_TIME": ["2026-08-21 09:00:00"],
+        "FIRST_ACKNOWLEDGEMENT_TIME": ["2026-08-21 09:30:00"],
+        "RESOLVEDTIME": ["2026-08-22 12:00:00"],
+        "CREATIONTIME": ["2026-08-20 10:00:00"],
+        "CIRCUIT_UPTIME": ["2026-08-22 12:00:00"],
+    }
+    excel_buf = create_excel_bytes(sample_excel)
+    data = {"file": (excel_buf, "single_valid.xlsx")}
+    resp = client.post("/api/v1/kpi/validate-file", data=data, content_type="multipart/form-data")
+    assert resp.status_code == 200
+    res_json = resp.get_json()
+    assert res_json["valid"] is True
+
+
+
 

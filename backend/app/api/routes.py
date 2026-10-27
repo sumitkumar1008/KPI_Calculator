@@ -9,7 +9,9 @@ import pandas as pd
 from flask import Blueprint, jsonify, request, send_file
 from werkzeug.exceptions import HTTPException
 
+import io
 from app.services.file_parser import parse_file, _sanitize_cell
+from app.services.excel_parser import get_excel_sheet_names
 from app.services.automation_run import automation_run_answer, aggregate_automation_runs
 from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.kpi_calculator import compute_df_kpis, compute_row_kpis
@@ -81,6 +83,57 @@ def _format_str(val: Any) -> str | None:
     if s == "" or s.lower() == "nan" or s.lower() == "none":
         return None
     return s
+
+
+@api_bp.route("/kpi/validate-file", methods=["POST"], strict_slashes=False)
+def validate_kpi_file():
+    """
+    Pre-upload validation check for SR Volume Calculator.
+    Checks whether the file contains more than 1 sheet before parsing or calculating.
+    If it does, immediately returns an error that the file contains multiple sheets.
+    """
+    if not request.files:
+        return jsonify({"valid": False, "error": "No file field in request."}), 400
+
+    file = request.files.get("file") or next(iter(request.files.values()), None)
+    if not file or not file.filename:
+        return jsonify({"valid": False, "error": "No file selected."}), 400
+
+    filename = file.filename.lower()
+    if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv") or filename.endswith(".zip")):
+        return jsonify({"valid": False, "error": "File must be an .xlsx, .xls, .csv, or .zip file."}), 400
+
+    content = file.read()
+    file.seek(0)
+    bytes_io = io.BytesIO(content)
+
+    if filename.endswith(".xlsx") or filename.endswith(".xls"):
+        sheet_names = get_excel_sheet_names(bytes_io)
+        if len(sheet_names) > 1:
+            sheets_str = ", ".join(sheet_names)
+            return jsonify({
+                "valid": False,
+                "error": f"Failed to read Excel file: File contains multiple sheets ({sheets_str}). Please upload an Excel file containing only 1 sheet.",
+                "sheet_count": len(sheet_names),
+                "sheet_names": sheet_names,
+            }), 400
+
+    bytes_io.seek(0)
+    parse_result = parse_file(bytes_io, filename=file.filename)
+    if not parse_result.get("success"):
+        return jsonify({
+            "valid": False,
+            "error": parse_result.get("error", "Validation failed."),
+            "missing_columns": parse_result.get("missing_columns", []),
+            "sheet_count": parse_result.get("sheet_count"),
+            "sheet_names": parse_result.get("sheet_names", []),
+        }), 400
+
+    return jsonify({
+        "valid": True,
+        "message": "File is valid.",
+        "row_count": parse_result.get("row_count", 0),
+    }), 200
 
 
 @api_bp.route("/kpi/upload", methods=["POST"], strict_slashes=False)

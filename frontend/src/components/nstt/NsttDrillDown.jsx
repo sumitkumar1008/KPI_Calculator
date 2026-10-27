@@ -370,9 +370,8 @@ export default function NsttDrillDown() {
           }
           return incImp ? (
             <span
-              className={`pill-impact ${
-                incImp === 'SA' ? 'sa' : incImp === 'NSA' ? 'nsa' : 'unknown'
-              }`}
+              className={`pill-impact ${incImp === 'SA' ? 'sa' : incImp === 'NSA' ? 'nsa' : 'unknown'
+                }`}
             >
               {incImp}
             </span>
@@ -403,9 +402,8 @@ export default function NsttDrillDown() {
           }
           return autoImp ? (
             <span
-              className={`pill-impact ${
-                autoImp === 'SA' ? 'sa' : autoImp === 'NSA' ? 'nsa' : 'unknown'
-              }`}
+              className={`pill-impact ${autoImp === 'SA' ? 'sa' : autoImp === 'NSA' ? 'nsa' : 'unknown'
+                }`}
             >
               {autoImp}
             </span>
@@ -716,8 +714,8 @@ export default function NsttDrillDown() {
                       valsArray.length === 0
                         ? 'None selected'
                         : valsArray.length <= 2
-                        ? valsArray.join(', ')
-                        : `${valsArray.slice(0, 2).join(', ')} +${valsArray.length - 2} more`
+                          ? valsArray.join(', ')
+                          : `${valsArray.slice(0, 2).join(', ')} +${valsArray.length - 2} more`
 
                     return (
                       <span key={colId} className="active-filter-pill">
@@ -807,9 +805,8 @@ export default function NsttDrillDown() {
                       return (
                         <th
                           key={col.id}
-                          className={`${col.headerClass || ''} ${
-                            isOpen ? 'dropdown-open' : ''
-                          } ${isFiltered ? 'th-filtered' : ''}`}
+                          className={`${col.headerClass || ''} ${isOpen ? 'dropdown-open' : ''
+                            } ${isFiltered ? 'th-filtered' : ''}`}
                         >
                           <div className="th-cell-wrapper">
                             <span className="th-label" title={col.label}>
@@ -819,9 +816,8 @@ export default function NsttDrillDown() {
                               {isSorted && (
                                 <span
                                   className="th-sort-badge"
-                                  title={`Sorted ${
-                                    sortConfig.direction === 'asc' ? 'A to Z' : 'Z to A'
-                                  }`}
+                                  title={`Sorted ${sortConfig.direction === 'asc' ? 'A to Z' : 'Z to A'
+                                    }`}
                                 >
                                   {sortConfig.direction === 'asc' ? '▲' : '▼'}
                                 </span>

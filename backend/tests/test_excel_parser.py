@@ -119,3 +119,21 @@ def test_parse_excel_file_invalid_bytes():
     result = parse_excel_file(invalid_bytes)
     assert result["success"] is False
     assert "Failed to read Excel file" in result["error"]
+
+
+def test_parse_excel_file_multiple_sheets_rejected():
+    # Multi-sheet Excel should immediately throw an error that the file contains multiple sheets
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df1 = pd.DataFrame({"SRCREATIONTIME": ["2026-08-21 08:00:00"]})
+        df2 = pd.DataFrame({"Notes": ["Summary", "Info"]})
+        df1.to_excel(writer, sheet_name="Sheet1", index=False)
+        df2.to_excel(writer, sheet_name="Sheet2", index=False)
+    output.seek(0)
+
+    result = parse_excel_file(output)
+    assert result["success"] is False
+    assert "File contains multiple sheets" in result["error"]
+    assert "Sheet1" in result["error"]
+    assert "Sheet2" in result["error"]
+

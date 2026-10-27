@@ -32,6 +32,44 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
         return None
 
 
+def get_excel_sheet_names(stream_or_path_or_bytes: Any) -> list[str]:
+    """
+    Returns list of worksheet names from an Excel (.xlsx or .xls) file.
+    Does not parse or calculate any data.
+    """
+    target: Any
+    if hasattr(stream_or_path_or_bytes, "read"):
+        content = stream_or_path_or_bytes.read()
+        if hasattr(stream_or_path_or_bytes, "seek"):
+            stream_or_path_or_bytes.seek(0)
+        target = io.BytesIO(content)
+    else:
+        target = stream_or_path_or_bytes
+
+    # Attempt 1: openpyxl for modern .xlsx
+    try:
+        if hasattr(target, "seek"):
+            target.seek(0)
+        wb = openpyxl.load_workbook(target, read_only=True, keep_links=False)
+        names = list(wb.sheetnames)
+        wb.close()
+        if names:
+            return names
+    except Exception:
+        pass
+
+    # Attempt 2: pd.ExcelFile (handles .xls and .xlsx)
+    try:
+        if hasattr(target, "seek"):
+            target.seek(0)
+        xl = pd.ExcelFile(target)
+        return list(xl.sheet_names)
+    except Exception:
+        pass
+
+    return []
+
+
 def parse_excel_raw(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
     """
     Parses Excel (.xlsx or .xls) binary files into a pandas DataFrame using openpyxl or xlrd multi-engine fallbacks.

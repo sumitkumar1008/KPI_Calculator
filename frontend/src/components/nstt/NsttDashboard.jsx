@@ -1,7 +1,4 @@
-<<<<<<< Updated upstream
-import React, { useState, useRef, useEffect } from 'react'
-=======
->>>>>>> Stashed changes
+import { useState, useRef, useEffect } from 'react'
 import { useNstt } from '../../context/NsttContext'
 import NsttSummaryTable from './NsttSummaryTable'
 import FailureTable from './FailureTable'

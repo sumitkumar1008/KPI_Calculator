@@ -124,7 +124,7 @@ function FileUpload({ fileFormat = 'all' }) {
         onDragLeave={(event) => { if (event.currentTarget === event.target) setIsDragging(false) }}
         onDrop={handleDrop}
       >
-  <input ref={inputRef} id="file-input" type="file" accept={acceptedFormats} hidden onChange={(event) => selectFile(event.target.files?.[0])} />
+        <input ref={inputRef} id="file-input" type="file" accept={acceptedFormats} hidden onChange={(event) => selectFile(event.target.files?.[0])} />
         {hasSelectedFile ? (
           <div className="file-state">
             <div className="file-icon-wrap"><FileIcon /></div>

@@ -17,7 +17,7 @@ from typing import Any
 import pandas as pd
 
 from app.services.csv_parser import parse_csv_file
-from app.services.excel_parser import parse_excel_raw
+from app.services.excel_parser import parse_excel_raw, get_excel_sheet_names
 from app.services.zip_parser import parse_zip_file
 from app.utils.time_utils import parse_datetime
 
@@ -236,6 +236,21 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
             bytes_target: Any = io.BytesIO(content)
         else:
             bytes_target = file_input
+
+        # Pre-validation for Excel files: check if file contains more than 1 sheet BEFORE parsing or calculating
+        if not is_csv and not is_zip:
+            sheet_names = get_excel_sheet_names(bytes_target)
+            if len(sheet_names) > 1:
+                sheets_str = ", ".join(sheet_names)
+                return {
+                    "success": False,
+                    "error": f"Failed to read Excel file: File contains multiple sheets ({sheets_str}). Please upload an Excel file containing only 1 sheet.",
+                    "missing_columns": [],
+                    "sheet_count": len(sheet_names),
+                    "sheet_names": sheet_names,
+                }
+            if hasattr(bytes_target, "seek"):
+                bytes_target.seek(0)
 
         df: pd.DataFrame | None = None
 
