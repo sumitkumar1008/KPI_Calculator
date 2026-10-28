@@ -113,11 +113,7 @@ function FileUpload({ fileFormat = 'all' }) {
   return (
     <>
       <div className="section-intro">
-        <h2>SR Volume Calculator</h2>
-        <p className="section-label" style={{ marginTop: '14px' }}>Step 01</p>
-        <h3 id="upload-heading" style={{ margin: '0 0 7px', color: 'var(--ink)', fontSize: '17px', fontWeight: 600 }}>
-          Bring your data into focus
-        </h3>
+        <h2 id="upload-heading">SR Volume Calculator</h2>
         <p>Select a spreadsheet to prepare it for KPI analysis.</p>
       </div>
 

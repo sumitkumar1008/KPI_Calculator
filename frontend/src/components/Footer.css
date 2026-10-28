@@ -1,0 +1,101 @@
+/* ── Professional Dashboard Footer ────────────────────────────── */
+.pro-footer {
+  margin-top: auto;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  background: var(--surface, #ffffff);
+  border-top: 1px solid var(--line, #d8e0e8);
+  color: var(--muted, #617083);
+  font-family: inherit;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+  overflow: hidden;
+}
+
+/* Ambient gradient shimmer bar on top edge */
+.pro-footer-glow-bar {
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(225, 29, 72, 0.35) 20%,
+    var(--accent) 50%,
+    rgba(99, 102, 241, 0.4) 80%,
+    transparent 100%
+  );
+}
+
+.pro-footer-container {
+  width: min(920px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 24px 0 22px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Line 1: KPI Calculator Dashboard @ 2026 */
+.pro-footer-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Line 2: Developed by emails */
+.pro-footer-devs {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pro-footer-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Interactive link styling */
+.pro-footer-link {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  font-weight: 500;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: all 0.18s ease;
+}
+
+.pro-footer-link:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+@media (max-width: 600px) {
+  .pro-footer-container {
+    padding: 20px 0 18px;
+    gap: 6px;
+  }
+
+  .pro-footer-title {
+    font-size: 13px;
+  }
+
+  .pro-footer-devs {
+    font-size: 12px;
+  }
+}

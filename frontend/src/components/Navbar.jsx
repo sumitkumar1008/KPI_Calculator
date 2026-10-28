@@ -1,7 +1,7 @@
 import GlobalFilter from './GlobalFilter'
 import './Navbar.css'
 
-const airtelLogo = 'https://res.cloudinary.com/i4j3dcjs/image/upload/v1787204293/airtel_logo-removebg-preview.png'
+const airtelLogo = 'https://res.cloudinary.com/i4j3dcjs/image/upload/e_trim/v1787204293/airtel_logo-removebg-preview.png'
 
 function Navbar({ theme, onToggleTheme, activeModule = 'kpi' }) {
   const isNstt = activeModule === 'nstt'
@@ -9,10 +9,7 @@ function Navbar({ theme, onToggleTheme, activeModule = 'kpi' }) {
   return (
     <header className="app-header">
       <div>
-        <p className="eyebrow">Data workspace</p>
-        <h1 className="navbar-title">
-          {isNstt ? 'NSTT Calculator' : 'KPI Calculator'}
-        </h1>
+        <h1 className="navbar-title">KPI Calculator</h1>
         <p className="subtitle">
           {isNstt
             ? 'Upload Namo and Remedy reports for NSTT analysis'

@@ -4,6 +4,7 @@ import NsttCalculator from './components/NsttCalculator'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import Login from './components/login'
+import Footer from './components/Footer'
 import { GlobalFilterProvider } from './context/GlobalFilterContext'
 import { NsttProvider } from './context/NsttContext'
 import './App.css'
@@ -56,7 +57,7 @@ function App() {
           )}
 
 
-          <footer className="app-footer"><span className="footer-dot" aria-hidden="true" /> Files stay in your browser during this demo</footer>
+          <Footer />
         </div>
       </main>
     </GlobalFilterProvider>

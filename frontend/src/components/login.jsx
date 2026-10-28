@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Footer from "./Footer";
 import "./login.css";
 
 function Login({ onLogin }) {
@@ -15,7 +16,8 @@ function Login({ onLogin }) {
 
   return (
     <div className="login-page">
-      <div className="login-card">
+      <div className="login-card-container">
+        <div className="login-card">
         {/* Airtel Logo */}
         <div className="company-logo">
           <img
@@ -88,6 +90,8 @@ function Login({ onLogin }) {
           </button>
         </form>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

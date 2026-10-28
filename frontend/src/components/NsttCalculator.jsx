@@ -117,7 +117,6 @@ function NsttCalculator({ fileFormat = 'all' }) {
   return (
     <section className="nstt-section" aria-labelledby="nstt-heading">
       <div className="section-intro">
-        <p className="section-label">NSTT Analysis Module</p>
         <h2 id="nstt-heading">NSTT Calculator</h2>
         <p>Upload both datasets below to correlate and calculate Network Service Turnaround Times (NSTT).</p>
       </div>
@@ -226,8 +225,7 @@ function NsttCalculator({ fileFormat = 'all' }) {
         {/* Upload Box 1 - Namo Report */}
         <div className="nstt-upload-col">
           <div className="nstt-box-header">
-            <span className="nstt-badge">Dataset 01</span>
-            <h3>Namo Report (Primary Data)</h3>
+            <h3>Namo Report</h3>
           </div>
           <div
             className={`upload-card nstt-upload-card ${isDragging1 ? 'is-dragging' : ''} ${namoFile ? 'has-file' : ''} ${isDataset1Error ? 'has-card-error' : ''}`}
@@ -272,8 +270,7 @@ function NsttCalculator({ fileFormat = 'all' }) {
         {/* Upload Box 2 - Remedy Report */}
         <div className="nstt-upload-col">
           <div className="nstt-box-header">
-            <span className="nstt-badge">Dataset 02</span>
-            <h3>Remedy Report (Secondary Data)</h3>
+            <h3>Remedy Report</h3>
           </div>
           <div
             className={`upload-card nstt-upload-card ${isDragging2 ? 'is-dragging' : ''} ${remedyFile ? 'has-file' : ''} ${isDataset2Error ? 'has-card-error' : ''}`}
