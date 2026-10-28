@@ -77,6 +77,10 @@ def build_master_response(enriched_df: pd.DataFrame) -> Dict[str, Any]:
                 clean_rec[key_str] = _sanitize_nstt_cell(v)
         clean_records.append(clean_rec)
 
+    del raw_records
+    import gc
+    gc.collect()
+
     cols = [str(c).strip() if c is not None and not pd.isna(c) else "UNNAMED" for c in enriched_df.columns]
 
     return {

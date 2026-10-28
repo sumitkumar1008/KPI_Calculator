@@ -222,6 +222,11 @@ def upload_kpi_excel():
                 for r in raw_records
             ]
             total_warnings = sum(len(r.get("warnings") or []) for r in processed_rows)
+            del raw_records, df_kpi
+            if df is not None:
+                del df
+            import gc
+            gc.collect()
         else:
             raw_rows = parse_result["rows"]
             row_count = len(raw_rows)
@@ -251,6 +256,9 @@ def upload_kpi_excel():
                     "warnings": warnings_list,
                 }
                 processed_rows.append(formatted_row)
+            del raw_rows
+            import gc
+            gc.collect()
 
         current_mem, peak_mem = tracemalloc.get_traced_memory()
         tracemalloc.stop()

@@ -241,11 +241,11 @@ def upload_nstt_files():
         t_master_start = time.perf_counter()
         master_response = build_master_response(final_df)
 
-        remedy_impact_df = map_incident_impact(remedy_df.copy())
+        remedy_impact_df = map_incident_impact(remedy_df)
         remedy_impact_map = {}
-        for _, row in remedy_impact_df.iterrows():
-            inc_num = row.get("INCIDENT_NUMBER")
-            imp = row.get("INCIDENT_IMPACT")
+        inc_nums = remedy_impact_df["INCIDENT_NUMBER"].tolist() if "INCIDENT_NUMBER" in remedy_impact_df.columns else []
+        impacts = remedy_impact_df["INCIDENT_IMPACT"].tolist() if "INCIDENT_IMPACT" in remedy_impact_df.columns else []
+        for inc_num, imp in zip(inc_nums, impacts):
             if inc_num is not None and not pd.isna(inc_num):
                 k = str(inc_num).strip().upper()
                 if imp in ("SA", "NSA"):
@@ -255,6 +255,11 @@ def upload_nstt_files():
         master_response["remedy_impact_map"] = remedy_impact_map
         t_master_end = time.perf_counter()
         master_builder_ms = round((t_master_end - t_master_start) * 1000, 2)
+
+        # Explicitly free DataFrames and force immediate garbage collection to keep RAM under 512MB
+        del namo_df, remedy_df, validation, enriched_df, final_df, remedy_impact_df, inc_nums, impacts
+        import gc
+        gc.collect()
 
         # Compile processing statistics & warnings
         warnings = []

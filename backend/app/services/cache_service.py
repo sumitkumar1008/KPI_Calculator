@@ -1,3 +1,4 @@
+import gc
 import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
@@ -6,18 +7,25 @@ from app.services.kpi_aggregator import aggregate_kpi_averages
 from app.services.automation_run import aggregate_automation_runs
 from app.services.automation_rca_conclusion import summarize_automation_rca_conclusion
 
-# Global In-Memory Cache Store
-# Stores datasets by upload_id and also holds the 'latest' uploaded dataset.
+# Global In-Memory Cache Store with LRU eviction to stay under 512MB RAM
 _CACHE_STORE: Dict[str, Dict[str, Any]] = {}
 _LATEST_CACHE_KEY: str = "latest"
+_MAX_CACHE_ENTRIES: int = 1
 
 
 def save_to_cache(rows: List[Dict[str, Any]], upload_id: Optional[str] = None) -> str:
     """
-    Saves processed KPI rows into the in-memory cache.
+    Saves processed KPI rows into the in-memory cache with eviction to prevent OOM.
     Returns the assigned upload_id.
     """
     uid = upload_id or str(uuid.uuid4())
+
+    # Evict older uploads so memory stays low on memory-constrained servers (e.g. Render 512MB)
+    stored_keys = [k for k in list(_CACHE_STORE.keys()) if k != _LATEST_CACHE_KEY and k != uid]
+    if len(stored_keys) >= _MAX_CACHE_ENTRIES:
+        for old_k in stored_keys[: len(stored_keys) - _MAX_CACHE_ENTRIES + 1]:
+            _CACHE_STORE.pop(old_k, None)
+
     cache_record = {
         "upload_id": uid,
         "timestamp": time.time(),
@@ -26,6 +34,7 @@ def save_to_cache(rows: List[Dict[str, Any]], upload_id: Optional[str] = None) -
     }
     _CACHE_STORE[uid] = cache_record
     _CACHE_STORE[_LATEST_CACHE_KEY] = cache_record
+    gc.collect()
     return uid
 
 

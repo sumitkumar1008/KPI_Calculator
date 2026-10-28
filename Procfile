@@ -1,1 +1,1 @@
-web: cd backend && gunicorn --workers 2 --timeout 600 --bind 0.0.0.0:$PORT app.main:app
+web: cd backend && gunicorn --workers 1 --threads 4 --worker-class gthread --timeout 600 --max-requests 100 --max-requests-jitter 20 --bind 0.0.0.0:$PORT app.main:app
