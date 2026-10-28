@@ -49,6 +49,10 @@ SR_NUMBER_VARIANTS: list[str] = [
 ]
 
 
+RE_NORMALIZE = re.compile(r"[\s_#]+")
+RE_NO_UNDERSCORE = re.compile(r"[\s_#()]+")
+
+
 def normalize_column_name(col: Any) -> str:
     """
     Normalizes raw column header strings by trimming whitespace,
@@ -58,8 +62,7 @@ def normalize_column_name(col: Any) -> str:
     if col is None:
         return ""
     s = str(col).strip().upper()
-    s = re.sub(r"[\s_#]+", "_", s)
-    return s
+    return RE_NORMALIZE.sub("_", s)
 
 
 # Build lookup map from normalized string variations -> exact canonical column name
@@ -160,7 +163,7 @@ def validate_and_map_headers(columns: list[Any]) -> tuple[dict[str, str], list[s
     for raw_col in columns:
         raw_str = str(raw_col).strip()
         norm = normalize_column_name(raw_str)
-        norm_no_underscore = re.sub(r"[\s_#()]+", "", raw_str.upper())
+        norm_no_underscore = RE_NO_UNDERSCORE.sub("", raw_str.upper())
 
         canonical = (
             _CANONICAL_LOOKUP.get(norm)
@@ -191,10 +194,17 @@ def _sanitize_cell(val: Any) -> Any:
     """
     if val is None:
         return None
-    if isinstance(val, (list, tuple, dict)):
+    val_type = type(val)
+    if val_type in (str, int, bool):
+        return val
+    if val_type is float:
+        if val != val or pd.isna(val):
+            return None
         return val
     if isinstance(val, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
         return val.isoformat()
+    if isinstance(val, (list, tuple, dict)):
+        return val
     try:
         if pd.isna(val):
             return None
@@ -228,12 +238,17 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
         is_zip = fn_lower.endswith(".zip")
         is_excel = fn_lower.endswith(".xlsx") or fn_lower.endswith(".xls")
 
-        # Normalize stream target to BytesIO if it's a file storage or stream object
-        if hasattr(file_input, "read"):
+        # Avoid duplicate byte buffering if already a BytesIO or raw bytes
+        if isinstance(file_input, io.BytesIO):
+            file_input.seek(0)
+            bytes_target = file_input
+        elif isinstance(file_input, bytes):
+            bytes_target = io.BytesIO(file_input)
+        elif hasattr(file_input, "read"):
             content = file_input.read()
             if hasattr(file_input, "seek"):
                 file_input.seek(0)
-            bytes_target: Any = io.BytesIO(content)
+            bytes_target = io.BytesIO(content)
         else:
             bytes_target = file_input
 
@@ -253,29 +268,33 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
                 bytes_target.seek(0)
 
         df: pd.DataFrame | None = None
+        attempted_parsers: set[str] = set()
 
         if is_zip:
             df = parse_zip_file(bytes_target)
+            attempted_parsers.add("zip")
         elif is_csv:
             df = parse_csv_file(bytes_target)
+            attempted_parsers.add("csv")
         elif is_excel:
             df = parse_excel_raw(bytes_target)
+            attempted_parsers.add("excel")
 
-        # Fallback chain if hint-based parser returned None or extension was unspecified
+        # Fallback chain: only attempt parsers that have not been tried yet
         if df is None:
-            if hasattr(bytes_target, "seek"):
-                bytes_target.seek(0)
-            df = parse_excel_raw(bytes_target)
-
-        if df is None:
-            if hasattr(bytes_target, "seek"):
-                bytes_target.seek(0)
-            df = parse_csv_file(bytes_target)
-
-        if df is None:
-            if hasattr(bytes_target, "seek"):
-                bytes_target.seek(0)
-            df = parse_zip_file(bytes_target)
+            fallback_sequence = [
+                ("excel", parse_excel_raw),
+                ("csv", parse_csv_file),
+                ("zip", parse_zip_file),
+            ]
+            for parser_name, parser_fn in fallback_sequence:
+                if parser_name not in attempted_parsers:
+                    if hasattr(bytes_target, "seek"):
+                        bytes_target.seek(0)
+                    df = parser_fn(bytes_target)
+                    attempted_parsers.add(parser_name)
+                    if df is not None and not df.empty and len(df.columns) > 0:
+                        break
 
         if df is None or df.empty or len(df.columns) == 0:
             return {
@@ -308,6 +327,19 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
     if "CREATIONTIME" not in df_subset.columns and "SRCREATIONTIME" in df_subset.columns:
         df_subset["CREATIONTIME"] = df_subset["SRCREATIONTIME"]
 
+    # Pre-populate default optional columns on df_subset before dict serialization
+    DEFAULT_OPTIONAL_COLUMNS = (
+        "AUTOMATION_RCA_CONCLUSION",
+        "AUTOMATION_RUN",
+        "MEDIA",
+        "ROSTER_ALLOCATION",
+        "SRSTATUS",
+        "SUBTYPE",
+    )
+    for col in DEFAULT_OPTIONAL_COLUMNS:
+        if col not in df_subset.columns:
+            df_subset[col] = None
+
     # Vectorized date parsing for timestamp columns
     ts_cols = [c for c in REQUIRED_COLUMNS if c in df_subset.columns]
     for c in ts_cols:
@@ -317,22 +349,7 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
             pass
 
     raw_records = df_subset.to_dict(orient="records")
-    clean_rows = []
-    for record in raw_records:
-        r = {k: _sanitize_cell(v) for k, v in record.items()}
-        if "AUTOMATION_RCA_CONCLUSION" not in r:
-            r["AUTOMATION_RCA_CONCLUSION"] = None
-        if "AUTOMATION_RUN" not in r:
-            r["AUTOMATION_RUN"] = None
-        if "MEDIA" not in r:
-            r["MEDIA"] = None
-        if "ROSTER_ALLOCATION" not in r:
-            r["ROSTER_ALLOCATION"] = None
-        if "SRSTATUS" not in r:
-            r["SRSTATUS"] = None
-        if "SUBTYPE" not in r:
-            r["SUBTYPE"] = None
-        clean_rows.append(r)
+    clean_rows = [{k: _sanitize_cell(v) for k, v in record.items()} for record in raw_records]
 
     return {
         "success": True,

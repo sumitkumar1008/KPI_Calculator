@@ -256,6 +256,9 @@ def upload_nstt_files():
         t_master_end = time.perf_counter()
         master_builder_ms = round((t_master_end - t_master_start) * 1000, 2)
 
+        namo_row_count = int(len(namo_df))
+        remedy_row_count = int(len(remedy_df))
+
         # Explicitly free DataFrames and force immediate garbage collection to keep RAM under 512MB
         del namo_df, remedy_df, validation, enriched_df, final_df, remedy_impact_df, inc_nums, impacts
         import gc
@@ -285,8 +288,8 @@ def upload_nstt_files():
         }
 
         stats = {
-            "namo_rows": int(len(namo_df)),
-            "remedy_rows": int(len(remedy_df)),
+            "namo_rows": namo_row_count,
+            "remedy_rows": remedy_row_count,
             "matched": int(join_result["matched_count"]),
             "unmatched": int(join_result["unmatched_count"]),
             "duplicates": int(dup_result["duplicate_records_count"]),
