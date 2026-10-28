@@ -173,6 +173,19 @@ function FilterIcon({ isFiltered }) {
 }
 
 /**
+ * Safely parses comma/semicolon/whitespace separated ID tokens into an array of strings.
+ */
+function parseIdTokens(val) {
+  if (!val || val === '—') return []
+  const raw = String(val).trim()
+  if (!raw) return []
+  return raw
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/**
  * MultiIdCell - Formats single or multiple comma/space separated IDs.
  * Places 3 to 4 IDs per row (chunked into 4), wrapping remaining IDs onto the next line.
  */
@@ -186,19 +199,16 @@ function MultiIdCell({ value, searchQuery }) {
     return <span>—</span>
   }
 
-  const tokens = rawStr
-    .split(/[,;\s]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
+  const tokens = parseIdTokens(rawStr)
 
   if (tokens.length === 0) {
     return <span>—</span>
   }
 
-  const q = searchQuery && searchQuery.length >= 3 ? searchQuery.toUpperCase() : null
+  const q = searchQuery && searchQuery.trim() ? searchQuery.trim().toUpperCase() : null
 
   if (tokens.length === 1) {
-    const isMatched = q && tokens[0].toUpperCase().includes(q)
+    const isMatched = q && tokens[0].toUpperCase() === q
     return (
       <span
         title={rawStr}
@@ -220,7 +230,7 @@ function MultiIdCell({ value, searchQuery }) {
       {chunks.map((chunk, cIdx) => (
         <div key={cIdx} className="multi-id-row">
           {chunk.map((id, idIdx) => {
-            const isMatched = q && id.toUpperCase().includes(q)
+            const isMatched = q && id.toUpperCase() === q
             const isLastInChunk = idIdx === chunk.length - 1
             const isLastOverall = cIdx === chunks.length - 1 && isLastInChunk
 
@@ -263,19 +273,15 @@ export default function NsttDrillDown() {
   // Track open filter dropdown by column id
   const [openDropdownCol, setOpenDropdownCol] = useState(null)
 
-  // Check if a record matches the searched Incident ID / SR Number
+  // Check if a record matches the searched Incident ID / SR Number / Automation NSTT Number exactly
   const isRecordMatchingSearch = useCallback((r) => {
     const q = String(bifurcationQuery || '').trim().toUpperCase()
     if (!q) return false
     const incId = getRecordValue(r, 'INCIDENTID').toUpperCase()
     const srNo = getRecordValue(r, 'SR_NUMBER').toUpperCase()
-    const autoNo = String(r.AUTOMATION_UPDATE_NSTT_NUMBER || '').trim().toUpperCase()
-    return (
-      incId === q ||
-      srNo === q ||
-      autoNo === q ||
-      (q.length >= 3 && (incId.includes(q) || srNo.includes(q) || autoNo.includes(q)))
-    )
+    const autoVal = getRecordValue(r, 'AUTOMATION_UPDATE_NSTT_NUMBER')
+    const autoTokens = parseIdTokens(autoVal).map((t) => t.toUpperCase())
+    return incId === q || srNo === q || autoTokens.includes(q)
   }, [bifurcationQuery])
 
   // Reset pagination, filters, and sorting on category change
@@ -602,9 +608,27 @@ export default function NsttDrillDown() {
       result = result.filter((rec) => {
         return activeColIds.every((colId) => {
           const allowedSet = columnFilters[colId]
+          const allowedUpperSet = new Set(
+            Array.from(allowedSet).map((v) => String(v).trim().toUpperCase())
+          )
+
+          if (colId === 'AUTOMATION_UPDATE_NSTT_NUMBER') {
+            const val = getRecordValue(rec, colId)
+            const tokens = parseIdTokens(val)
+            if (tokens.length === 0) {
+              return allowedSet.has('(Blanks)') || allowedUpperSet.has('(BLANKS)')
+            }
+            return tokens.some(
+              (t) => allowedSet.has(t) || allowedUpperSet.has(t.toUpperCase())
+            )
+          }
+
           const val = getRecordValue(rec, colId)
           const displayVal = toDisplayVal(val)
-          return allowedSet.has(displayVal)
+          return (
+            allowedSet.has(displayVal) ||
+            allowedUpperSet.has(String(displayVal).trim().toUpperCase())
+          )
         })
       })
     }
@@ -636,26 +660,69 @@ export default function NsttDrillDown() {
         baseRecords = baseRecords.filter((rec) => {
           return otherColIds.every((otherId) => {
             const allowedSet = columnFilters[otherId]
+            const allowedUpperSet = new Set(
+              Array.from(allowedSet).map((v) => String(v).trim().toUpperCase())
+            )
+
+            if (otherId === 'AUTOMATION_UPDATE_NSTT_NUMBER') {
+              const val = getRecordValue(rec, otherId)
+              const tokens = parseIdTokens(val)
+              if (tokens.length === 0) {
+                return allowedSet.has('(Blanks)') || allowedUpperSet.has('(BLANKS)')
+              }
+              return tokens.some(
+                (t) => allowedSet.has(t) || allowedUpperSet.has(t.toUpperCase())
+              )
+            }
+
             const val = getRecordValue(rec, otherId)
             const displayVal = toDisplayVal(val)
-            return allowedSet.has(displayVal)
+            return (
+              allowedSet.has(displayVal) ||
+              allowedUpperSet.has(String(displayVal).trim().toUpperCase())
+            )
           })
         })
       }
 
       const countsMap = new Map()
+      const isMultiIdCol = colId === 'AUTOMATION_UPDATE_NSTT_NUMBER'
+
       baseRecords.forEach((rec) => {
         const val = getRecordValue(rec, colId)
-        const displayVal = toDisplayVal(val)
-        countsMap.set(displayVal, (countsMap.get(displayVal) || 0) + 1)
+        if (isMultiIdCol) {
+          const tokens = parseIdTokens(val)
+          if (tokens.length === 0) {
+            countsMap.set('(Blanks)', (countsMap.get('(Blanks)') || 0) + 1)
+          } else {
+            const uniqueTokensInRow = Array.from(new Set(tokens))
+            uniqueTokensInRow.forEach((tok) => {
+              countsMap.set(tok, (countsMap.get(tok) || 0) + 1)
+            })
+          }
+        } else {
+          const displayVal = toDisplayVal(val)
+          countsMap.set(displayVal, (countsMap.get(displayVal) || 0) + 1)
+        }
       })
 
       // Include all distinct values from all records so user can always re-enable options
       records.forEach((rec) => {
         const val = getRecordValue(rec, colId)
-        const displayVal = toDisplayVal(val)
-        if (!countsMap.has(displayVal)) {
-          countsMap.set(displayVal, 0)
+        if (isMultiIdCol) {
+          const tokens = parseIdTokens(val)
+          if (tokens.length === 0) {
+            if (!countsMap.has('(Blanks)')) countsMap.set('(Blanks)', 0)
+          } else {
+            tokens.forEach((tok) => {
+              if (!countsMap.has(tok)) countsMap.set(tok, 0)
+            })
+          }
+        } else {
+          const displayVal = toDisplayVal(val)
+          if (!countsMap.has(displayVal)) {
+            countsMap.set(displayVal, 0)
+          }
         }
       })
 

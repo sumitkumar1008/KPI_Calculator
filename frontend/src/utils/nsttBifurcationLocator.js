@@ -487,28 +487,23 @@ export function findBifurcationsForQuery(records, rawQuery) {
     }
   }
 
-  // 1. Separate exact matches vs partial matches
+  // Exact matching only: do not match similar/partial IDs
   const exactMatches = []
-  const partialMatches = []
 
   for (const r of records) {
     const incId = extractIncidentId(r).toUpperCase()
     const srNo = extractSrNumber(r).toUpperCase()
-    const autoNo = String(r.AUTOMATION_UPDATE_NSTT_NUMBER || '').trim().toUpperCase()
+    const rawAuto = String(r.AUTOMATION_UPDATE_NSTT_NUMBER || '').trim().toUpperCase()
+    const autoTokens = rawAuto
+      ? rawAuto.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean)
+      : []
 
-    if (incId === q || srNo === q || autoNo === q) {
+    if (incId === q || srNo === q || rawAuto === q || autoTokens.includes(q)) {
       exactMatches.push(r)
-    } else if (
-      (incId && incId.includes(q)) ||
-      (srNo && srNo.includes(q)) ||
-      (autoNo && autoNo.includes(q))
-    ) {
-      partialMatches.push(r)
     }
   }
 
-  // If we have exact matches, prioritize them; otherwise show partial matches
-  const matchedRecords = exactMatches.length > 0 ? exactMatches : partialMatches
+  const matchedRecords = exactMatches
   if (matchedRecords.length === 0) {
     return {
       query: rawQuery,

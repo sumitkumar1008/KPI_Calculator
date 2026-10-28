@@ -70,14 +70,45 @@ export default function ExcelFilterDropdown({
     }
   }, [column.id, onClose])
 
-  // Filter available values by search query
-  const filteredValues = useMemo(() => {
-    const term = searchValue.trim().toLowerCase()
-    if (!term) return availableValues
-    return availableValues.filter((item) =>
-      item.value.toLowerCase().includes(term)
+  // Filter available values by search query with strict exact-match priority
+  const { filteredValues, isExactMatch } = useMemo(() => {
+    const term = searchValue.trim()
+    if (!term) {
+      return { filteredValues: availableValues, isExactMatch: false }
+    }
+
+    const termLower = term.toLowerCase()
+
+    // 1. Exact match (case-insensitive) - HIGHEST PRIORITY
+    // e.g. "TXN" matches ONLY "TXN" (never "TXN_INFRA"), "IM" matches ONLY "IM" (never "Non-IM")
+    const exact = availableValues.filter(
+      (item) => item.value.trim().toLowerCase() === termLower
     )
+    if (exact.length > 0) {
+      return { filteredValues: exact, isExactMatch: true }
+    }
+
+    // 2. Starts-with match (case-insensitive) for browsing options while typing
+    const startsWithMatches = availableValues.filter((item) =>
+      item.value.trim().toLowerCase().startsWith(termLower)
+    )
+    if (startsWithMatches.length > 0) {
+      return { filteredValues: startsWithMatches, isExactMatch: false }
+    }
+
+    // 3. Fallback: substring contains (case-insensitive)
+    const containsMatches = availableValues.filter((item) =>
+      item.value.toLowerCase().includes(termLower)
+    )
+    return { filteredValues: containsMatches, isExactMatch: false }
   }, [availableValues, searchValue])
+
+  // Sync draft selection whenever search results change so only visible matching items are selected
+  useEffect(() => {
+    if (searchValue.trim()) {
+      setDraftSelection(new Set(filteredValues.map((v) => v.value)))
+    }
+  }, [searchValue, filteredValues])
 
   // Select all / indeterminate state for currently visible search results
   const isAllSelected = useMemo(() => {
@@ -139,12 +170,24 @@ export default function ExcelFilterDropdown({
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
+<<<<<<< Updated upstream
       if (filteredValues.length > 0) {
         if (filteredValues.length >= availableValues.length) {
           onClearFilter()
         } else {
           onApplyFilter(new Set(filteredValues.map((v) => v.value)))
         }
+=======
+      const matching = filteredValues
+        .filter((v) => draftSelection.has(v.value))
+        .map((v) => v.value)
+
+      if (matching.length > 0) {
+        onApplyFilter(new Set(matching))
+        onClose()
+      } else if (filteredValues.length > 0) {
+        onApplyFilter(new Set(filteredValues.map((v) => v.value)))
+>>>>>>> Stashed changes
         onClose()
       }
     }
@@ -152,14 +195,13 @@ export default function ExcelFilterDropdown({
 
   // Apply button (OK)
   const handleApply = () => {
-    // If a search query is active and user didn't modify individual items,
-    // apply only the filtered search items
+    // If a search query is active, apply only the checked items within the search results
     if (searchValue.trim() && filteredValues.length > 0) {
       const matchingSelected = filteredValues
         .filter((v) => draftSelection.has(v.value))
         .map((v) => v.value)
 
-      if (matchingSelected.length > 0 && matchingSelected.length < availableValues.length) {
+      if (matchingSelected.length > 0) {
         onApplyFilter(new Set(matchingSelected))
         onClose()
         return
@@ -269,7 +311,13 @@ export default function ExcelFilterDropdown({
             }}
             onChange={handleToggleSelectAll}
           />
-          <span>{searchValue ? '(Select All Search Results)' : '(Select All)'}</span>
+          <span>
+            {isExactMatch
+              ? `(Exact Match: ${filteredValues[0]?.value})`
+              : searchValue
+                ? '(Select All Search Results)'
+                : '(Select All)'}
+          </span>
         </label>
         <div className="select-all-actions">
           <button type="button" className="select-all-link" onClick={handleSelectAll}>
