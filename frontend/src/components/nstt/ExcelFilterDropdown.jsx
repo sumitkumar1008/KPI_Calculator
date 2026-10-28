@@ -175,6 +175,7 @@ export default function ExcelFilterDropdown({
         .map((v) => v.value)
 
       if (matching.length > 0) {
+<<<<<<< Updated upstream
         if (matching.length >= availableValues.length) {
           onClearFilter()
         } else {
@@ -188,7 +189,13 @@ export default function ExcelFilterDropdown({
           onApplyFilter(new Set(filteredValues.map((v) => v.value)))
         }
         onClose()
+=======
+        onApplyFilter(new Set(matching))
+      } else if (filteredValues.length > 0) {
+        onApplyFilter(new Set(filteredValues.map((v) => v.value)))
+>>>>>>> Stashed changes
       }
+      onClose()
     }
   }
 
