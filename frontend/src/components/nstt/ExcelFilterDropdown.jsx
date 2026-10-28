@@ -170,24 +170,23 @@ export default function ExcelFilterDropdown({
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-<<<<<<< Updated upstream
-      if (filteredValues.length > 0) {
-        if (filteredValues.length >= availableValues.length) {
-          onClearFilter()
-        } else {
-          onApplyFilter(new Set(filteredValues.map((v) => v.value)))
-        }
-=======
       const matching = filteredValues
         .filter((v) => draftSelection.has(v.value))
         .map((v) => v.value)
 
       if (matching.length > 0) {
-        onApplyFilter(new Set(matching))
+        if (matching.length >= availableValues.length) {
+          onClearFilter()
+        } else {
+          onApplyFilter(new Set(matching))
+        }
         onClose()
       } else if (filteredValues.length > 0) {
-        onApplyFilter(new Set(filteredValues.map((v) => v.value)))
->>>>>>> Stashed changes
+        if (filteredValues.length >= availableValues.length) {
+          onClearFilter()
+        } else {
+          onApplyFilter(new Set(filteredValues.map((v) => v.value)))
+        }
         onClose()
       }
     }

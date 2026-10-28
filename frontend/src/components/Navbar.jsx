@@ -3,16 +3,24 @@ import './Navbar.css'
 
 const airtelLogo = 'https://res.cloudinary.com/i4j3dcjs/image/upload/v1787204293/airtel_logo-removebg-preview.png'
 
-function Navbar({ theme, onToggleTheme }) {
+function Navbar({ theme, onToggleTheme, activeModule = 'kpi' }) {
+  const isNstt = activeModule === 'nstt'
+
   return (
     <header className="app-header">
       <div>
         <p className="eyebrow">Data workspace</p>
-        <h1 className="navbar-title">KPI Calculator</h1>
-        <p className="subtitle">Upload your data file to get started</p>
+        <h1 className="navbar-title">
+          {isNstt ? 'NSTT Calculator' : 'KPI Calculator'}
+        </h1>
+        <p className="subtitle">
+          {isNstt
+            ? 'Upload Namo and Remedy reports for NSTT analysis'
+            : 'Upload your data file to get started'}
+        </p>
       </div>
       <div className="header-actions">
-        <GlobalFilter />
+        {!isNstt && <GlobalFilter />}
         <button
           className="theme-toggle"
           type="button"
