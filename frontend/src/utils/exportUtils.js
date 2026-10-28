@@ -24,9 +24,12 @@ export async function exportDataViaApi({
     throw new Error('No data available to export.')
   }
 
-  const endpoint = import.meta.env.VITE_API_ENDPOINT
-    ? `${import.meta.env.VITE_API_ENDPOINT.replace(/\/kpi\/upload\/?$/, '')}/kpi/export`
-    : '/api/v1/kpi/export'
+  const apiBase = import.meta.env.VITE_API_ENDPOINT
+    ? import.meta.env.VITE_API_ENDPOINT.replace(/\/kpi\/upload\/?$/, '')
+    : ((import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL)
+        ? `${(import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL).replace(/\/+$/, '')}/api/v1`
+        : '/api/v1')
+  const endpoint = `${apiBase}/kpi/export`
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -81,9 +84,12 @@ export async function exportFromCacheApi({
   uploadId = null,
   filename = '',
 }) {
-  const base = import.meta.env.VITE_API_ENDPOINT
-    ? `${import.meta.env.VITE_API_ENDPOINT.replace(/\/kpi\/upload\/?$/, '')}/kpi/export/cache`
-    : '/api/v1/kpi/export/cache'
+  const apiBase = import.meta.env.VITE_API_ENDPOINT
+    ? import.meta.env.VITE_API_ENDPOINT.replace(/\/kpi\/upload\/?$/, '')
+    : ((import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL)
+        ? `${(import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL).replace(/\/+$/, '')}/api/v1`
+        : '/api/v1')
+  const base = `${apiBase}/kpi/export/cache`
 
   const params = new URLSearchParams({
     type: tableType,

@@ -39,6 +39,8 @@ def extract_file_headers(file_input: Any, filename: str = "") -> List[str]:
     content: bytes = b""
     try:
         if hasattr(file_input, "read"):
+            if hasattr(file_input, "seek"):
+                file_input.seek(0)
             content = file_input.read()
             if hasattr(file_input, "seek"):
                 file_input.seek(0)

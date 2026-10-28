@@ -11,7 +11,19 @@
 
 import { safeParseJson } from '../utils/apiUtils'
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1/nstt'
+const getApiBase = () => {
+  const envBase = import.meta.env.VITE_API_BASE
+  const envUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL
+  if (envBase) {
+    return envBase.replace(/\/+$/, '')
+  }
+  if (envUrl) {
+    return `${envUrl.replace(/\/+$/, '')}/api/v1/nstt`
+  }
+  return '/api/v1/nstt'
+}
+
+const API_BASE = getApiBase()
 
 /**
  * Uploads Namo and Remedy files to backend for ingestion and VLOOKUP join.

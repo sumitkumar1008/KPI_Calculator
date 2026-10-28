@@ -25,7 +25,20 @@ export async function safeParseJson(response) {
     } catch {
       const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
       const preview = cleanText ? cleanText.slice(0, 150) : (response.statusText || 'Server Error')
-      throw new Error(`Server Error HTTP ${response.status}: ${preview}`)
+      const isTimeout = response.status === 504 || response.status === 408 || response.status === 524
+      let message
+      if (isTimeout) {
+        message = `Server Timeout (HTTP ${response.status}): The calculation took longer than the proxy/gateway allowed. For very large files, please ensure server timeout limits are set to at least 600s.`
+      } else if (response.status === 500) {
+        message = `Server Error (HTTP 500): The backend server encountered an internal error (${preview}). Please check backend service logs.`
+      } else {
+        message = `Server Error HTTP ${response.status}: ${preview}`
+      }
+      const err = new Error(message)
+      err.errorType = isTimeout ? 'TIMEOUT_ERROR' : 'SERVER_ERROR'
+      err.status = response.status
+      err.internalError = cleanText || text
+      throw err
     }
   }
 

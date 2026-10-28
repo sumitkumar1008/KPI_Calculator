@@ -27,7 +27,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     # Enable CORS for production deployments (e.g. Render)
     try:
         from flask_cors import CORS
-        CORS(app)
+        CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
     except ImportError:
         pass
 
@@ -62,17 +62,27 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         """
         max_mb = app.config.get("MAX_CONTENT_LENGTH", 0) // (1024 * 1024)
         return jsonify({
-            "error": f"Uploaded file is too large. Maximum allowed size is {max_mb} MB."
+            "error": f"Uploaded file is too large. Maximum allowed size is {max_mb} MB.",
+            "error_type": "PAYLOAD_TOO_LARGE",
         }), 413
-
 
     @app.errorhandler(500)
     @app.errorhandler(Exception)
     def handle_global_exception(error):
-        """Global fallback error handler ensuring 500 server errors always return JSON instead of HTML."""
+        """Global fallback error handler ensuring all errors always return clean JSON instead of HTML."""
+        from werkzeug.exceptions import HTTPException
+        if isinstance(error, HTTPException):
+            return jsonify({
+                "error": error.description or str(error),
+                "code": error.code,
+            }), error.code
+
         import traceback
         traceback.print_exc()
         err_msg = str(error) if error else "Internal server error"
-        return jsonify({"error": f"Server Error: {err_msg}"}), 500
+        return jsonify({
+            "error": f"Server Error: {err_msg}",
+            "error_type": "SERVER_ERROR",
+        }), 500
 
     return app

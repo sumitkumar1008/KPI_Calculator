@@ -18,5 +18,7 @@ from app import create_app
 app = create_app()
 
 if __name__ == "__main__":
-    # Start the Flask development server on host 0.0.0.0, port 5000 with debug mode enabled
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Start the Flask server with dynamic PORT (Render/Heroku/Cloud) and configurable debug mode
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true")
+    app.run(host="0.0.0.0", port=port, debug=debug)

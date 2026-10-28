@@ -76,7 +76,11 @@ function FileUpload({ fileFormat = 'all' }) {
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
-      const response = await fetch(import.meta.env.VITE_API_ENDPOINT || '/api/v1/kpi/upload', {
+      const uploadUrl = import.meta.env.VITE_API_ENDPOINT ||
+        (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL
+          ? `${(import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL).replace(/\/+$/, '')}/api/v1/kpi/upload`
+          : '/api/v1/kpi/upload')
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
       })
@@ -148,10 +152,15 @@ function FileUpload({ fileFormat = 'all' }) {
       {isSuccess && <p className="message message--success" role="status"><span aria-hidden="true">✓</span>File ready for processing</p>}
 
       <button className="upload-button" type="button" disabled={!hasSelectedFile || isUploading || isSuccess} onClick={uploadFile}>
-        {isUploading ? 'Calculating...' : isSuccess ? 'File uploaded' : 'Upload file'}
+        {isUploading ? 'Calculating KPIs...' : isSuccess ? 'File uploaded' : 'Upload file'}
         {!isUploading && !isSuccess && <span aria-hidden="true">→</span>}
       </button>
       {isSuccess && <button type="button" className="another-button" onClick={resetUpload}>Choose another file</button>}
+      {isUploading && (
+        <p className="processing-hint" style={{ marginTop: '10px', fontSize: '13px', color: 'var(--muted)' }}>
+          Processing &amp; calculating KPIs... Large files may take a moment. Please keep this window open.
+        </p>
+      )}
 
       {isSuccess && (
         <section className="results-section" aria-labelledby="results-heading">

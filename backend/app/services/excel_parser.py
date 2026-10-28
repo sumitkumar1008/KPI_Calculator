@@ -15,6 +15,7 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
     """
     Lightweight openpyxl SAX streaming parser (read_only=True, data_only=True).
     Reduces memory usage from ~450MB down to ~15MB for large Excel files to prevent Render OOM kills.
+    Skips leading empty/metadata rows and extracts headers dynamically.
     """
     try:
         wb = openpyxl.load_workbook(stream_or_path, read_only=True, data_only=True)
@@ -22,8 +23,15 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
         if sheet is None:
             return None
         rows_gen = sheet.iter_rows(values_only=True)
-        headers = next(rows_gen, None)
+        headers = None
+        for row in rows_gen:
+            if row and any(c is not None and str(c).strip() != "" for c in row):
+                non_empty = [c for c in row if c is not None and str(c).strip() != ""]
+                if len(non_empty) >= 2 or headers is None:
+                    headers = [str(c).strip() if c is not None and str(c).strip() != "" else f"UNNAMED_{i}" for i, c in enumerate(row)]
+                    break
         if not headers:
+            wb.close()
             return None
         data = list(rows_gen)
         wb.close()

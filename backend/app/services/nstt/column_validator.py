@@ -35,6 +35,8 @@ def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFram
         is_excel = fn_lower.endswith(".xlsx") or fn_lower.endswith(".xls")
 
         if hasattr(file_input, "read"):
+            if hasattr(file_input, "seek"):
+                file_input.seek(0)
             content = file_input.read()
             if hasattr(file_input, "seek"):
                 file_input.seek(0)

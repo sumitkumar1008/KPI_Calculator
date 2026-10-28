@@ -181,8 +181,9 @@ def compute_df_kpis(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
                 valid_mask = valid_mask & status_valid
                 
                 if invalid_status_mask.any():
+                    s_vals = df[status_col].tolist() if status_col else [None] * len(df)
                     for idx in np.where(invalid_status_mask)[0]:
-                        s_val = df.iloc[idx][status_col] if status_col else None
+                        s_val = s_vals[idx]
                         s_disp = f"'{s_val}'" if s_val is not None and not pd.isna(s_val) else "missing/null"
                         row_warnings[idx].append(f"MTTR: SRSTATUS is {s_disp} (must be Closed/Resolved); KPI set to null")
 
@@ -198,8 +199,9 @@ def compute_df_kpis(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
                 valid_mask = valid_mask & subtype_valid
 
                 if invalid_subtype_mask.any():
+                    sub_vals = df[subtype_col].tolist() if subtype_col else [None] * len(df)
                     for idx in np.where(invalid_subtype_mask)[0]:
-                        sub_val = df.iloc[idx][subtype_col] if subtype_col else None
+                        sub_val = sub_vals[idx]
                         sub_disp = f"'{sub_val}'" if sub_val is not None and not pd.isna(sub_val) else "missing/null"
                         row_warnings[idx].append(f"MTTr: SUBTYPE is {sub_disp} (must be Link Down); KPI set to null")
 

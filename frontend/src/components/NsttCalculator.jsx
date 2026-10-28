@@ -129,7 +129,11 @@ function NsttCalculator({ fileFormat = 'all' }) {
             <div className="nstt-error-body">
               <div className="nstt-error-title-row">
                 <h4 className="nstt-error-title">
-                  {isFileMismatch ? 'File Mismatch Error' : 'File Validation / Upload Error'}
+                  {isFileMismatch
+                    ? 'File Mismatch Error'
+                    : (errorType === 'SERVER_ERROR' || errorMessage.includes('500')
+                      ? 'Server Error (HTTP 500)'
+                      : 'File Validation / Upload Error')}
                 </h4>
                 {error?.dataset && (
                   <span className="nstt-error-dataset-tag">{error.dataset}</span>
@@ -140,6 +144,11 @@ function NsttCalculator({ fileFormat = 'all' }) {
                   ? 'Required column mismatch detected. Please check the missing columns below:'
                   : errorMessage}
               </p>
+              {!isFileMismatch && (errorType === 'SERVER_ERROR' || errorMessage.includes('500')) && (
+                <p className="nstt-error-hint" style={{ marginTop: '8px', fontSize: '13px', color: '#64748b' }}>
+                  Tip: Ensure the backend web service is deployed, online, and that any custom <code>VITE_API_URL</code> environment variable points to the active backend domain.
+                </p>
+              )}
 
               {filesDetail ? (
                 <div className="nstt-files-validation-grid">
@@ -322,6 +331,12 @@ function NsttCalculator({ fileFormat = 'all' }) {
             <button type="button" className="another-button" onClick={reset}>
               Clear both files
             </button>
+          )}
+
+          {isProcessing && (
+            <p className="processing-hint" style={{ width: '100%', marginTop: '12px', fontSize: '13px', color: 'var(--muted)' }}>
+              Processing NSTT correlation &amp; rule engine... Large files may take a moment. Please keep this window open.
+            </p>
           )}
         </div>
       </section>
