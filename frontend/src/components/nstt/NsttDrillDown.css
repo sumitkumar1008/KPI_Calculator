@@ -183,6 +183,28 @@
   font-weight: 700;
 }
 
+.active-filter-pill.search-active-pill {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #7c3aed;
+}
+
+.active-filter-pill.search-active-pill .pill-col-name {
+  color: #6d28d9;
+}
+
+html[data-theme="dark"] .active-filter-pill.search-active-pill,
+.theme-dark .active-filter-pill.search-active-pill {
+  background: rgba(192, 132, 252, 0.15);
+  border-color: rgba(192, 132, 252, 0.35);
+  color: #d8b4fe;
+}
+
+html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
+.theme-dark .active-filter-pill.search-active-pill .pill-col-name {
+  color: #e9d5ff;
+}
+
 .btn-remove-pill {
   background: none;
   border: none;
@@ -705,6 +727,25 @@
 .btn-dropdown-apply:hover {
   background: #0e5d6a;
   border-color: #0e5d6a;
+}
+
+.btn-dropdown-clear {
+  margin-right: auto;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  color: #dc2626;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-dropdown-clear:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
 }
 
 .drilldown-table td {

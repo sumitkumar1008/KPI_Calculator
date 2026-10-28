@@ -140,7 +140,11 @@ export default function ExcelFilterDropdown({
     if (e.key === 'Enter') {
       e.preventDefault()
       if (filteredValues.length > 0) {
-        onApplyFilter(new Set(filteredValues.map((v) => v.value)))
+        if (filteredValues.length >= availableValues.length) {
+          onClearFilter()
+        } else {
+          onApplyFilter(new Set(filteredValues.map((v) => v.value)))
+        }
         onClose()
       }
     }
@@ -162,8 +166,17 @@ export default function ExcelFilterDropdown({
       }
     }
 
-    if (draftSelection.size === availableValues.length) {
-      // All values are selected: equivalent to clearing the filter
+    // If 0 items selected (user clicked Clear or unchecked all) OR all available values selected:
+    // This is equivalent to clearing the filter!
+    const isAllAvailableSelected =
+      availableValues.length > 0 &&
+      availableValues.every((item) => draftSelection.has(item.value))
+
+    if (
+      draftSelection.size === 0 ||
+      draftSelection.size >= availableValues.length ||
+      isAllAvailableSelected
+    ) {
       onClearFilter()
     } else {
       onApplyFilter(new Set(draftSelection))
@@ -317,6 +330,18 @@ export default function ExcelFilterDropdown({
 
       {/* ── Footer Actions ───────────────────────────────────── */}
       <div className="dropdown-footer">
+        {isFiltered && (
+          <button
+            type="button"
+            className="btn-dropdown-clear"
+            onClick={() => {
+              onClearFilter()
+              onClose()
+            }}
+          >
+            Clear Filter
+          </button>
+        )}
         <button type="button" className="btn-dropdown-cancel" onClick={onClose}>
           Cancel
         </button>

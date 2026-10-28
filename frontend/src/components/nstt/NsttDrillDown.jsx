@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNstt } from '../../context/NsttContext'
 import ExcelFilterDropdown from './ExcelFilterDropdown'
 import './NsttDrillDown.css'
@@ -247,7 +247,11 @@ export default function NsttDrillDown() {
     drilldownData,
     closeDrilldown,
     bifurcationQuery,
+    setBifurcationQuery,
   } = useNstt()
+
+  const tableWrapperRef = useRef(null)
+  const hasAutoScrolledRef = useRef(false)
 
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -280,7 +284,18 @@ export default function NsttDrillDown() {
     setColumnFilters({})
     setSortConfig(null)
     setOpenDropdownCol(null)
+    hasAutoScrolledRef.current = false
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollTop = 0
+    }
   }, [drilldownCategory])
+
+  // Reset auto-scroll flag when drilldown drawer closes
+  useEffect(() => {
+    if (!isDrilldownOpen) {
+      hasAutoScrolledRef.current = false
+    }
+  }, [isDrilldownOpen])
 
   // ESC key to close modal drawer when no dropdown is open
   useEffect(() => {
@@ -293,18 +308,26 @@ export default function NsttDrillDown() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isDrilldownOpen, openDropdownCol, closeDrilldown])
 
-  // Auto-scroll to highlighted record row inside drilldown table
+  // Auto-scroll to highlighted record row inside drilldown table ONCE on initial open
   useEffect(() => {
-    if (isDrilldownOpen && bifurcationQuery && !isDrilldownLoading) {
+    if (
+      isDrilldownOpen &&
+      bifurcationQuery &&
+      !isDrilldownLoading &&
+      !hasAutoScrolledRef.current
+    ) {
       const timer = setTimeout(() => {
-        const highlightedRow = document.querySelector('.drilldown-row-highlighted')
+        const highlightedRow = tableWrapperRef.current?.querySelector(
+          '.drilldown-row-highlighted'
+        )
         if (highlightedRow) {
           highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          hasAutoScrolledRef.current = true
         }
-      }, 180)
+      }, 200)
       return () => clearTimeout(timer)
     }
-  }, [isDrilldownOpen, bifurcationQuery, isDrilldownLoading, currentPage])
+  }, [isDrilldownOpen, bifurcationQuery, isDrilldownLoading])
 
   // Lock background window scroll when drilldown drawer is open
   useEffect(() => {
@@ -373,7 +396,12 @@ export default function NsttDrillDown() {
         label: 'INCIDENTID',
         headerClass: 'sticky-col-2 col-incident-id',
         tdClass: 'sticky-col-2 col-incident-id font-mono font-bold',
-        render: (r) => <MultiIdCell value={r.INCIDENTID} searchQuery={bifurcationQuery} />,
+        render: (r) => (
+          <MultiIdCell
+            value={getRecordValue(r, 'INCIDENTID')}
+            searchQuery={bifurcationQuery}
+          />
+        ),
       },
       {
         id: 'SR_NUMBER',
@@ -382,7 +410,7 @@ export default function NsttDrillDown() {
         tdClass: 'col-sr-number font-mono',
         render: (r) => (
           <MultiIdCell
-            value={r.SRNUMBER || r.SR_NUMBER || r['SR NUMBER'] || r.SRNO || r['SR NO']}
+            value={getRecordValue(r, 'SR_NUMBER')}
             searchQuery={bifurcationQuery}
           />
         ),
@@ -397,7 +425,7 @@ export default function NsttDrillDown() {
         tdClass: 'col-automation-nstt font-mono text-sm',
         render: (r) => (
           <MultiIdCell
-            value={r.AUTOMATION_UPDATE_NSTT_NUMBER}
+            value={getRecordValue(r, 'AUTOMATION_UPDATE_NSTT_NUMBER')}
             searchQuery={bifurcationQuery}
           />
         ),
@@ -647,11 +675,27 @@ export default function NsttDrillDown() {
 
   // Filter actions
   const handleApplyColumnFilter = (colId, selectedValuesSet) => {
+    const allAvailable = getAvailableValuesForColumn(colId)
+    // If all available values or none are selected, treat as clearing the filter
+    if (
+      !selectedValuesSet ||
+      selectedValuesSet.size === 0 ||
+      selectedValuesSet.size >= allAvailable.length ||
+      allAvailable.every((item) => selectedValuesSet.has(item.value))
+    ) {
+      handleClearColumnFilter(colId)
+      return
+    }
+
     setColumnFilters((prev) => ({
       ...prev,
       [colId]: selectedValuesSet,
     }))
     setCurrentPage(1)
+    hasAutoScrolledRef.current = true
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollTop = 0
+    }
   }
 
   const handleClearColumnFilter = (colId) => {
@@ -660,18 +704,42 @@ export default function NsttDrillDown() {
       delete next[colId]
       return next
     })
+    // If this column had active sorting, reset it back to original state
+    setSortConfig((prevSort) => (prevSort?.colId === colId ? null : prevSort))
+    // Close open dropdown for this column
+    setOpenDropdownCol(null)
+    // Clear any previous bifurcation locator search highlight
+    if (setBifurcationQuery) {
+      setBifurcationQuery('')
+    }
     setCurrentPage(1)
+    hasAutoScrolledRef.current = true
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollTop = 0
+    }
   }
 
   const handleClearAllFilters = () => {
     setColumnFilters({})
     setSortConfig(null)
+    setOpenDropdownCol(null)
+    if (setBifurcationQuery) {
+      setBifurcationQuery('')
+    }
     setCurrentPage(1)
+    hasAutoScrolledRef.current = true
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollTop = 0
+    }
   }
 
   const handleSort = (colId, direction) => {
     setSortConfig({ colId, direction })
     setCurrentPage(1)
+    hasAutoScrolledRef.current = true
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollTop = 0
+    }
   }
 
   const toggleFilterDropdown = (colId, e) => {
@@ -679,10 +747,10 @@ export default function NsttDrillDown() {
     setOpenDropdownCol((prev) => (prev === colId ? null : colId))
   }
 
-  // Active filter count
+  // Active filter count (tracks active column filters only)
   const activeFilterCount = useMemo(() => {
     return Object.keys(columnFilters).filter(
-      (colId) => columnFilters[colId] instanceof Set
+      (colId) => columnFilters[colId] instanceof Set && columnFilters[colId].size > 0
     ).length
   }, [columnFilters])
 
@@ -830,6 +898,9 @@ export default function NsttDrillDown() {
               onChange={(e) => {
                 setPageSize(Number(e.target.value))
                 setCurrentPage(1)
+                if (tableWrapperRef.current) {
+                  tableWrapperRef.current.scrollTop = 0
+                }
               }}
             >
               <option value={10}>10</option>
@@ -867,7 +938,7 @@ export default function NsttDrillDown() {
               )}
             </div>
           ) : (
-            <div className="drilldown-table-wrapper">
+            <div ref={tableWrapperRef} className="drilldown-table-wrapper">
               <table className="drilldown-table">
                 <thead>
                   <tr>
@@ -941,9 +1012,12 @@ export default function NsttDrillDown() {
                   {paginatedRecords.map((r, i) => {
                     const rowIdx = (currentPage - 1) * pageSize + i + 1
                     const isMatched = isRecordMatchingSearch(r)
+                    const incId = getRecordValue(r, 'INCIDENTID')
+                    const srNo = getRecordValue(r, 'SR_NUMBER')
+                    const uniqueKey = `${incId || 'row'}_${srNo || 'sr'}_${r.id ?? rowIdx}`
                     return (
                       <tr
-                        key={r.INCIDENTID || i}
+                        key={uniqueKey}
                         className={isMatched ? 'drilldown-row-highlighted' : ''}
                       >
                         <td className={`sticky-col text-muted${isMatched ? ' drilldown-cell-highlighted' : ''}`}>{rowIdx}</td>
@@ -973,7 +1047,10 @@ export default function NsttDrillDown() {
                 type="button"
                 className="page-btn"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
+                onClick={() => {
+                  setCurrentPage(1)
+                  if (tableWrapperRef.current) tableWrapperRef.current.scrollTop = 0
+                }}
               >
                 « First
               </button>
@@ -981,7 +1058,10 @@ export default function NsttDrillDown() {
                 type="button"
                 className="page-btn"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => {
+                  setCurrentPage((p) => Math.max(1, p - 1))
+                  if (tableWrapperRef.current) tableWrapperRef.current.scrollTop = 0
+                }}
               >
                 ‹ Prev
               </button>
@@ -992,7 +1072,10 @@ export default function NsttDrillDown() {
                 type="button"
                 className="page-btn"
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => {
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  if (tableWrapperRef.current) tableWrapperRef.current.scrollTop = 0
+                }}
               >
                 Next ›
               </button>
@@ -1000,7 +1083,10 @@ export default function NsttDrillDown() {
                 type="button"
                 className="page-btn"
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(totalPages)}
+                onClick={() => {
+                  setCurrentPage(totalPages)
+                  if (tableWrapperRef.current) tableWrapperRef.current.scrollTop = 0
+                }}
               >
                 Last »
               </button>
