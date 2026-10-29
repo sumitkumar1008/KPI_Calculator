@@ -301,6 +301,7 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.95rem;
+  border-left: 1px solid var(--line, #cbd5e1);
 }
 
 .drilldown-table th {
@@ -312,6 +313,7 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
   font-weight: 700;
   color: var(--muted, #475569);
   border-bottom: 2px solid var(--line, #cbd5e1);
+  border-right: 1px solid var(--line, #cbd5e1);
   white-space: nowrap;
   z-index: 20;
   user-select: none;
@@ -751,6 +753,7 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
 .drilldown-table td {
   padding: 11px 15px;
   border-bottom: 1px solid var(--line, #e2e8f0);
+  border-right: 1px solid var(--line, #cbd5e1);
   color: var(--ink, #334155);
   white-space: nowrap;
   vertical-align: middle;
@@ -836,6 +839,7 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
 .drilldown-table th.col-desc {
   width: 440px;
   min-width: 380px;
+  text-align: center;
 }
 
 .drilldown-table td.col-desc {
@@ -846,10 +850,20 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
   word-break: break-word;
   overflow-wrap: anywhere;
   line-height: 1.5;
-  vertical-align: top;
+  vertical-align: middle;
+  text-align: center;
 }
 
-.drilldown-table td.col-desc .desc-full-text,
+.drilldown-table td.col-desc .desc-full-text {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  text-align: center;
+  margin: 0 auto;
+}
+
 .drilldown-table td.col-rca .desc-full-text {
   display: block;
   white-space: pre-wrap;
@@ -863,6 +877,7 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
   width: 320px;
   min-width: 260px;
   max-width: 440px;
+  vertical-align: middle;
 }
 
 /* ── Multi-ID Cell & Token Styling (3-4 IDs per line, rest below) ── */
