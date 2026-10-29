@@ -9,6 +9,14 @@ or across the network.
 import os
 import sys
 
+# Ensure UTF-8 console output on Windows to avoid UnicodeEncodeError in logging
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Add the backend root directory to Python's module search path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 

@@ -67,7 +67,12 @@
 
 .login-header {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 28px;
+  width: 100%;
 }
 
 .login-header h1 {
@@ -76,12 +81,60 @@
   font-weight: 700;
   color: var(--ink, #253247);
   letter-spacing: -0.02em;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
 }
 
 .login-header p {
   margin: 0;
   font-size: 14px;
   color: var(--muted, #617083);
+  text-align: center;
+  width: 100%;
+}
+
+/* =========================================
+   LOGIN ERROR ALERT
+   ========================================= */
+
+.login-error-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 550;
+  animation: loginShake 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.login-error-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+@keyframes loginShake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+  40%, 60% { transform: translate3d(3px, 0, 0); }
+}
+
+.form-group input.input-error {
+  border-color: #ef4444 !important;
+  background-color: #fffaf0 !important;
+}
+
+.form-group input.input-error:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
 }
 
 /* =========================================

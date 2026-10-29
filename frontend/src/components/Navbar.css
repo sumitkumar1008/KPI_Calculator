@@ -54,8 +54,7 @@
   text-transform: uppercase;
 }
 
-.navbar-title,
-h1 {
+.navbar-title {
   margin: 0 0 2px;
   color: var(--ink);
   font-size: 25px;

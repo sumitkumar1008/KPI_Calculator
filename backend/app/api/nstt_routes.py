@@ -181,6 +181,9 @@ def upload_nstt_files():
                 "missing_columns": [],
             }), 400
 
+        namo_rows_count = int(len(namo_df))
+        remedy_rows_count = int(len(remedy_df))
+
         if validation.get("swapped"):
             nstt_logger.info(
                 f"Detected reversed file slots based on column headers: "
@@ -256,14 +259,6 @@ def upload_nstt_files():
         t_master_end = time.perf_counter()
         master_builder_ms = round((t_master_end - t_master_start) * 1000, 2)
 
-        namo_row_count = int(len(namo_df))
-        remedy_row_count = int(len(remedy_df))
-
-        # Explicitly free DataFrames and force immediate garbage collection to keep RAM under 512MB
-        del namo_df, remedy_df, validation, enriched_df, final_df, remedy_impact_df, inc_nums, impacts
-        import gc
-        gc.collect()
-
         # Compile processing statistics & warnings
         warnings = []
         if join_result["unmatched_count"] > 0:
@@ -288,8 +283,8 @@ def upload_nstt_files():
         }
 
         stats = {
-            "namo_rows": namo_row_count,
-            "remedy_rows": remedy_row_count,
+            "namo_rows": namo_rows_count,
+            "remedy_rows": remedy_rows_count,
             "matched": int(join_result["matched_count"]),
             "unmatched": int(join_result["unmatched_count"]),
             "duplicates": int(dup_result["duplicate_records_count"]),
@@ -304,6 +299,11 @@ def upload_nstt_files():
         t_cache_end = time.perf_counter()
         cache_store_ms = round((t_cache_end - t_cache_start) * 1000, 2)
         perf_breakdown["cache_store_ms"] = cache_store_ms
+
+        # Explicitly free intermediate DataFrames and force immediate garbage collection to keep RAM under 512MB
+        del namo_df, remedy_df, validation, enriched_df, final_df, remedy_impact_df, inc_nums, impacts
+        import gc
+        gc.collect()
 
         nstt_logger.info(
             f"⏱️ [NSTT PERF COUNTER - UPLOAD COMPLETE]\n"

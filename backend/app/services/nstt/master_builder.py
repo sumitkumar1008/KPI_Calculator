@@ -63,7 +63,23 @@ def build_master_response(enriched_df: pd.DataFrame) -> Dict[str, Any]:
             "columns": [],
         }
 
-    raw_records = enriched_df.to_dict(orient="records")
+    # Ensure all column names are unique strings to prevent duplicate column omissions
+    df_to_export = enriched_df
+    if df_to_export.columns.duplicated().any():
+        seen = {}
+        new_cols = []
+        for c in df_to_export.columns:
+            c_str = str(c).strip() if c is not None and not pd.isna(c) else "UNNAMED"
+            if c_str in seen:
+                seen[c_str] += 1
+                new_cols.append(f"{c_str}_{seen[c_str]}")
+            else:
+                seen[c_str] = 0
+                new_cols.append(c_str)
+        df_to_export = df_to_export.copy()
+        df_to_export.columns = new_cols
+
+    raw_records = df_to_export.to_dict(orient="records")
     clean_records: List[Dict[str, Any]] = []
 
     for rec in raw_records:
@@ -81,7 +97,7 @@ def build_master_response(enriched_df: pd.DataFrame) -> Dict[str, Any]:
     import gc
     gc.collect()
 
-    cols = [str(c).strip() if c is not None and not pd.isna(c) else "UNNAMED" for c in enriched_df.columns]
+    cols = [str(c).strip() if c is not None and not pd.isna(c) else "UNNAMED" for c in df_to_export.columns]
 
     return {
         "records": clean_records,

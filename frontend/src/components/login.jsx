@@ -2,15 +2,31 @@ import { useState } from "react";
 import Footer from "./Footer";
 import "./login.css";
 
+const VALID_EMAIL = "airtelcenter@gmail.com";
+const VALID_PASSWORD = "Airtel@center123";
+
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    console.log("Email:", email);
-    console.log("Password:", password);
+    setErrorMessage("");
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (normalizedEmail !== VALID_EMAIL.toLowerCase()) {
+      setErrorMessage("Wrong email id");
+      return;
+    }
+
+    if (password !== VALID_PASSWORD) {
+      setErrorMessage("Incorrect password");
+      return;
+    }
+
     onLogin();
   };
 
@@ -32,6 +48,14 @@ function Login({ onLogin }) {
           <p>Please login to your account</p>
         </div>
 
+        {/* Error Alert Banner */}
+        {errorMessage && (
+          <div className="login-error-alert" role="alert">
+            <span className="login-error-icon">⚠️</span>
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="login-form">
           {/* Email */}
@@ -42,7 +66,11 @@ function Login({ onLogin }) {
               type="email"
               placeholder="Enter your email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              className={errorMessage && errorMessage.includes("email") ? "input-error" : ""}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (errorMessage) setErrorMessage("");
+              }}
               required
             />
           </div>
@@ -56,7 +84,11 @@ function Login({ onLogin }) {
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                className={errorMessage && errorMessage.includes("password") ? "input-error" : ""}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (errorMessage) setErrorMessage("");
+                }}
                 required
               />
               <button
