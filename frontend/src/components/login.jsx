@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Footer from "./Footer";
 import "./login.css";
 
 const VALID_EMAIL = "airtelcenter@gmail.com";
@@ -32,12 +31,11 @@ function Login({ onLogin }) {
 
   return (
     <div className="login-page">
-      <div className="login-card-container">
-        <div className="login-card">
+      <div className="login-card">
         {/* Airtel Logo */}
         <div className="company-logo">
           <img
-            src="https://res.cloudinary.com/t5lye7wm/image/upload/v1787722271/airtel_logo_project-removebg-preview.png"
+            src="https://res.cloudinary.com/t5lye7wm/image/upload/e_trim/v1787722271/airtel_logo_project-removebg-preview.png"
             alt="Airtel Logo"
           />
         </div>
@@ -122,8 +120,6 @@ function Login({ onLogin }) {
           </button>
         </form>
       </div>
-      </div>
-      <Footer />
     </div>
   );
 }
