@@ -552,14 +552,10 @@ export default function NsttDrillDown() {
         id: 'DESCRIPTION',
         label: 'DESCRIPTION',
         headerClass: 'col-desc',
-        tdClass: 'col-desc text-desc',
+        tdClass: 'col-desc',
         render: (r) => (
-          <span title={r.DESCRIPTION || ''}>
-            {r.DESCRIPTION
-              ? r.DESCRIPTION.length > 80
-                ? `${r.DESCRIPTION.slice(0, 80)}...`
-                : r.DESCRIPTION
-              : '—'}
+          <span className="desc-full-text" title={r.DESCRIPTION || ''}>
+            {r.DESCRIPTION || '—'}
           </span>
         ),
       }

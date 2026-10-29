@@ -833,11 +833,28 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
   min-width: 155px;
 }
 
-.drilldown-table th.col-desc,
+.drilldown-table th.col-desc {
+  width: 440px;
+  min-width: 380px;
+}
+
 .drilldown-table td.col-desc {
-  width: 260px;
-  min-width: 220px;
-  max-width: 300px;
+  width: auto;
+  min-width: 380px;
+  max-width: 650px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+.drilldown-table td.col-desc .desc-full-text {
+  display: block;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .drilldown-table th.col-rca,
