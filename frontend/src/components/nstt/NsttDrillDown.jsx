@@ -382,31 +382,11 @@ export default function NsttDrillDown() {
     return false
   }, [drilldownCategory, records])
 
-  // Detect if current drilldown is for Unstitched or failure category containing Unstitched
+  // Only display AUTOMATION_RCA_CONCLUSION for the Unstitched category of the failure table from manually tagged nstt before sr creation
   const isUnstitchedCategory = useMemo(() => {
-    const cat = String(drilldownCategory || '').toLowerCase()
-    if (cat.includes('unstitched')) return true
-    if (
-      records.length > 0 &&
-      records.some((r) => {
-        const fc = String(r.failure_category || '').toLowerCase()
-        if (fc.includes('unstitched')) return true
-        const rca = String(
-          r.AUTOMATION_RCA_CONCLUSION_TEXT_1 ??
-          r.AUTOMATION_RCA_TEXT_1 ??
-          r.AUTOMATION_RCA_CONCLUSION_TEXT ??
-          r['AUTOMATION RCA CONCLUSION TEXT'] ??
-          r.AUTOMATION_RCA_CONCLUSION ??
-          r.automation_rca_conclusion_text ??
-          ''
-        ).toLowerCase()
-        return rca.includes('unstitched')
-      })
-    ) {
-      return true
-    }
-    return false
-  }, [drilldownCategory, records])
+    const cat = String(drilldownCategory || drilldownData?.category || '').toLowerCase().trim()
+    return cat === 'failures.unstitched' || cat === 'unstitched' || cat.endsWith('.unstitched')
+  }, [drilldownCategory, drilldownData])
 
   // Define columns structure dynamically
   const columns = useMemo(() => {
@@ -880,6 +860,14 @@ export default function NsttDrillDown() {
     if (isManualCaptured) {
       excludedCols.add('AUTOMATION_UPDATE_NSTT_NUMBER')
       excludedCols.add('automation_update_nstt_number')
+    }
+    if (!isUnstitchedCategory) {
+      excludedCols.add('AUTOMATION_RCA_CONCLUSION_TEXT')
+      excludedCols.add('AUTOMATION RCA CONCLUSION TEXT')
+      excludedCols.add('AUTOMATION_RCA_CONCLUSION')
+      excludedCols.add('AUTOMATION RCA CONCLUSION')
+      excludedCols.add('automation_rca_conclusion_text')
+      excludedCols.add('rca_conclusion_text')
     }
     const headers = Object.keys(filteredRecords[0]).filter((h) => !excludedCols.has(h))
     const csvRows = [
