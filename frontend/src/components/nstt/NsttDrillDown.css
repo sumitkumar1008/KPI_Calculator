@@ -849,9 +849,10 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
   vertical-align: top;
 }
 
-.drilldown-table td.col-desc .desc-full-text {
+.drilldown-table td.col-desc .desc-full-text,
+.drilldown-table td.col-rca .desc-full-text {
   display: block;
-  white-space: normal;
+  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
   line-height: 1.5;
@@ -859,9 +860,9 @@ html[data-theme="dark"] .active-filter-pill.search-active-pill .pill-col-name,
 
 .drilldown-table th.col-rca,
 .drilldown-table td.col-rca {
-  width: 260px;
-  min-width: 220px;
-  max-width: 300px;
+  width: 320px;
+  min-width: 260px;
+  max-width: 440px;
 }
 
 /* ── Multi-ID Cell & Token Styling (3-4 IDs per line, rest below) ── */

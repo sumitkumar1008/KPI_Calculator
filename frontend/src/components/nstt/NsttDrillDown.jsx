@@ -128,15 +128,27 @@ function getRecordValue(r, colId) {
       return String(v).trim()
     }
     case 'AUTOMATION_RCA_CONCLUSION_TEXT': {
-      const v =
-        r.AUTOMATION_RCA_CONCLUSION_TEXT ??
-        r['AUTOMATION RCA CONCLUSION TEXT'] ??
-        r.AUTOMATION_RCA_CONCLUSION ??
-        r['AUTOMATION_RCA_CONCLUSION'] ??
-        r.automation_rca_conclusion_text ??
-        r.rca_conclusion_text ??
-        ''
-      return String(v).trim()
+      const candidates = [
+        r.AUTOMATION_RCA_CONCLUSION_TEXT_1,
+        r['AUTOMATION RCA CONCLUSION TEXT 1'],
+        r.AUTOMATION_RCA_TEXT_1,
+        r['AUTOMATION RCA TEXT 1'],
+        r.AUTOMATION_RCA_CONCLUSION_TEXT,
+        r['AUTOMATION RCA CONCLUSION TEXT'],
+        r.AUTOMATION_RCA_CONCLUSION,
+        r['AUTOMATION_RCA_CONCLUSION'],
+        r.automation_rca_conclusion_text,
+        r.rca_conclusion_text,
+      ]
+      for (const c of candidates) {
+        if (c && typeof c === 'string') {
+          const trimmed = c.trim()
+          if (trimmed && !['y', 'n', 'nan', 'none'].includes(trimmed.toLowerCase())) {
+            return trimmed
+          }
+        }
+      }
+      return String(r.AUTOMATION_RCA_CONCLUSION_TEXT ?? r['AUTOMATION RCA CONCLUSION TEXT'] ?? '').trim()
     }
     default:
       return String(r[colId] ?? '').trim()
@@ -380,6 +392,8 @@ export default function NsttDrillDown() {
         const fc = String(r.failure_category || '').toLowerCase()
         if (fc.includes('unstitched')) return true
         const rca = String(
+          r.AUTOMATION_RCA_CONCLUSION_TEXT_1 ??
+          r.AUTOMATION_RCA_TEXT_1 ??
           r.AUTOMATION_RCA_CONCLUSION_TEXT ??
           r['AUTOMATION RCA CONCLUSION TEXT'] ??
           r.AUTOMATION_RCA_CONCLUSION ??
@@ -564,23 +578,36 @@ export default function NsttDrillDown() {
     if (isUnstitchedCategory) {
       cols.push({
         id: 'AUTOMATION_RCA_CONCLUSION_TEXT',
-        label: 'AUTOMATION RCA CONCLUSION',
+        label: 'AUTOMATION RCA CONCLUSION TEXT',
         headerClass: 'col-rca',
         tdClass: 'col-rca text-desc',
         render: (r) => {
-          const val =
-            r.AUTOMATION_RCA_CONCLUSION_TEXT ??
-            r['AUTOMATION RCA CONCLUSION TEXT'] ??
-            r.AUTOMATION_RCA_CONCLUSION ??
-            r.automation_rca_conclusion_text ??
-            ''
+          const candidates = [
+            r.AUTOMATION_RCA_CONCLUSION_TEXT_1,
+            r['AUTOMATION RCA CONCLUSION TEXT 1'],
+            r.AUTOMATION_RCA_TEXT_1,
+            r['AUTOMATION RCA TEXT 1'],
+            r.AUTOMATION_RCA_CONCLUSION_TEXT,
+            r['AUTOMATION RCA CONCLUSION TEXT'],
+            r.AUTOMATION_RCA_CONCLUSION,
+            r.automation_rca_conclusion_text,
+          ]
+          let val = ''
+          for (const c of candidates) {
+            if (c && typeof c === 'string') {
+              const trimmed = c.trim()
+              if (trimmed && !['y', 'n', 'nan', 'none'].includes(trimmed.toLowerCase())) {
+                val = trimmed
+                break
+              }
+            }
+          }
+          if (!val) {
+            val = r.AUTOMATION_RCA_CONCLUSION_TEXT ?? r['AUTOMATION RCA CONCLUSION TEXT'] ?? ''
+          }
           return (
-            <span title={val || ''}>
-              {val
-                ? val.length > 80
-                  ? `${val.slice(0, 80)}...`
-                  : val
-                : '—'}
+            <span className="desc-full-text" title={val || ''}>
+              {val || '—'}
             </span>
           )
         },

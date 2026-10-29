@@ -99,31 +99,40 @@ def _contains_section(val: Any) -> bool:
 def _get_rca_text(rec: Dict[str, Any]) -> str:
     """
     Extracts AUTOMATION_RCA_CONCLUSION_TEXT from a record,
-    checking canonical name and any common aliases or case variations.
+    checking canonical name, numbered suffixes (e.g. AUTOMATION_RCA_CONCLUSION_TEXT_1),
+    and common aliases, ignoring boolean flag values like 'Y', 'N', 'TRUE', 'FALSE'.
     """
-    for key in (
+    texts = []
+    priority_keys = (
+        "AUTOMATION_RCA_CONCLUSION_TEXT_1",
         "AUTOMATION_RCA_CONCLUSION_TEXT",
         "AUTOMATION RCA CONCLUSION TEXT",
+        "AUTOMATION_RCA_TEXT_1",
+        "AUTOMATION_RCA_TEXT",
         "AUTOMATION_RCA_CONCLUSION",
         "RCA_CONCLUSION_TEXT",
         "RCA_CONCLUSION",
         "AUTOMATION_RCA",
-    ):
+    )
+    for key in priority_keys:
         v = rec.get(key)
         if v is not None and not (isinstance(v, float) and pd.isna(v)):
             s = str(v).strip()
-            if s and s.lower() not in ("nan", "none"):
-                return s
+            if s and s.lower() not in ("nan", "none", "y", "n", "yes", "no", "true", "false"):
+                texts.append(s)
 
-    # Fallback: scan any key containing RCA and CONCLUSION
+    # Fallback: scan any remaining keys containing RCA or CONCLUSION
     for k, v in rec.items():
-        if k and "RCA" in str(k).upper() and "CONCLUSION" in str(k).upper():
+        if not k:
+            continue
+        k_upper = str(k).upper()
+        if ("RCA" in k_upper or "CONCLUSION" in k_upper) and k not in priority_keys:
             if v is not None and not (isinstance(v, float) and pd.isna(v)):
                 s = str(v).strip()
-                if s and s.lower() not in ("nan", "none"):
-                    return s
+                if s and s.lower() not in ("nan", "none", "y", "n", "yes", "no", "true", "false"):
+                    texts.append(s)
 
-    return ""
+    return " \n ".join(texts)
 
 
 def _contains_unstitched(rca_val: Any) -> bool:
@@ -162,10 +171,9 @@ def apply_failure_analysis(records: List[Dict[str, Any]]) -> None:
       - "NSTT Number not found in Remedy": Manual records not found in Remedy (is_matched == False).
       - "Manually tagged – NSTT Before SR Creation" table categories:
           1. Unstitched (AUTOMATION_RCA_CONCLUSION_TEXT contains 'FLT Observations for Unstitched LSI')
-          2. Node Exclusion → Others (all node / node-isolation descriptions)
-          3. Ring Failure (DESCRIPTION contains 'ring fail'/'ring failure'/'Ring Collapse', NOT node)
-          4. Section Failure (DESCRIPTION contains 'Section')
-          5. Others (all remaining Before SR Creation records)
+          2. Ring Failure (DESCRIPTION contains 'ring fail'/'ring failure'/'Ring Collapse', NOT node)
+          3. Section Failure (DESCRIPTION contains 'Section')
+          4. Others (all remaining Before SR Creation records)
 
     Args:
         records: List of record dicts from the Master Response.
@@ -192,32 +200,24 @@ def apply_failure_analysis(records: List[Dict[str, Any]]) -> None:
         rca_text = _get_rca_text(rec)
 
         # Priority 2: Unstitched
-        # In "AUTOMATION_RCA_CONCLUSION_TEXT" of NAMO, if "FLT Observations for Unstitched LSI"
-        # (also checks DESCRIPTION as fallback if RCA is blank)
+        # In “AUTOMATION_RCA_CONCLUSION_TEXT” of NAMO, if “FLT Observations for Unstitched LSI” this is coming
         if _contains_unstitched(rca_text) or (not rca_text and _contains_unstitched(description)):
             rec["failure_category"] = FAIL_UNSTITCHED
             continue
 
-        # Priority 3: Node / Node Isolation Exclusion
-        # "for the ring fail dont count the node isolation descriptions in this
-        #  remove all node description and insert it in other category"
-        if _is_node_description(description):
-            rec["failure_category"] = FAIL_OTHERS
-            continue
-
-        # Priority 4: Ring Failure
-        # In "DESCRIPTION" column of Remedy, if the value contains:
-        # "ring fail", "ring failure", "ringfailure", "Ring Collapse" (ignore uppercase, spaces etc.)
-        if _contains_ring(description):
+        # Priority 3: Ring Failure
+        # In “DESCRIPTION” column of remedy , if the value contains:
+        # “ring fail”, “ring failure” , “ringfailure” , “Ring Collapse” (ignore uppercase , spaces etc)
+        if _contains_ring(description) and not _is_node_description(description):
             rec["failure_category"] = FAIL_RING
             continue
 
-        # Priority 5: Section Failure
-        # In "DESCRIPTION" column of Remedy, if the value contains "Section" (ignore uppercase, spaces etc.)
+        # Priority 4: Section Failure
+        # In “DESCRIPTION” column of remedy , if the value contains “Section” (ignore uppercase , spaces etc)
         if _contains_section(description):
             rec["failure_category"] = FAIL_SECTION
             continue
 
-        # Priority 6: All remaining "Before SR Creation" records → Others
+        # Priority 5: All remaining "Before SR Creation" records → Others
         rec["failure_category"] = FAIL_OTHERS
 
