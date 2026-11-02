@@ -21,14 +21,14 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
-def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
+def _parse_read_only_openpyxl(stream_or_path: Any, target_columns: list[str] | None = None) -> pd.DataFrame | None:
     """
     Lightweight openpyxl SAX streaming parser (read_only=True, data_only=True).
     Reduces memory usage from ~450MB down to ~15MB for large Excel files to prevent Render OOM kills.
-    Skips leading metadata rows, trims trailing phantom empty columns, and breaks on ghost empty rows.
+    Supports target_columns projection to skip unused columns at the XML parser level.
     """
     t_start = time.perf_counter()
-    logger.info("--> Attempting openpyxl SAX read-only streaming parser...")
+    logger.info(f"--> Attempting openpyxl SAX streaming parser (column projection: {bool(target_columns)})...")
     try:
         wb = openpyxl.load_workbook(stream_or_path, read_only=True, data_only=True)
         sheet = wb.active
@@ -56,47 +56,59 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
             logger.warning("openpyxl could not detect valid column headers.")
             return None
 
-        num_cols = len(headers)
+        # Build column index projection if target_columns is requested
+        target_upper = {str(c).strip().upper(): c for c in target_columns} if target_columns else None
+        needed_indices = []
+        out_headers = []
+        if target_upper:
+            for idx, h in enumerate(headers):
+                if h.upper() in target_upper:
+                    needed_indices.append(idx)
+                    out_headers.append(h)
+        if not needed_indices:
+            needed_indices = list(range(len(headers)))
+            out_headers = headers
+
+        num_needed = len(needed_indices)
         data = []
         consecutive_empty = 0
         for row in rows_gen:
-            row_slice = list(row[:num_cols])
-            # Check if this row has any non-blank value
+            # Strictly project only the needed cells; ignores all other cells in the row!
+            row_slice = [row[i] if i < len(row) else None for i in needed_indices]
             if any(c is not None and (not isinstance(c, str) or c.strip() != "") for c in row_slice):
-                if len(row_slice) < num_cols:
-                    row_slice.extend([None] * (num_cols - len(row_slice)))
                 data.append(row_slice)
                 consecutive_empty = 0
             else:
                 consecutive_empty += 1
-                # Stop parsing if we encounter 50 consecutive blank rows (prevents parsing millions of ghost rows)
+                # Stop parsing if we encounter 50 consecutive blank rows
                 if consecutive_empty >= 50:
                     break
 
         wb.close()
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
-        logger.info(f"✅ openpyxl SAX succeeded: {len(data):,} rows, {num_cols} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
-        return pd.DataFrame(data, columns=headers)
+        logger.info(f"✅ openpyxl SAX succeeded: {len(data):,} rows, {num_needed} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
+        return pd.DataFrame(data, columns=out_headers)
     except Exception as exc:
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
         logger.warning(f"⚠️ openpyxl SAX parser failed in {elapsed_ms} ms: {type(exc).__name__}: {exc}")
         return None
 
 
-def _parse_with_calamine(target: Any) -> pd.DataFrame | None:
+def _parse_with_calamine(target: Any, target_columns: list[str] | None = None) -> pd.DataFrame | None:
     """
     Ultra-fast Excel reader powered by python-calamine (compiled Rust engine).
-    Parses large Excel files in 1-2s (10x-50x faster than openpyxl) with minimal memory (~25MB vs ~400MB).
-    Prevents Render worker timeouts and OOM crashes.
+    Parses large Excel files in 1-2s with minimal memory.
     """
     t_start = time.perf_counter()
-    logger.info("--> Attempting fast Excel parsing via python-calamine (Rust engine)...")
+    target_upper = {str(c).strip().upper() for c in target_columns} if target_columns else None
+    logger.info(f"--> Attempting fast Excel parsing via python-calamine (projection: {bool(target_columns)})...")
 
     # Path A: pandas native calamine engine
     try:
         if hasattr(target, "seek"):
             target.seek(0)
-        df = pd.read_excel(target, engine="calamine")
+        usecols_fn = (lambda c: str(c).strip().upper() in target_upper) if target_upper else None
+        df = pd.read_excel(target, engine="calamine", usecols=usecols_fn)
         if df is not None and not df.empty:
             df.columns = [str(c).strip() if c is not None and str(c).strip() != "" else f"UNNAMED_{i}" for i, c in enumerate(df.columns)]
             elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
@@ -142,14 +154,25 @@ def _parse_with_calamine(target: Any) -> pd.DataFrame | None:
             logger.warning("Calamine could not find non-empty header row.")
             return None
 
-        num_cols = len(headers)
+        # Build column index projection if target_columns is requested
+        target_upper = {str(c).strip().upper() for c in target_columns} if target_columns else None
+        needed_indices = []
+        out_headers = []
+        if target_upper:
+            for idx, h in enumerate(headers):
+                if h.upper() in target_upper:
+                    needed_indices.append(idx)
+                    out_headers.append(h)
+        if not needed_indices:
+            needed_indices = list(range(len(headers)))
+            out_headers = headers
+
+        num_needed = len(needed_indices)
         data = []
         consecutive_empty = 0
         for row in rows[data_start_idx:]:
-            row_slice = list(row[:num_cols])
+            row_slice = [row[i] if i < len(row) else None for i in needed_indices]
             if any(c is not None and (not isinstance(c, str) or c.strip() != "") for c in row_slice):
-                if len(row_slice) < num_cols:
-                    row_slice.extend([None] * (num_cols - len(row_slice)))
                 data.append(row_slice)
                 consecutive_empty = 0
             else:
@@ -157,9 +180,9 @@ def _parse_with_calamine(target: Any) -> pd.DataFrame | None:
                 if consecutive_empty >= 50:
                     break
 
-        df = pd.DataFrame(data, columns=headers)
+        df = pd.DataFrame(data, columns=out_headers)
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
-        logger.info(f"✅ Calamine (direct workbook) succeeded: {len(df):,} rows, {len(df.columns)} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
+        logger.info(f"✅ Calamine (direct workbook) succeeded: {len(df):,} rows, {num_needed} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
         return df
     except Exception as exc:
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
@@ -217,12 +240,14 @@ def get_excel_sheet_names(stream_or_path_or_bytes: Any) -> list[str]:
     return []
 
 
-def parse_excel_raw(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
+def parse_excel_raw(stream_or_path_or_bytes: Any, target_columns: list[str] | None = None) -> pd.DataFrame | None:
     """
     Parses Excel (.xlsx or .xls) binary files into a pandas DataFrame using openpyxl or xlrd multi-engine fallbacks.
+    Supports target_columns to prune unused columns upfront for low memory footprint on 512MB RAM.
     
     Args:
         stream_or_path_or_bytes: BytesIO buffer, FileStorage stream, filepath string, or raw bytes.
+        target_columns: Optional list of column names to project (drops all other columns to save RAM).
 
     Returns:
         pd.DataFrame if successfully parsed, or None if unparseable.
@@ -238,12 +263,12 @@ def parse_excel_raw(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
         target = stream_or_path_or_bytes
 
     # Attempt 0: python-calamine Rust-accelerated parser (1-2s, ~25MB RAM)
-    df = _parse_with_calamine(target)
+    df = _parse_with_calamine(target, target_columns=target_columns)
     if df is not None and not df.empty:
         return df
 
-    # Attempt 1: openpyxl SAX read-only parser
-    df = _parse_read_only_openpyxl(target)
+    # Attempt 1: openpyxl SAX read-only streaming parser (column-projected, low memory)
+    df = _parse_read_only_openpyxl(target, target_columns=target_columns)
     if df is not None and not df.empty:
         return df
 

@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import { uploadNsttFiles, processNstt, getNsttDrilldown, exportNstt } from '../services/nsttApi'
 import { findBifurcationsForQuery } from '../utils/nsttBifurcationLocator'
+import { saveToOPFS, loadFromOPFS, clearOPFS } from '../utils/opfsStorage'
 
 const NsttContext = createContext(null)
 
@@ -44,6 +45,29 @@ export function NsttProvider({ children }) {
     if (!bifurcationResult?.allRowKeys) return new Set()
     return new Set(bifurcationResult.allRowKeys)
   }, [bifurcationResult])
+
+  // Hydrate from browser's OPFS cache on initial mount
+  useEffect(() => {
+    async function hydrateFromOPFS() {
+      try {
+        const lastUploadId = localStorage.getItem('last_nstt_upload_id')
+        if (lastUploadId) {
+          const cached = await loadFromOPFS(lastUploadId)
+          if (cached && cached.classifiedMasterResponse && cached.aggregatedResult) {
+            setUploadId(lastUploadId)
+            setClassifiedMasterResponse(cached.classifiedMasterResponse)
+            setAggregatedResult(cached.aggregatedResult)
+            setStats(cached.stats)
+            setIsComplete(true)
+            console.log(`%c[OPFS] Restored session '${lastUploadId}' from Browser OPFS cache.`, 'color: #10b981; font-weight: bold;')
+          }
+        }
+      } catch (err) {
+        console.debug('[OPFS] Hydration error:', err)
+      }
+    }
+    hydrateFromOPFS()
+  }, [])
 
   /**
    * Main Pipeline Execution:
@@ -139,6 +163,21 @@ export function NsttProvider({ children }) {
       setClassifiedMasterResponse(processResult.classified_master_response)
       setAggregatedResult(processResult.aggregated_result)
       setIsComplete(true)
+
+      // Store in browser's persistent OPFS cache
+      if (uploadResult?.upload_id) {
+        try {
+          localStorage.setItem('last_nstt_upload_id', uploadResult.upload_id)
+          saveToOPFS(uploadResult.upload_id, {
+            stats: combinedStats,
+            classifiedMasterResponse: processResult.classified_master_response,
+            aggregatedResult: processResult.aggregated_result,
+            uploadId: uploadResult.upload_id,
+          })
+        } catch (opfsErr) {
+          console.warn('[OPFS] Cache save warning:', opfsErr)
+        }
+      }
     } catch (err) {
       const errMsg = err.message || 'An unexpected error occurred during processing.'
       console.error(

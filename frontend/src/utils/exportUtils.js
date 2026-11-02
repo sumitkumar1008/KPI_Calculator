@@ -1,6 +1,7 @@
 /**
  * Utilities for exporting table and chart data to Excel, CSV, and PNG
  */
+import { exportToCsvFromClient } from './opfsStorage'
 
 /**
  * Sends a POST request to backend export API and triggers browser file download.
@@ -22,6 +23,16 @@ export async function exportDataViaApi({
 }) {
   if (!Array.isArray(data) || data.length === 0) {
     throw new Error('No data available to export.')
+  }
+
+  // Fast path: Instant zero-server CSV export directly from browser memory/OPFS
+  if (format === 'csv') {
+    try {
+      exportToCsvFromClient(data, filename)
+      return
+    } catch (csvErr) {
+      console.warn('Client CSV export failed, falling back to server API:', csvErr)
+    }
   }
 
   const apiBase = import.meta.env.VITE_API_ENDPOINT

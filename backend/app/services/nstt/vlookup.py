@@ -27,6 +27,8 @@ def perform_vlookup(namo_df: pd.DataFrame, remedy_df: pd.DataFrame) -> Dict[str,
     """
     Performs LEFT JOIN on Namo.INCIDENTID = Remedy.INCIDENT_NUMBER.
     Preserves all Namo columns and appends the 5 required Remedy columns.
+    Uses DuckDB C++ in-memory engine with strict memory cap when available,
+    with automatic fallback to pandas merge.
     
     Returns:
         {
@@ -42,6 +44,66 @@ def perform_vlookup(namo_df: pd.DataFrame, remedy_df: pd.DataFrame) -> Dict[str,
         raise ValueError("Namo DataFrame is empty or None")
     if remedy_df is None or remedy_df.empty:
         raise ValueError("Remedy DataFrame is empty or None")
+
+    # Attempt 1: Fast DuckDB C++ Vectorized Hash Join (Memory Safe)
+    try:
+        import duckdb
+        con = duckdb.connect()
+        con.execute("SET max_memory = '200MB'")
+        con.execute("SET temp_directory = '/tmp'")
+
+        # Register existing dataframes (Zero-Copy)
+        con.register("namo_src", namo_df)
+        con.register("remedy_src", remedy_df)
+
+        # Build column projection for remedy append columns
+        remedy_cols_sql = []
+        for col in REMEDY_APPEND_COLUMNS:
+            if col in remedy_df.columns:
+                remedy_cols_sql.append(f'r."{col}"')
+            else:
+                remedy_cols_sql.append(f'NULL AS "{col}"')
+        remedy_select_str = ", ".join(remedy_cols_sql)
+
+        # Remove duplicate column names from namo to prevent collision
+        namo_cols = [c for c in namo_df.columns if c not in REMEDY_APPEND_COLUMNS or c == "INCIDENTID"]
+        namo_select_str = ", ".join([f'n."{c}"' for c in namo_cols])
+
+        query = f"""
+        WITH remedy_dedup AS (
+            SELECT 
+                TRIM(UPPER(CAST(INCIDENT_NUMBER AS VARCHAR))) AS _JOIN_KEY,
+                *
+            FROM remedy_src
+            WHERE INCIDENT_NUMBER IS NOT NULL
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY TRIM(UPPER(CAST(INCIDENT_NUMBER AS VARCHAR)))) = 1
+        )
+        SELECT 
+            {namo_select_str},
+            {remedy_select_str},
+            (r._JOIN_KEY IS NOT NULL AND r._JOIN_KEY NOT IN ('', 'NAN', 'NONE', 'NULL')) AS is_matched
+        FROM namo_src n
+        LEFT JOIN remedy_dedup r 
+            ON TRIM(UPPER(CAST(n.INCIDENTID AS VARCHAR))) = r._JOIN_KEY
+        """
+        enriched_df = con.execute(query).df()
+
+        matched_mask = enriched_df["is_matched"] == True
+        matched_count = int(matched_mask.sum())
+        unmatched_count = len(enriched_df) - matched_count
+        unmatched_ids = enriched_df[~matched_mask]["INCIDENTID"].dropna().astype(str).unique().tolist()
+
+        return {
+            "df": enriched_df,
+            "total_namo_rows": len(namo_df),
+            "total_remedy_rows": len(remedy_df),
+            "matched_count": matched_count,
+            "unmatched_count": unmatched_count,
+            "unmatched_ids": unmatched_ids,
+        }
+    except Exception as exc:
+        # Fallback to pandas merge
+        pass
 
     # Make copies to prevent mutating original inputs
     namo_copy = namo_df.copy()

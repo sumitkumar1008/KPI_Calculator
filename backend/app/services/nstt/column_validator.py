@@ -31,10 +31,15 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
-def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFrame | None, List[str], str | None]:
+def read_raw_dataframe(
+    file_input: Any,
+    filename: str = "",
+    target_columns: List[str] | None = None,
+) -> Tuple[pd.DataFrame | None, List[str], str | None]:
     """
-    Reads a raw DataFrame from file_input (bytes, BytesIO, or file-like object).
+    Reads a raw DataFrame from file_input (file-like object, BytesIO, or bytes).
     Tries Excel and CSV parsing regardless of the file name.
+    Supports target_columns to prune unused columns upfront to minimize RAM usage.
     
     Returns:
         (df, raw_headers, error_message)
@@ -45,39 +50,36 @@ def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFram
         is_csv = fn_lower.endswith(".csv")
         is_excel = fn_lower.endswith(".xlsx") or fn_lower.endswith(".xls")
 
-        logger.info(f"Ingesting raw file '{filename}' (is_excel={is_excel}, is_csv={is_csv})...")
+        logger.info(f"Ingesting raw file '{filename}' (is_excel={is_excel}, is_csv={is_csv}, target_columns={bool(target_columns)})...")
 
-        if hasattr(file_input, "read"):
-            if hasattr(file_input, "seek"):
-                file_input.seek(0)
-            content = file_input.read()
-            if hasattr(file_input, "seek"):
-                file_input.seek(0)
-            bytes_target = io.BytesIO(content)
-        elif isinstance(file_input, bytes):
-            bytes_target = io.BytesIO(file_input)
+        # Reuse existing stream if seekable, avoiding duplicate full-file byte copies in RAM
+        if hasattr(file_input, "seek") and hasattr(file_input, "read"):
+            file_input.seek(0)
+            target = file_input
+        elif isinstance(file_input, (bytes, bytearray)):
+            target = io.BytesIO(file_input)
         else:
-            bytes_target = file_input
+            target = file_input
 
         df: pd.DataFrame | None = None
 
         # Try based on extension hint first if present
         if is_csv:
-            df = parse_csv_file(bytes_target)
+            df = parse_csv_file(target)
         elif is_excel:
-            df = parse_excel_raw(bytes_target)
+            df = parse_excel_raw(target, target_columns=target_columns)
 
         # Fallback 1: try Excel
         if df is None:
-            if hasattr(bytes_target, "seek"):
-                bytes_target.seek(0)
-            df = parse_excel_raw(bytes_target)
+            if hasattr(target, "seek"):
+                target.seek(0)
+            df = parse_excel_raw(target, target_columns=target_columns)
 
         # Fallback 2: try CSV
         if df is None:
-            if hasattr(bytes_target, "seek"):
-                bytes_target.seek(0)
-            df = parse_csv_file(bytes_target)
+            if hasattr(target, "seek"):
+                target.seek(0)
+            df = parse_csv_file(target)
 
         if df is None or len(df.columns) == 0:
             logger.error(f"Failed to extract tabular data from '{filename}': empty or unsupported format.")
@@ -125,8 +127,23 @@ def validate_both_files_columns(
     - Throws FILE_MISMATCH error.
     - Clearly displays which columns are needed and which are missed for both files.
     """
-    df1, headers1, err1 = read_raw_dataframe(file1_input, file1_name)
-    df2, headers2, err2 = read_raw_dataframe(file2_input, file2_name)
+    import gc
+    fn1_lower = str(file1_name or "").lower()
+    fn2_lower = str(file2_name or "").lower()
+
+    # Identify if file2 is Remedy based on standard slot or filename hint
+    is_f2_remedy = "remedy" in fn2_lower or "namo" in fn1_lower
+    is_f1_remedy = "remedy" in fn1_lower and "namo" not in fn1_lower
+
+    # Read File 1
+    target_cols_1 = REQUIRED_REMEDY_COLUMNS if is_f1_remedy else None
+    df1, headers1, err1 = read_raw_dataframe(file1_input, file1_name, target_columns=target_cols_1)
+    gc.collect()
+
+    # Read File 2
+    target_cols_2 = REQUIRED_REMEDY_COLUMNS if (is_f2_remedy or not is_f1_remedy) else None
+    df2, headers2, err2 = read_raw_dataframe(file2_input, file2_name, target_columns=target_cols_2)
+    gc.collect()
 
     # Check unparseable files
     if err1:
