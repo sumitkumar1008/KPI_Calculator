@@ -74,7 +74,7 @@ export async function saveToOPFS(key, data) {
 export async function loadFromOPFS(key) {
   if (!key) return null
   try {
-    if (!isOPFSRupported()) {
+    if (!isOPFSSupported()) {
       const stored = sessionStorage.getItem(`${NSTT_OPFS_PREFIX}${key}`)
       return stored ? JSON.parse(stored) : null
     }

@@ -25,7 +25,7 @@ from app.services.nstt.master_builder import build_master_response
 from app.services.nstt.rule_engine import run_rule_engine
 from app.services.nstt.aggregator import build_nstt_aggregation, filter_records_by_category
 from app.services.nstt.excel_generator import generate_nstt_excel_workbook
-from app.services.nstt.cache_store import save_nstt_to_cache, get_nstt_from_cache
+from app.services.nstt.cache_store import save_nstt_to_cache, get_nstt_from_cache, get_nstt_records
 from app.services.export_service import generate_csv_export
 
 
@@ -337,11 +337,20 @@ def upload_nstt_files():
             "perf_breakdown": perf_breakdown,
         }
 
-        # Step 5: Cache the Master Response
-        current_step = "STEP 5/5: CACHE STORAGE & MEMORY CLEANUP"
-        nstt_logger.info(f"▶️ [START {current_step}] Storing master response in cache and reclaiming memory...")
+        # Step 5: Execute Rule Engine & Hierarchical Aggregation upfront
+        current_step = "STEP 5/5: RULE ENGINE, AGGREGATION & CACHE STORAGE"
+        nstt_logger.info(f"▶️ [START {current_step}] Classifying and aggregating {len(master_response.get('records', [])):,} records...")
         t_cache_start = time.perf_counter()
-        upload_id = save_nstt_to_cache(master_response, stats)
+
+        classified = run_rule_engine(master_response)
+        aggregated_result = build_nstt_aggregation(classified.get("records", []))
+
+        upload_id = save_nstt_to_cache(
+            master_response=master_response,
+            stats=stats,
+            classified_master_response=classified,
+            aggregated_result=aggregated_result,
+        )
         t_cache_end = time.perf_counter()
         cache_store_ms = round((t_cache_end - t_cache_start) * 1000, 2)
         perf_breakdown["cache_store_ms"] = cache_store_ms
@@ -360,15 +369,36 @@ def upload_nstt_files():
             f"  ├─ [2. VLOOKUP Join (INCIDENTID)]:     {vlookup_ms:8.2f} ms ({vlookup_ms / 1000:6.3f} s)\n"
             f"  ├─ [3. Impact & Duplicate Mapping]:    {impact_dup_ms:8.2f} ms ({impact_dup_ms / 1000:6.3f} s)\n"
             f"  ├─ [4. Master Response Payload]:       {master_builder_ms:8.2f} ms ({master_builder_ms / 1000:6.3f} s)\n"
-            f"  ├─ [5. Cache Storage & Cleanup]:       {cache_store_ms:8.2f} ms ({cache_store_ms / 1000:6.3f} s)\n"
+            f"  ├─ [5. Rules, Aggregation & Cache]:    {cache_store_ms:8.2f} ms ({cache_store_ms / 1000:6.3f} s)\n"
             f"  ├─ Total Upload Pipeline Elapsed:      {upload_total_ms:8.2f} ms ({upload_total_ms / 1000:6.3f} s)\n"
             f"  └─ Assigned Upload ID:                 {upload_id}\n"
             f"================================================================================"
         )
 
+        total_recs = len(master_response.get("records", []))
+        inc_param = str(request.args.get("include_records", "auto")).lower()
+        should_include_records = inc_param == "true" or (inc_param == "auto" and total_recs <= 500)
+
+        # Build lightweight payload for client/browser to keep peak memory < 100MB
+        resp_records = master_response["records"] if should_include_records else []
+        resp_master = {
+            "total_records": total_recs,
+            "columns": master_response.get("columns", []),
+            "records": resp_records,
+            "remedy_impact_map": remedy_impact_map if should_include_records else {},
+        }
+        resp_classified = {
+            "total_records": total_recs,
+            "columns": classified.get("columns", master_response.get("columns", [])),
+            "records": resp_records,
+            "classification_stats": classified.get("classification_stats", {}),
+        }
+
         return jsonify({
             "upload_id": upload_id,
-            "master_response": master_response,
+            "master_response": resp_master,
+            "classified_master_response": resp_classified,
+            "aggregated_result": aggregated_result,
             "stats": stats,
             "warnings": warnings,
         }), 200
@@ -455,14 +485,37 @@ def process_nstt():
 
     # Resolve master_response from cache if not provided inline
     cached = None
-    if not master_response:
+    if not master_response or not master_response.get("records"):
         cached = get_nstt_from_cache(upload_id)
         if not cached:
             return jsonify({
                 "error": "No Master Response found. Provide 'upload_id' or 'master_response' in the request body."
             }), 400
-        master_response = cached.get("master_response")
         upload_id = cached.get("upload_id")
+
+        # Fast path: already classified and aggregated during /upload
+        if cached.get("aggregated_result") and cached.get("classified_master_response"):
+            classified = cached["classified_master_response"]
+            aggregated_result = cached["aggregated_result"]
+            stats = cached.get("stats", {})
+            total_recs = classified.get("total_records", len(classified.get("records", [])))
+            should_include = total_recs <= 500
+            resp_classified = {
+                "total_records": total_recs,
+                "columns": classified.get("columns", []),
+                "records": classified.get("records", []) if should_include else [],
+                "classification_stats": classified.get("classification_stats", {}),
+            }
+            return jsonify({
+                "upload_id": upload_id,
+                "classified_master_response": resp_classified,
+                "aggregated_result": aggregated_result,
+                "processing_time_ms": 1.0,
+                "perf_breakdown": stats.get("perf_breakdown", {}),
+                "stats": stats,
+            }), 200
+
+        master_response = cached.get("master_response")
 
     if not master_response or not master_response.get("records"):
         return jsonify({"error": "Master Response is empty or has no records to classify."}), 400
@@ -539,9 +592,18 @@ def process_nstt():
             f"================================================================================"
         )
 
+        total_recs = len(records)
+        should_include = total_recs <= 500
+        resp_classified = {
+            "total_records": total_recs,
+            "columns": classified.get("columns", master_response.get("columns", [])),
+            "records": records if should_include else [],
+            "classification_stats": classified.get("classification_stats", {}),
+        }
+
         return jsonify({
             "upload_id": upload_id,
-            "classified_master_response": classified,
+            "classified_master_response": resp_classified,
             "aggregated_result": aggregated_result,
             "processing_time_ms": total_proc_ms,
             "perf_breakdown": proc_perf_breakdown,
@@ -653,10 +715,104 @@ def get_nstt_drilldown():
 
     filtered = filter_records_by_category(records, category)
 
+    # Optional server-side search filter
+    search_q = str(body.get("search") or "").strip().lower()
+    if search_q:
+        filtered = [
+            r for r in filtered
+            if search_q in str(r.get("INCIDENTID") or "").lower()
+            or search_q in str(r.get("SRNUMBER") or r.get("SR_NUMBER") or "").lower()
+            or search_q in str(r.get("AUTOMATION_UPDATE_NSTT_NUMBER") or "").lower()
+        ]
+
+    total_matches = len(filtered)
+
+    # Optional server-side pagination
+    page = body.get("page")
+    limit = body.get("limit")
+    if page is not None and limit is not None:
+        try:
+            p = max(1, int(page))
+            lim = max(1, int(limit))
+            start_idx = (p - 1) * lim
+            end_idx = start_idx + lim
+            return jsonify({
+                "category": category,
+                "total_records": total_matches,
+                "page": p,
+                "limit": lim,
+                "records": filtered[start_idx:end_idx],
+            }), 200
+        except (ValueError, TypeError):
+            pass
+
     return jsonify({
         "category": category,
-        "total_records": len(filtered),
+        "total_records": total_matches,
         "records": filtered,
+    }), 200
+
+
+@nstt_bp.route("/locate", methods=["GET", "POST"], strict_slashes=False)
+def locate_bifurcation():
+    """
+    Locates matching bifurcation paths for a search query (Incident ID or SR Number)
+    against the cached dataset on the backend. Enables UI blinking without loading
+    all 50k records into React state.
+    """
+    body: Dict[str, Any] = request.get_json(silent=True) or {}
+    upload_id = body.get("upload_id") or request.args.get("upload_id")
+    query = body.get("q") or request.args.get("q") or ""
+    q = str(query).strip().upper()
+    if not q:
+        return jsonify({"query": query, "totalMatches": 0, "allKeys": [], "allRowKeys": []}), 200
+
+    records = get_nstt_records(upload_id)
+    if not records:
+        return jsonify({"query": query, "totalMatches": 0, "allKeys": [], "allRowKeys": []}), 200
+
+    matched_keys = set()
+    matched_row_keys = set()
+    matched_count = 0
+
+    for r in records:
+        inc_id = str(r.get("INCIDENTID") or "").strip().upper()
+        sr_no = str(r.get("SRNUMBER") or r.get("SR_NUMBER") or "").strip().upper()
+        raw_auto = str(r.get("AUTOMATION_UPDATE_NSTT_NUMBER") or "").strip().upper()
+
+        if inc_id == q or sr_no == q or (q in raw_auto and len(q) >= 4):
+            matched_count += 1
+            c_type = r.get("capture_type")
+            n_type = r.get("nstt_type")
+            f_type = r.get("factory_type")
+            a_type = r.get("allocation_type")
+            i_type = r.get("impact_type")
+            t_type = r.get("timing_type")
+
+            if c_type == "Automation":
+                matched_keys.add("automation")
+                if n_type == "Same NSTT":
+                    matched_keys.add("automation.same_nstt")
+                    f_key = "im" if f_type == "IM" else "non_im"
+                    a_key = "auto" if a_type == "Auto" else "manual"
+                    imp_key = "sa" if i_type == "SA" else "nsa"
+                    matched_keys.add(f"automation.same_nstt.{f_key}.{a_key}.{imp_key}")
+                elif n_type == "Different NSTT":
+                    matched_keys.add("automation.different_nstt")
+                elif n_type == "Resolved NSTT":
+                    matched_keys.add("automation.resolved_nstt")
+            elif c_type == "Manual":
+                matched_keys.add("manual")
+                if t_type:
+                    t_key = t_type.lower().replace(" ", "_")
+                    imp_key = "sa" if i_type == "SA" else "nsa"
+                    matched_keys.add(f"manual.{t_key}.{imp_key}")
+
+    return jsonify({
+        "query": query,
+        "totalMatches": matched_count,
+        "allKeys": list(matched_keys),
+        "allRowKeys": list(matched_row_keys),
     }), 200
 
 

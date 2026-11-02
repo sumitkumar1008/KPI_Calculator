@@ -85,10 +85,11 @@ export async function getNsttSummary(uploadId) {
 
 /**
  * Retrieves drilldown records for a specific category node.
- * @param {object} params - { category: string, uploadId?: string, records?: object[] }
- * @returns {Promise<{category: string, total_records: number, records: object[]}>}
+ * Supports server-side pagination and search.
+ * @param {object} params - { category: string, uploadId?: string, records?: object[], page?: number, limit?: number, search?: string }
+ * @returns {Promise<{category: string, total_records: number, records: object[], page?: number, limit?: number}>}
  */
-export async function getNsttDrilldown({ category, uploadId, records } = {}) {
+export async function getNsttDrilldown({ category, uploadId, records, page, limit, search } = {}) {
   if (!category) {
     throw new Error('Category path is required for drilldown query.')
   }
@@ -96,6 +97,9 @@ export async function getNsttDrilldown({ category, uploadId, records } = {}) {
   const payload = { category }
   if (uploadId) payload.upload_id = uploadId
   if (records) payload.records = records
+  if (page !== undefined && page !== null) payload.page = page
+  if (limit !== undefined && limit !== null) payload.limit = limit
+  if (search) payload.search = search
 
   const response = await fetch(`${API_BASE}/drilldown`, {
     method: 'POST',
@@ -105,6 +109,20 @@ export async function getNsttDrilldown({ category, uploadId, records } = {}) {
     body: JSON.stringify(payload),
   })
 
+  return safeParseJson(response)
+}
+
+/**
+ * Searches the backend dataset for matching Incident ID or SR Number to locate bifurcation keys.
+ * @param {object} params - { uploadId: string, query: string }
+ * @returns {Promise<{query: string, totalMatches: number, allKeys: string[], allRowKeys: string[]}>}
+ */
+export async function locateBifurcation({ uploadId, query }) {
+  if (!query || !query.trim()) {
+    return { totalMatches: 0, allKeys: [], allRowKeys: [] }
+  }
+  const url = `${API_BASE}/locate?upload_id=${encodeURIComponent(uploadId || '')}&q=${encodeURIComponent(query.trim())}`
+  const response = await fetch(url)
   return safeParseJson(response)
 }
 

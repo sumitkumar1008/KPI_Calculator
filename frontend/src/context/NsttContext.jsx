@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
-import { uploadNsttFiles, processNstt, getNsttDrilldown, exportNstt } from '../services/nsttApi'
+import { uploadNsttFiles, processNstt, getNsttDrilldown, exportNstt, locateBifurcation } from '../services/nsttApi'
 import { findBifurcationsForQuery } from '../utils/nsttBifurcationLocator'
 import { saveToOPFS, loadFromOPFS, clearOPFS } from '../utils/opfsStorage'
 
@@ -28,13 +28,43 @@ export function NsttProvider({ children }) {
 
   // Bifurcation Locator search & blinking state
   const [bifurcationQuery, setBifurcationQuery] = useState('')
+  const [bifurcationBackendResult, setBifurcationBackendResult] = useState(null)
+
+  // Remote bifurcation lookup for large server-side datasets
+  useEffect(() => {
+    const q = bifurcationQuery.trim()
+    if (!q) {
+      setBifurcationBackendResult(null)
+      return
+    }
+    const localRecords = classifiedMasterResponse?.records || masterResponse?.records || []
+    if (localRecords.length > 0) {
+      return
+    }
+    if (uploadId) {
+      let active = true
+      locateBifurcation({ uploadId, query: q })
+        .then((res) => {
+          if (active && res) {
+            setBifurcationBackendResult(res)
+          }
+        })
+        .catch(() => {})
+      return () => {
+        active = false
+      }
+    }
+  }, [bifurcationQuery, classifiedMasterResponse, masterResponse, uploadId])
 
   const bifurcationResult = useMemo(() => {
     const q = bifurcationQuery.trim()
     if (!q) return null
-    const records = classifiedMasterResponse?.records || masterResponse?.records || []
-    return findBifurcationsForQuery(records, q)
-  }, [bifurcationQuery, classifiedMasterResponse, masterResponse])
+    const localRecords = classifiedMasterResponse?.records || masterResponse?.records || []
+    if (localRecords.length > 0) {
+      return findBifurcationsForQuery(localRecords, q)
+    }
+    return bifurcationBackendResult
+  }, [bifurcationQuery, classifiedMasterResponse, masterResponse, bifurcationBackendResult])
 
   const highlightedBifurcationKeys = useMemo(() => {
     if (!bifurcationResult?.allKeys) return new Set()
@@ -127,10 +157,22 @@ export function NsttProvider({ children }) {
       const tProcStart = performance.now()
       console.log('🔄 [Process Phase] Executing Rule Engine classification & hierarchical aggregations...')
 
-      const processResult = await processNstt({
-        uploadId: uploadResult.upload_id,
-        masterResponse: uploadResult.master_response,
-      })
+      let processResult = null
+      if (uploadResult.aggregated_result) {
+        // Fast-path: Aggregation was already executed on server during upload!
+        processResult = {
+          upload_id: uploadResult.upload_id,
+          classified_master_response: uploadResult.classified_master_response || uploadResult.master_response,
+          aggregated_result: uploadResult.aggregated_result,
+          processing_time_ms: 1.0,
+          perf_breakdown: uBreak,
+          stats: uploadResult.stats,
+        }
+      } else {
+        processResult = await processNstt({
+          uploadId: uploadResult.upload_id,
+        })
+      }
       const tProcEnd = performance.now()
       const clientProcMs = Math.round(tProcEnd - tProcStart)
 
@@ -215,10 +257,11 @@ export function NsttProvider({ children }) {
     setIsDrilldownLoading(true)
 
     try {
+      const hasLocalRecords = Array.isArray(classifiedMasterResponse?.records) && classifiedMasterResponse.records.length > 0
       const result = await getNsttDrilldown({
         category,
         uploadId,
-        records: classifiedMasterResponse?.records,
+        records: hasLocalRecords ? classifiedMasterResponse.records : undefined,
       })
       setDrilldownData(result)
     } catch (err) {

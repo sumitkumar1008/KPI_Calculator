@@ -3,6 +3,7 @@ Master Response Builder Service
 ===============================
 Converts the Final Enriched DataFrame into a canonical Master Response JSON.
 Sanitizes all cell values for 100% JSON-compliance while preserving all original columns.
+Optimized for low-memory footprint on Render's 512MB RAM tier.
 """
 
 import datetime
@@ -41,6 +42,7 @@ def _sanitize_nstt_cell(val: Any) -> Any:
 def build_master_response(enriched_df: pd.DataFrame) -> Dict[str, Any]:
     """
     Constructs the canonical Master Response JSON dataset.
+    Optimized single-pass construction to avoid creating duplicate intermediate dictionary lists.
     
     Args:
         enriched_df: Final enriched DataFrame containing:
@@ -79,25 +81,22 @@ def build_master_response(enriched_df: pd.DataFrame) -> Dict[str, Any]:
         df_to_export = df_to_export.copy()
         df_to_export.columns = new_cols
 
-    raw_records = df_to_export.to_dict(orient="records")
+    cols = [str(c).strip() if c is not None and not pd.isna(c) else f"UNNAMED_{i}" for i, c in enumerate(df_to_export.columns)]
+    
+    # Pre-identify boolean columns for fast dispatch
+    bool_indices = {i for i, c in enumerate(cols) if c in ("is_matched", "is_potential_duplicate")}
+
+    # Single-pass construction using itertuples (bypasses df.to_dict intermediate dict allocations)
     clean_records: List[Dict[str, Any]] = []
-
-    for rec in raw_records:
-        clean_rec: Dict[str, Any] = {}
-        for k, v in rec.items():
-            key_str = str(k).strip() if k is not None and not pd.isna(k) else "UNNAMED"
-            # Boolean metadata preserved
-            if key_str in ("is_matched", "is_potential_duplicate"):
-                clean_rec[key_str] = bool(v) if v is not None and not pd.isna(v) else False
+    for row in df_to_export.itertuples(index=False, name=None):
+        rec: Dict[str, Any] = {}
+        for idx, val in enumerate(row):
+            col_name = cols[idx]
+            if idx in bool_indices:
+                rec[col_name] = bool(val) if val is not None and not pd.isna(val) else False
             else:
-                clean_rec[key_str] = _sanitize_nstt_cell(v)
-        clean_records.append(clean_rec)
-
-    del raw_records
-    import gc
-    gc.collect()
-
-    cols = [str(c).strip() if c is not None and not pd.isna(c) else "UNNAMED" for c in df_to_export.columns]
+                rec[col_name] = _sanitize_nstt_cell(val)
+        clean_records.append(rec)
 
     return {
         "records": clean_records,
