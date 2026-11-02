@@ -100,6 +100,9 @@ def upload_nstt_files():
     t_start = time.perf_counter()
 
     try:
+        current_step = "INITIALIZATION & FILE DISCOVERY"
+        last_successful_step = "NONE"
+
         # Look for namo file under common key aliases
         namo_keys = ["namo_file", "namo", "namofile", "namoFile", "namo_report", "namoReport"]
         namo_file = None
@@ -128,9 +131,16 @@ def upload_nstt_files():
                 "error_type": "VALIDATION_ERROR",
             }), 400
 
-        nstt_logger.info(f"Received NSTT files: File 1='{namo_file.filename}', File 2='{remedy_file.filename}'")
+        last_successful_step = current_step
+        nstt_logger.info(
+            f"📥 [NSTT-API] Upload Request Received:\n"
+            f"  ├─ File 1 (Namo):   '{namo_file.filename}'\n"
+            f"  └─ File 2 (Remedy): '{remedy_file.filename}'"
+        )
 
         # Step 1: Upfront column validation for BOTH files (independent of file names or slots)
+        current_step = "STEP 1/5: INGESTION & COLUMN SCHEMA VALIDATION"
+        nstt_logger.info(f"▶️ [START {current_step}] Parsing files and verifying schema...")
         t_val_start = time.perf_counter()
         validation = validate_both_files_columns(
             file1_input=namo_file,
@@ -142,7 +152,11 @@ def upload_nstt_files():
         val_ms = round((t_val_end - t_val_start) * 1000, 2)
 
         if not validation["valid"]:
-            nstt_logger.error(f"\n{validation['internal_error']}")
+            nstt_logger.error(
+                f"❌ [FAILED {current_step}]\n"
+                f"  ├─ Error: {validation['error']}\n"
+                f"  └─ Details: {validation.get('internal_error', 'Schema mismatch')}"
+            )
             file1_info = validation.get("files", {}).get("file1", {})
             file2_info = validation.get("files", {}).get("file2", {})
             is_swapped = (
@@ -183,14 +197,23 @@ def upload_nstt_files():
 
         namo_rows_count = int(len(namo_df))
         remedy_rows_count = int(len(remedy_df))
+        last_successful_step = current_step
+        nstt_logger.info(
+            f"✅ [DONE {current_step}] Schema valid!\n"
+            f"  ├─ Namo:   {namo_rows_count:,} data rows (file: '{namo_file_name}')\n"
+            f"  ├─ Remedy: {remedy_rows_count:,} data rows (file: '{remedy_file_name}')\n"
+            f"  └─ Validation Time: {val_ms} ms ({val_ms / 1000:.2f} s)"
+        )
 
         if validation.get("swapped"):
             nstt_logger.info(
-                f"Detected reversed file slots based on column headers: "
+                f"ℹ️ Detected reversed file slots based on column headers: "
                 f"using '{namo_file_name}' as Namo Report and '{remedy_file_name}' as Remedy Report."
             )
 
         # Step 2: VLOOKUP / Left Join on Namo.INCIDENTID = Remedy.INCIDENT_NUMBER
+        current_step = "STEP 2/5: VLOOKUP JOIN (Namo.INCIDENTID = Remedy.INCIDENT_NUMBER)"
+        nstt_logger.info(f"▶️ [START {current_step}] Correlating {namo_rows_count:,} Namo rows with {remedy_rows_count:,} Remedy rows...")
         t_vlookup_start = time.perf_counter()
         try:
             join_result = perform_vlookup(namo_df, remedy_df)
@@ -198,10 +221,12 @@ def upload_nstt_files():
             import traceback
             tb = traceback.format_exc()
             internal_err = f"VLOOKUP join exception: {str(exc)}\n{tb}"
-            nstt_logger.error(f"[FILE MISMATCH ERROR] {internal_err}")
+            nstt_logger.error(f"❌ [FAILED {current_step}] {internal_err}")
             return jsonify({
-                "error": f"Failed to correlate datasets: {str(exc)}",
+                "error": f"Failed to correlate datasets at [{current_step}]: {str(exc)}",
                 "error_type": "FILE_MISMATCH",
+                "failed_step": current_step,
+                "last_successful_step": last_successful_step,
                 "internal_error": internal_err,
             }), 400
         t_vlookup_end = time.perf_counter()
@@ -221,26 +246,43 @@ def upload_nstt_files():
                 f"  - Sample Namo IDs: {sample_namo}\n"
                 f"  - Sample Remedy IDs: {sample_remedy}"
             )
-            nstt_logger.error(f"[FILE MISMATCH ERROR] {internal_err}")
+            nstt_logger.error(f"❌ [FAILED {current_step}] {internal_err}")
             return jsonify({
                 "error": error_msg,
                 "error_type": "FILE_MISMATCH",
+                "failed_step": current_step,
+                "last_successful_step": last_successful_step,
                 "dataset": "Cross-File Correlation",
                 "missing_columns": [],
                 "internal_error": internal_err,
             }), 400
 
+        last_successful_step = current_step
+        nstt_logger.info(
+            f"✅ [DONE {current_step}] Matched: {join_result['matched_count']:,}, "
+            f"Unmatched: {join_result['unmatched_count']:,} ({vlookup_ms} ms / {vlookup_ms/1000:.2f} s)"
+        )
+
         enriched_df = join_result["df"]
 
         # Step 3: Map INCIDENT_IMPACT (0->SA, 1->NSA) & Check Duplicates
+        current_step = "STEP 3/5: IMPACT MAPPING & DUPLICATE CHECK"
+        nstt_logger.info(f"▶️ [START {current_step}] Mapping impact values (0->SA, 1->NSA) and scanning duplicates...")
         t_impact_start = time.perf_counter()
         enriched_df = map_incident_impact(enriched_df)
         dup_result = check_duplicates(enriched_df, id_col="INCIDENTID")
         final_df = dup_result["df"]
         t_impact_end = time.perf_counter()
         impact_dup_ms = round((t_impact_end - t_impact_start) * 1000, 2)
+        last_successful_step = current_step
+        nstt_logger.info(
+            f"✅ [DONE {current_step}] Duplicates: {dup_result['duplicate_records_count']:,}, "
+            f"Unique: {dup_result['unique_incident_ids']:,} ({impact_dup_ms} ms)"
+        )
 
         # Step 4: Build Master Response JSON & Remedy Impact Map
+        current_step = "STEP 4/5: MASTER RESPONSE CONSTRUCTION"
+        nstt_logger.info(f"▶️ [START {current_step}] Building master payload ({len(final_df):,} records)...")
         t_master_start = time.perf_counter()
         master_response = build_master_response(final_df)
 
@@ -258,6 +300,8 @@ def upload_nstt_files():
         master_response["remedy_impact_map"] = remedy_impact_map
         t_master_end = time.perf_counter()
         master_builder_ms = round((t_master_end - t_master_start) * 1000, 2)
+        last_successful_step = current_step
+        nstt_logger.info(f"✅ [DONE {current_step}] Master response constructed ({master_builder_ms} ms)")
 
         # Compile processing statistics & warnings
         warnings = []
@@ -294,6 +338,8 @@ def upload_nstt_files():
         }
 
         # Step 5: Cache the Master Response
+        current_step = "STEP 5/5: CACHE STORAGE & MEMORY CLEANUP"
+        nstt_logger.info(f"▶️ [START {current_step}] Storing master response in cache and reclaiming memory...")
         t_cache_start = time.perf_counter()
         upload_id = save_nstt_to_cache(master_response, stats)
         t_cache_end = time.perf_counter()
@@ -304,15 +350,20 @@ def upload_nstt_files():
         del namo_df, remedy_df, validation, enriched_df, final_df, remedy_impact_df, inc_nums, impacts
         import gc
         gc.collect()
+        last_successful_step = current_step
 
         nstt_logger.info(
-            f"⏱️ [NSTT PERF COUNTER - UPLOAD COMPLETE]\n"
-            f"  ├─ [1. Start / Ingestion & Header Validation]: {val_ms:8.2f} ms ({val_ms / 1000:6.3f} s)\n"
-            f"  ├─ [2. VLOOKUP Join (INCIDENTID)]:            {vlookup_ms:8.2f} ms ({vlookup_ms / 1000:6.3f} s)\n"
-            f"  ├─ [3. Impact Mapping & Duplicate Check]:     {impact_dup_ms:8.2f} ms ({impact_dup_ms / 1000:6.3f} s)\n"
-            f"  ├─ [4. Master Response Construction]:         {master_builder_ms:8.2f} ms ({master_builder_ms / 1000:6.3f} s)\n"
-            f"  ├─ [5. Server-side Cache Storage]:            {cache_store_ms:8.2f} ms ({cache_store_ms / 1000:6.3f} s)\n"
-            f"  └─ Total Upload Phase Elapsed Time:           {upload_total_ms:8.2f} ms ({upload_total_ms / 1000:6.3f} s)"
+            f"\n"
+            f"================================================================================\n"
+            f"🎉 [NSTT UPLOAD PIPELINE - SUCCESSFUL COMPLETION]\n"
+            f"  ├─ [1. Ingestion & Validation]:        {val_ms:8.2f} ms ({val_ms / 1000:6.3f} s)\n"
+            f"  ├─ [2. VLOOKUP Join (INCIDENTID)]:     {vlookup_ms:8.2f} ms ({vlookup_ms / 1000:6.3f} s)\n"
+            f"  ├─ [3. Impact & Duplicate Mapping]:    {impact_dup_ms:8.2f} ms ({impact_dup_ms / 1000:6.3f} s)\n"
+            f"  ├─ [4. Master Response Payload]:       {master_builder_ms:8.2f} ms ({master_builder_ms / 1000:6.3f} s)\n"
+            f"  ├─ [5. Cache Storage & Cleanup]:       {cache_store_ms:8.2f} ms ({cache_store_ms / 1000:6.3f} s)\n"
+            f"  ├─ Total Upload Pipeline Elapsed:      {upload_total_ms:8.2f} ms ({upload_total_ms / 1000:6.3f} s)\n"
+            f"  └─ Assigned Upload ID:                 {upload_id}\n"
+            f"================================================================================"
         )
 
         return jsonify({
@@ -327,10 +378,32 @@ def upload_nstt_files():
     except Exception as exc:
         import traceback
         tb = traceback.format_exc()
-        nstt_logger.error(f"[NSTT UPLOAD CRITICAL ERROR] {str(exc)}\n{tb}")
+        t_fail = time.perf_counter()
+        elapsed_fail_ms = round((t_fail - t_start) * 1000, 2)
+        namo_name = getattr(namo_file, "filename", "unknown") if "namo_file" in locals() and namo_file else "unknown"
+        remedy_name = getattr(remedy_file, "filename", "unknown") if "remedy_file" in locals() and remedy_file else "unknown"
+
+        nstt_logger.error(
+            f"\n"
+            f"================================================================================\n"
+            f"🚨 [NSTT UPLOAD PIPELINE CRITICAL ERROR]\n"
+            f"  ├─ Failed Step:          {current_step}\n"
+            f"  ├─ Last Successful Step: {last_successful_step}\n"
+            f"  ├─ Elapsed Before Fail:  {elapsed_fail_ms:8.2f} ms ({elapsed_fail_ms / 1000:6.3f} s)\n"
+            f"  ├─ File 1 (Namo):        '{namo_name}'\n"
+            f"  ├─ File 2 (Remedy):      '{remedy_name}'\n"
+            f"  ├─ Exception Type:       {type(exc).__name__}\n"
+            f"  ├─ Exception Details:    {str(exc)}\n"
+            f"  └─ Stack Trace:\n"
+            f"{tb}\n"
+            f"================================================================================"
+        )
         return jsonify({
-            "error": f"Upload Processing Error: {str(exc)}",
-            "error_type": "SERVER_ERROR",
+            "error": f"Upload Processing Error at [{current_step}]: {str(exc)}",
+            "error_type": "PIPELINE_ERROR",
+            "failed_step": current_step,
+            "last_successful_step": last_successful_step,
+            "elapsed_ms": elapsed_fail_ms,
             "internal_error": tb,
         }), 500
 
@@ -373,6 +446,8 @@ def process_nstt():
       }
     """
     t_proc_start = time.perf_counter()
+    current_step = "INITIALIZATION & MASTER LOOKUP"
+    last_successful_step = "NONE"
 
     body: Dict[str, Any] = request.get_json(silent=True) or {}
     upload_id = body.get("upload_id")
@@ -392,76 +467,117 @@ def process_nstt():
     if not master_response or not master_response.get("records"):
         return jsonify({"error": "Master Response is empty or has no records to classify."}), 400
 
-    nstt_logger.info(
-        f"Rule Engine processing: upload_id={upload_id}, "
-        f"records={master_response.get('total_records', len(master_response.get('records', [])))}"
-    )
+    total_recs = master_response.get('total_records', len(master_response.get('records', [])))
+    last_successful_step = current_step
+    nstt_logger.info(f"▶️ [START NSTT-PROCESS] upload_id='{upload_id}', total_records={total_recs:,}")
 
     try:
         # Step 1: Rule Engine Classification
+        current_step = "STEP 1/3: RULE ENGINE CLASSIFICATION"
+        nstt_logger.info(f"▶️ [START {current_step}] Classifying {total_recs:,} records through business rules...")
         t_rules_start = time.perf_counter()
         classified = run_rule_engine(master_response)
         t_rules_end = time.perf_counter()
         rule_engine_ms = round((t_rules_end - t_rules_start) * 1000, 2)
+        last_successful_step = current_step
+        nstt_logger.info(f"✅ [DONE {current_step}] Classification finished ({rule_engine_ms} ms / {rule_engine_ms/1000:.2f} s)")
 
         # Step 2: Hierarchical Matrix Aggregation
+        current_step = "STEP 2/3: HIERARCHICAL MATRIX AGGREGATION"
+        nstt_logger.info(f"▶️ [START {current_step}] Computing multi-dimensional aggregations...")
         t_agg_start = time.perf_counter()
         records = classified.get("records", [])
         aggregated_result = build_nstt_aggregation(records)
         t_agg_end = time.perf_counter()
         aggregation_ms = round((t_agg_end - t_agg_start) * 1000, 2)
-    except Exception as exc:
-        nstt_logger.error(f"Rule Engine / Aggregator failed: {str(exc)}", exc_info=True)
-        return jsonify({"error": f"Rule Engine / Aggregator processing failed: {str(exc)}"}), 500
+        last_successful_step = current_step
+        nstt_logger.info(f"✅ [DONE {current_step}] Hierarchical matrix computed ({aggregation_ms} ms)")
 
-    # Step 3: Cache Storage & Final Output Preparation
-    t_cache_start = time.perf_counter()
-    stats = cached.get("stats", {}) if cached else {}
-    upload_ms = stats.get("processing_time_ms") or stats.get("perf_breakdown", {}).get("total_upload_ms", 0.0)
+        # Step 3: Cache Storage & Final Output Preparation
+        current_step = "STEP 3/3: CACHE STORAGE & FINAL OUTPUT"
+        nstt_logger.info(f"▶️ [START {current_step}] Storing computed analytics in cache...")
+        t_cache_start = time.perf_counter()
+        stats = cached.get("stats", {}) if cached else {}
+        upload_ms = stats.get("processing_time_ms") or stats.get("perf_breakdown", {}).get("total_upload_ms", 0.0)
 
-    t_proc_now = time.perf_counter()
-    total_proc_ms = round((t_proc_now - t_proc_start) * 1000, 2)
-    total_pipeline_ms = round(upload_ms + total_proc_ms, 2)
+        t_proc_now = time.perf_counter()
+        total_proc_ms = round((t_proc_now - t_proc_start) * 1000, 2)
+        total_pipeline_ms = round(upload_ms + total_proc_ms, 2)
 
-    proc_perf_breakdown = {
-        "rule_engine_ms": rule_engine_ms,
-        "aggregation_ms": aggregation_ms,
-        "total_process_ms": total_proc_ms,
-        "upload_ms": upload_ms,
-        "total_pipeline_ms": total_pipeline_ms,
-    }
-    stats["perf_breakdown"] = {**(stats.get("perf_breakdown") or {}), **proc_perf_breakdown}
+        proc_perf_breakdown = {
+            "rule_engine_ms": rule_engine_ms,
+            "aggregation_ms": aggregation_ms,
+            "total_process_ms": total_proc_ms,
+            "upload_ms": upload_ms,
+            "total_pipeline_ms": total_pipeline_ms,
+        }
+        stats["perf_breakdown"] = {**(stats.get("perf_breakdown") or {}), **proc_perf_breakdown}
 
-    if upload_id:
-        save_nstt_to_cache(
-            master_response=master_response,
-            stats=stats,
-            upload_id=upload_id,
-            classified_master_response=classified,
-            aggregated_result=aggregated_result,
+        if upload_id:
+            save_nstt_to_cache(
+                master_response=master_response,
+                stats=stats,
+                upload_id=upload_id,
+                classified_master_response=classified,
+                aggregated_result=aggregated_result,
+            )
+        t_cache_end = time.perf_counter()
+        cache_sync_ms = round((t_cache_end - t_cache_start) * 1000, 2)
+        proc_perf_breakdown["cache_sync_ms"] = cache_sync_ms
+        last_successful_step = current_step
+
+        nstt_logger.info(
+            f"\n"
+            f"================================================================================\n"
+            f"🎉 [NSTT PROCESS PIPELINE - SUCCESSFUL COMPLETION]\n"
+            f"  ├─ [1. Rule Engine Classification]:   {rule_engine_ms:8.2f} ms ({rule_engine_ms / 1000:6.3f} s)\n"
+            f"  ├─ [2. Hierarchical Aggregation]:     {aggregation_ms:8.2f} ms ({aggregation_ms / 1000:6.3f} s)\n"
+            f"  ├─ [3. Cache Sync & Final Output]:    {cache_sync_ms:8.2f} ms ({cache_sync_ms / 1000:6.3f} s)\n"
+            f"  ├─ Process Phase Subtotal:            {total_proc_ms:8.2f} ms ({total_proc_ms / 1000:6.3f} s)\n"
+            f"  ├─ Upload Phase Subtotal:             {upload_ms:8.2f} ms ({upload_ms / 1000:6.3f} s)\n"
+            f"  └─ Full Pipeline End-to-End:          {total_pipeline_ms:8.2f} ms ({total_pipeline_ms / 1000:6.3f} s)\n"
+            f"================================================================================"
         )
-    t_cache_end = time.perf_counter()
-    cache_sync_ms = round((t_cache_end - t_cache_start) * 1000, 2)
-    proc_perf_breakdown["cache_sync_ms"] = cache_sync_ms
 
-    nstt_logger.info(
-        f"⏱️ [NSTT PERF COUNTER - PROCESS & FINAL OUTPUT]\n"
-        f"  ├─ [1. Rule Engine Classification]:   {rule_engine_ms:8.2f} ms ({rule_engine_ms / 1000:6.3f} s)\n"
-        f"  ├─ [2. Hierarchical Aggregation]:     {aggregation_ms:8.2f} ms ({aggregation_ms / 1000:6.3f} s)\n"
-        f"  ├─ [3. Cache Sync & Final Output]:    {cache_sync_ms:8.2f} ms ({cache_sync_ms / 1000:6.3f} s)\n"
-        f"  ├─ Process Phase Subtotal:            {total_proc_ms:8.2f} ms ({total_proc_ms / 1000:6.3f} s)\n"
-        f"  ├─ Upload Phase Subtotal:             {upload_ms:8.2f} ms ({upload_ms / 1000:6.3f} s)\n"
-        f"  └─ Full Pipeline End-to-End:          {total_pipeline_ms:8.2f} ms ({total_pipeline_ms / 1000:6.3f} s)"
-    )
+        return jsonify({
+            "upload_id": upload_id,
+            "classified_master_response": classified,
+            "aggregated_result": aggregated_result,
+            "processing_time_ms": total_proc_ms,
+            "perf_breakdown": proc_perf_breakdown,
+            "stats": stats,
+        }), 200
 
-    return jsonify({
-        "upload_id": upload_id,
-        "classified_master_response": classified,
-        "aggregated_result": aggregated_result,
-        "processing_time_ms": total_proc_ms,
-        "perf_breakdown": proc_perf_breakdown,
-        "stats": stats,
-    }), 200
+    except HTTPException:
+        raise
+    except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
+        t_fail = time.perf_counter()
+        elapsed_fail_ms = round((t_fail - t_proc_start) * 1000, 2)
+
+        nstt_logger.error(
+            f"\n"
+            f"================================================================================\n"
+            f"🚨 [NSTT PROCESS PIPELINE CRITICAL ERROR]\n"
+            f"  ├─ Failed Step:          {current_step}\n"
+            f"  ├─ Last Successful Step: {last_successful_step}\n"
+            f"  ├─ Elapsed Before Fail:  {elapsed_fail_ms:8.2f} ms ({elapsed_fail_ms / 1000:6.3f} s)\n"
+            f"  ├─ Upload ID:            '{upload_id}'\n"
+            f"  ├─ Exception Type:       {type(exc).__name__}\n"
+            f"  ├─ Exception Details:    {str(exc)}\n"
+            f"  └─ Stack Trace:\n"
+            f"{tb}\n"
+            f"================================================================================"
+        )
+        return jsonify({
+            "error": f"Rule Engine / Aggregator processing failed at [{current_step}]: {str(exc)}",
+            "error_type": "PIPELINE_ERROR",
+            "failed_step": current_step,
+            "last_successful_step": last_successful_step,
+            "elapsed_ms": elapsed_fail_ms,
+            "internal_error": tb,
+        }), 500
 
 
 @nstt_bp.route("/summary", methods=["GET"], strict_slashes=False)

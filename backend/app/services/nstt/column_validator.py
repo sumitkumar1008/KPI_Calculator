@@ -6,6 +6,9 @@ Ensures fast-fail before any calculations (VLOOKUP, Rule Engine, Aggregations) a
 """
 
 import io
+import logging
+import sys
+import time
 from typing import Any, Dict, List, Tuple
 import pandas as pd
 
@@ -20,6 +23,13 @@ from app.services.nstt.remedy_reader import (
     validate_remedy_headers,
 )
 
+logger = logging.getLogger("nstt_column_validator")
+if not logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [NSTT-VALIDATOR] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+    logger.addHandler(_handler)
+    logger.setLevel(logging.INFO)
+
 
 def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFrame | None, List[str], str | None]:
     """
@@ -29,10 +39,13 @@ def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFram
     Returns:
         (df, raw_headers, error_message)
     """
+    t_start = time.perf_counter()
     try:
         fn_lower = str(filename or "").lower()
         is_csv = fn_lower.endswith(".csv")
         is_excel = fn_lower.endswith(".xlsx") or fn_lower.endswith(".xls")
+
+        logger.info(f"Ingesting raw file '{filename}' (is_excel={is_excel}, is_csv={is_csv})...")
 
         if hasattr(file_input, "read"):
             if hasattr(file_input, "seek"):
@@ -67,6 +80,7 @@ def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFram
             df = parse_csv_file(bytes_target)
 
         if df is None or len(df.columns) == 0:
+            logger.error(f"Failed to extract tabular data from '{filename}': empty or unsupported format.")
             return None, [], "File is empty or contains no parseable tabular columns."
 
         # Ensure all column headers are clean strings
@@ -75,10 +89,15 @@ def read_raw_dataframe(file_input: Any, filename: str = "") -> Tuple[pd.DataFram
             for i, c in enumerate(df.columns)
         ]
         raw_headers = list(df.columns)
+        elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        logger.info(f"✅ Ingested '{filename}': {len(df):,} rows, {len(raw_headers)} columns in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s).")
         return df, raw_headers, None
 
     except Exception as exc:
-        return None, [], f"Failed to parse file: {str(exc)}"
+        elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        err_msg = f"Failed to parse file '{filename}' in {elapsed_ms} ms: {str(exc)}"
+        logger.error(err_msg, exc_info=True)
+        return None, [], err_msg
 
 
 def validate_both_files_columns(
