@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import { uploadNsttFiles, processNstt, getNsttDrilldown, exportNstt, locateBifurcation } from '../services/nsttApi'
 import { findBifurcationsForQuery } from '../utils/nsttBifurcationLocator'
-import { saveToOPFS, loadFromOPFS, clearOPFS } from '../utils/opfsStorage'
+import { saveToOPFS, loadFromOPFS, clearOPFS, clearAllOPFS } from '../utils/opfsStorage'
 
 const NsttContext = createContext(null)
 
@@ -76,27 +76,29 @@ export function NsttProvider({ children }) {
     return new Set(bifurcationResult.allRowKeys)
   }, [bifurcationResult])
 
-  // Hydrate from browser's OPFS cache on initial mount
+  // Clear any existing session cache on mount and page refresh so the site always starts fresh
   useEffect(() => {
-    async function hydrateFromOPFS() {
+    async function purgeStaleCacheOnMount() {
       try {
         const lastUploadId = localStorage.getItem('last_nstt_upload_id')
         if (lastUploadId) {
-          const cached = await loadFromOPFS(lastUploadId)
-          if (cached && cached.classifiedMasterResponse && cached.aggregatedResult) {
-            setUploadId(lastUploadId)
-            setClassifiedMasterResponse(cached.classifiedMasterResponse)
-            setAggregatedResult(cached.aggregatedResult)
-            setStats(cached.stats)
-            setIsComplete(true)
-            console.log(`%c[OPFS] Restored session '${lastUploadId}' from Browser OPFS cache.`, 'color: #10b981; font-weight: bold;')
-          }
+          await clearOPFS(lastUploadId)
+          localStorage.removeItem('last_nstt_upload_id')
         }
+        await clearAllOPFS()
       } catch (err) {
-        console.debug('[OPFS] Hydration error:', err)
+        console.debug('[Cache] Cleanup error on mount:', err)
       }
     }
-    hydrateFromOPFS()
+    purgeStaleCacheOnMount()
+
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.removeItem('last_nstt_upload_id')
+      } catch {}
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [])
 
   /**
@@ -206,10 +208,9 @@ export function NsttProvider({ children }) {
       setAggregatedResult(processResult.aggregated_result)
       setIsComplete(true)
 
-      // Store in browser's persistent OPFS cache
+      // Store in browser's persistent OPFS cache for the current session
       if (uploadResult?.upload_id) {
         try {
-          localStorage.setItem('last_nstt_upload_id', uploadResult.upload_id)
           saveToOPFS(uploadResult.upload_id, {
             stats: combinedStats,
             classifiedMasterResponse: processResult.classified_master_response,
@@ -279,9 +280,17 @@ export function NsttProvider({ children }) {
   }
 
   /**
-   * Reset the whole module state back to initial upload screen
+   * Reset the whole module state back to initial upload screen and clear cache
    */
-  const reset = useCallback(() => {
+  const reset = useCallback(async () => {
+    try {
+      const lastUploadId = localStorage.getItem('last_nstt_upload_id') || uploadId
+      if (lastUploadId) {
+        await clearOPFS(lastUploadId)
+        localStorage.removeItem('last_nstt_upload_id')
+      }
+      await clearAllOPFS()
+    } catch {}
     setNamoFile(null)
     setRemedyFile(null)
     setUploadId(null)
@@ -295,7 +304,7 @@ export function NsttProvider({ children }) {
     setError(null)
     setBifurcationQuery('')
     closeDrilldown()
-  }, [])
+  }, [uploadId])
 
   /**
    * Excel export trigger

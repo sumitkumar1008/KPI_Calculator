@@ -286,18 +286,27 @@ def upload_nstt_files():
         t_master_start = time.perf_counter()
         master_response = build_master_response(final_df)
 
-        remedy_impact_df = map_incident_impact(remedy_df)
+        # Stream impact map directly to avoid copying 240,601 rows of remedy_df
         remedy_impact_map = {}
-        inc_nums = remedy_impact_df["INCIDENT_NUMBER"].tolist() if "INCIDENT_NUMBER" in remedy_impact_df.columns else []
-        impacts = remedy_impact_df["INCIDENT_IMPACT"].tolist() if "INCIDENT_IMPACT" in remedy_impact_df.columns else []
-        for inc_num, imp in zip(inc_nums, impacts):
-            if inc_num is not None and not pd.isna(inc_num):
-                k = str(inc_num).strip().upper()
-                if imp in ("SA", "NSA"):
-                    remedy_impact_map[k] = imp
-                elif k not in remedy_impact_map:
-                    remedy_impact_map[k] = None
+        if "INCIDENT_NUMBER" in remedy_df.columns and "INCIDENT_IMPACT" in remedy_df.columns:
+            inc_nums = remedy_df["INCIDENT_NUMBER"].tolist()
+            raw_impacts = remedy_df["INCIDENT_IMPACT"].tolist()
+            for inc_num, raw_imp in zip(inc_nums, raw_impacts):
+                if inc_num is not None and not pd.isna(inc_num):
+                    k = str(inc_num).strip().upper()
+                    s = str(raw_imp).strip().upper() if raw_imp is not None and not pd.isna(raw_imp) else ""
+                    if s in ("0", "0.0", "SA"):
+                        remedy_impact_map[k] = "SA"
+                    elif s in ("1", "1.0", "NSA"):
+                        remedy_impact_map[k] = "NSA"
+                    elif k not in remedy_impact_map:
+                        remedy_impact_map[k] = None
         master_response["remedy_impact_map"] = remedy_impact_map
+
+        # Free all raw and intermediate DataFrames immediately before Rules & Aggregation
+        del remedy_df, namo_df, enriched_df, final_df, validation
+        import gc
+        gc.collect()
         t_master_end = time.perf_counter()
         master_builder_ms = round((t_master_end - t_master_start) * 1000, 2)
         last_successful_step = current_step
@@ -342,8 +351,13 @@ def upload_nstt_files():
         nstt_logger.info(f"▶️ [START {current_step}] Classifying and aggregating {len(master_response.get('records', [])):,} records...")
         t_cache_start = time.perf_counter()
 
+        t_rules_start = time.perf_counter()
         classified = run_rule_engine(master_response)
+        rule_engine_ms = round((time.perf_counter() - t_rules_start) * 1000, 2)
+
+        t_agg_start = time.perf_counter()
         aggregated_result = build_nstt_aggregation(classified.get("records", []))
+        aggregation_ms = round((time.perf_counter() - t_agg_start) * 1000, 2)
 
         upload_id = save_nstt_to_cache(
             master_response=master_response,
@@ -354,9 +368,13 @@ def upload_nstt_files():
         t_cache_end = time.perf_counter()
         cache_store_ms = round((t_cache_end - t_cache_start) * 1000, 2)
         perf_breakdown["cache_store_ms"] = cache_store_ms
+        perf_breakdown["rule_engine_ms"] = rule_engine_ms
+        perf_breakdown["aggregation_ms"] = aggregation_ms
+        perf_breakdown["total_process_ms"] = round(rule_engine_ms + aggregation_ms, 2)
+        perf_breakdown["upload_ms"] = upload_total_ms
+        perf_breakdown["total_pipeline_ms"] = round(upload_total_ms + rule_engine_ms + aggregation_ms, 2)
 
-        # Explicitly free intermediate DataFrames and force immediate garbage collection to keep RAM under 512MB
-        del namo_df, remedy_df, validation, enriched_df, final_df, remedy_impact_df, inc_nums, impacts
+        # Force immediate garbage collection to keep RAM under 512MB
         import gc
         gc.collect()
         last_successful_step = current_step

@@ -111,6 +111,36 @@ export async function clearOPFS(key) {
 }
 
 /**
+ * Clears all NSTT cached datasets from the browser's OPFS and sessionStorage.
+ */
+export async function clearAllOPFS() {
+  try {
+    if (isOPFSSupported()) {
+      const root = await getOPFSRoot()
+      if (root.values) {
+        for await (const entry of root.values()) {
+          if (entry.name && entry.name.startsWith(NSTT_OPFS_PREFIX)) {
+            await root.removeEntry(entry.name).catch(() => {})
+          }
+        }
+      }
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      const keysToRemove = []
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i)
+        if (k && k.startsWith(NSTT_OPFS_PREFIX)) {
+          keysToRemove.push(k)
+        }
+      }
+      keysToRemove.forEach((k) => sessionStorage.removeItem(k))
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
+/**
  * Exports data directly from OPFS to CSV entirely within the browser.
  * Zero HTTP requests to the backend server!
  * @param {Array<object>} records - Array of records to export
