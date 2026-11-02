@@ -15,7 +15,7 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
     """
     Lightweight openpyxl SAX streaming parser (read_only=True, data_only=True).
     Reduces memory usage from ~450MB down to ~15MB for large Excel files to prevent Render OOM kills.
-    Skips leading empty/metadata rows and extracts headers dynamically.
+    Skips leading metadata rows, trims trailing phantom empty columns, and breaks on ghost empty rows.
     """
     try:
         wb = openpyxl.load_workbook(stream_or_path, read_only=True, data_only=True)
@@ -28,12 +28,37 @@ def _parse_read_only_openpyxl(stream_or_path: Any) -> pd.DataFrame | None:
             if row and any(c is not None and str(c).strip() != "" for c in row):
                 non_empty = [c for c in row if c is not None and str(c).strip() != ""]
                 if len(non_empty) >= 2 or headers is None:
-                    headers = [str(c).strip() if c is not None and str(c).strip() != "" else f"UNNAMED_{i}" for i, c in enumerate(row)]
+                    # Find the last column index that actually contains non-empty text
+                    last_col_idx = 0
+                    for i, c in enumerate(row):
+                        if c is not None and str(c).strip() != "":
+                            last_col_idx = i + 1
+                    headers = [
+                        str(c).strip() if c is not None and str(c).strip() != "" else f"UNNAMED_{i}"
+                        for i, c in enumerate(row[:last_col_idx])
+                    ]
                     break
         if not headers:
             wb.close()
             return None
-        data = list(rows_gen)
+
+        num_cols = len(headers)
+        data = []
+        consecutive_empty = 0
+        for row in rows_gen:
+            row_slice = list(row[:num_cols])
+            # Check if this row has any non-blank value
+            if any(c is not None and (not isinstance(c, str) or c.strip() != "") for c in row_slice):
+                if len(row_slice) < num_cols:
+                    row_slice.extend([None] * (num_cols - len(row_slice)))
+                data.append(row_slice)
+                consecutive_empty = 0
+            else:
+                consecutive_empty += 1
+                # Stop parsing if we encounter 50 consecutive blank rows (prevents parsing millions of ghost rows)
+                if consecutive_empty >= 50:
+                    break
+
         wb.close()
         return pd.DataFrame(data, columns=headers)
     except Exception:
