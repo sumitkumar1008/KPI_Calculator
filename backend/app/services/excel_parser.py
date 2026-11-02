@@ -30,6 +30,8 @@ def _parse_read_only_openpyxl(stream_or_path: Any, target_columns: list[str] | N
     t_start = time.perf_counter()
     logger.info(f"--> Attempting openpyxl SAX streaming parser (column projection: {bool(target_columns)})...")
     try:
+        if hasattr(stream_or_path, "seek"):
+            stream_or_path.seek(0)
         wb = openpyxl.load_workbook(stream_or_path, read_only=True, data_only=True)
         sheet = wb.active
         if sheet is None:
@@ -92,6 +94,75 @@ def _parse_read_only_openpyxl(stream_or_path: Any, target_columns: list[str] | N
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
         logger.warning(f"⚠️ openpyxl SAX parser failed in {elapsed_ms} ms: {type(exc).__name__}: {exc}")
         return None
+
+
+def _parse_with_duckdb(stream_or_path: Any, target_columns: list[str] | None = None) -> pd.DataFrame | None:
+    """
+    DuckDB C++ columnar Excel reader with strict 200MB memory cap.
+    Streams directly from disk without allocating millions of Python PyObjects in RAM.
+    """
+    temp_path = None
+    t_start = time.perf_counter()
+    try:
+        import duckdb
+        import os
+        import tempfile
+
+        logger.info(f"--> Attempting DuckDB C++ parser (projection: {bool(target_columns)})...")
+
+        # Resolve to a physical file path on disk
+        if isinstance(stream_or_path, str) and os.path.exists(stream_or_path):
+            file_path = stream_or_path
+        else:
+            tf = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx", dir="/tmp")
+            temp_path = tf.name
+            if hasattr(stream_or_path, "seek"):
+                stream_or_path.seek(0)
+            if hasattr(stream_or_path, "read"):
+                while chunk := stream_or_path.read(2 * 1024 * 1024):
+                    tf.write(chunk)
+            elif isinstance(stream_or_path, (bytes, bytearray)):
+                tf.write(stream_or_path)
+            tf.flush()
+            tf.close()
+            file_path = temp_path
+
+        con = duckdb.connect()
+        con.execute("SET max_memory = '200MB'")
+        con.execute("SET temp_directory = '/tmp'")
+
+        try:
+            con.execute("INSTALL excel; LOAD excel;")
+        except Exception:
+            pass
+
+        # Inspect headers
+        meta_df = con.execute(f"SELECT * FROM read_xlsx('{file_path}') LIMIT 1").df()
+        if target_columns:
+            target_upper = {str(c).strip().upper(): c for c in target_columns}
+            matched_cols = [c for c in meta_df.columns if str(c).strip().upper() in target_upper]
+            if matched_cols:
+                cols_sql = ", ".join([f'"{c}"' for c in matched_cols])
+                df = con.execute(f"SELECT {cols_sql} FROM read_xlsx('{file_path}')").df()
+                elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
+                logger.info(f"✅ DuckDB read_xlsx succeeded: {len(df):,} rows, {len(df.columns)} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
+                return df
+
+        df = con.execute(f"SELECT * FROM read_xlsx('{file_path}')").df()
+        elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        logger.info(f"✅ DuckDB read_xlsx succeeded: {len(df):,} rows, {len(df.columns)} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
+        return df
+    except Exception as exc:
+        logger.info(f"ℹ️ DuckDB excel parser bypassed: {type(exc).__name__}: {exc}")
+        return None
+    finally:
+        if temp_path:
+            import os
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
 
 
 def _parse_with_calamine(target: Any, target_columns: list[str] | None = None) -> pd.DataFrame | None:
@@ -252,25 +323,41 @@ def parse_excel_raw(stream_or_path_or_bytes: Any, target_columns: list[str] | No
     Returns:
         pd.DataFrame if successfully parsed, or None if unparseable.
     """
-    target: Any
+    target: Any = stream_or_path_or_bytes
     t_parse_start = time.perf_counter()
-    if hasattr(stream_or_path_or_bytes, "read"):
-        content = stream_or_path_or_bytes.read()
-        if hasattr(stream_or_path_or_bytes, "seek"):
-            stream_or_path_or_bytes.seek(0)
-        target = io.BytesIO(content)
+
+    if target_columns:
+        # Case A: Massive sheet requiring column projection (Remedy: 50,000+ rows, 100+ columns)
+        # CRITICAL: We bypass Calamine here because Calamine's to_python() unconditionally loads
+        # all 5,000,000 cells into Python memory, exceeding Render's 512MB RAM.
+        # Instead, DuckDB C++ and openpyxl SAX stream directly with strict memory caps.
+
+        # Attempt 1: DuckDB C++ parser (strict 200MB memory cap, streams in C++)
+        df = _parse_with_duckdb(target, target_columns=target_columns)
+        if df is not None and not df.empty:
+            return df
+
+        # Attempt 2: openpyxl SAX streaming parser (only saves the 6 projected columns per row)
+        df = _parse_read_only_openpyxl(target, target_columns=target_columns)
+        if df is not None and not df.empty:
+            return df
     else:
-        target = stream_or_path_or_bytes
+        # Case B: Standard sheet without column projection (Namo: 6,097 rows)
 
-    # Attempt 0: python-calamine Rust-accelerated parser (1-2s, ~25MB RAM)
-    df = _parse_with_calamine(target, target_columns=target_columns)
-    if df is not None and not df.empty:
-        return df
+        # Attempt 1: python-calamine Rust-accelerated parser (1-2s for ~6k rows)
+        df = _parse_with_calamine(target, target_columns=None)
+        if df is not None and not df.empty:
+            return df
 
-    # Attempt 1: openpyxl SAX read-only streaming parser (column-projected, low memory)
-    df = _parse_read_only_openpyxl(target, target_columns=target_columns)
-    if df is not None and not df.empty:
-        return df
+        # Attempt 2: DuckDB C++ parser
+        df = _parse_with_duckdb(target, target_columns=None)
+        if df is not None and not df.empty:
+            return df
+
+        # Attempt 3: openpyxl SAX read-only streaming parser
+        df = _parse_read_only_openpyxl(target, target_columns=None)
+        if df is not None and not df.empty:
+            return df
 
     # Attempt 2: openpyxl standard pandas read_excel
     logger.info("--> Attempting fallback: pandas read_excel(engine='openpyxl')...")
