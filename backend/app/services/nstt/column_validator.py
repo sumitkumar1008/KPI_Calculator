@@ -67,13 +67,13 @@ def read_raw_dataframe(
         if is_csv:
             df = parse_csv_file(target, target_columns=target_columns)
         elif is_excel:
-            df = parse_excel_raw(target, target_columns=target_columns)
+            df = parse_excel_raw(target, target_columns=target_columns, prefer_calamine=target_columns is None)
 
         # Fallback 1: try Excel
         if df is None:
             if hasattr(target, "seek"):
                 target.seek(0)
-            df = parse_excel_raw(target, target_columns=target_columns)
+            df = parse_excel_raw(target, target_columns=target_columns, prefer_calamine=target_columns is None)
 
         # Fallback 2: try CSV
         if df is None:

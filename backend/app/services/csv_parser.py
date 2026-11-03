@@ -38,7 +38,6 @@ def parse_csv_file(stream_or_path_or_bytes: Any, target_columns: list[str] | Non
             if df is not None and len(df.columns) > 0:
                 if target_upper:
                     matching_cols = [c for c in df.columns if str(c).strip().upper() in target_upper]
-                    # Only project if matching target columns exist; otherwise preserve all headers for validator diagnostics
                     if len(matching_cols) >= max(1, len(target_upper) // 2):
                         df = df[matching_cols]
                 return df

@@ -13,6 +13,7 @@ Delegates format reading to:
 import datetime
 import io
 import re
+import time
 from typing import Any
 import pandas as pd
 
@@ -46,6 +47,9 @@ SR_NUMBER_VARIANTS: list[str] = [
     "INCIDENT_NUMBER",
     "INCIDENT NUMBER",
     "INCIDENTNO",
+    "INCIDENTID",
+    "INCIDENT_ID",
+    "INCIDENT ID",
 ]
 
 
@@ -144,6 +148,31 @@ for k, canonical in OPTIONAL_KPI_MAPPINGS.items():
     _CANONICAL_LOOKUP[re.sub(r"[\s_#()]+", "", k.upper())] = canonical
     _CANONICAL_LOOKUP[k.upper()] = canonical
 
+# Master target column list for SR Volume projection (drops unneeded columns at parser level to reduce RAM by 94%)
+SR_VOLUME_TARGET_COLUMNS: list[str] = sorted(list(
+    set(
+        REQUIRED_COLUMNS
+        + SR_NUMBER_VARIANTS
+        + list(OPTIONAL_KPI_MAPPINGS.keys())
+        + ["CREATIONTIME", "STATUS", "INCIDENTID", "INCIDENT_ID", "INCIDENT ID"]
+    )
+))
+
+# Logger for SR Volume ingestion and validation
+import logging
+import sys
+sr_logger = logging.getLogger("sr_volume")
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if not sr_logger.handlers:
+    _sr_handler = logging.StreamHandler(sys.stdout)
+    _sr_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [SR-VOLUME-PARSER] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+    sr_logger.addHandler(_sr_handler)
+    sr_logger.setLevel(logging.INFO)
+
 
 def validate_and_map_headers(columns: list[Any]) -> tuple[dict[str, str], list[str]]:
     """
@@ -218,25 +247,40 @@ def _sanitize_cell(val: Any) -> Any:
     return val
 
 
-def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
+def parse_file(
+    file_input: Any,
+    filename: str = "",
+    target_columns: list[str] | None = None,
+    prefer_calamine: bool = True,
+) -> dict[str, Any]:
     """
     Central dispatcher that inspects incoming file parameters, routes stream to the appropriate
     file parser (CSV, Excel, or ZIP), normalizes columns, and sanitizes data rows.
+    Supports target_columns projection and prefer_calamine compilation for ultra-fast reading.
 
     Args:
         file_input: File Storage object, BytesIO buffer, filepath string, or raw bytes.
         filename: Optional filename string to hint parser selection.
+        target_columns: Optional list of column names to project (defaults to SR_VOLUME_TARGET_COLUMNS).
+        prefer_calamine: Whether to prioritize python-calamine compiled Rust engine.
 
     Returns:
         Dictionary result:
         - Failure: {"success": False, "error": "...", "missing_columns": [...]}
         - Success: {"success": True, "rows": [dict, ...], "row_count": int, "df": pd.DataFrame}
     """
+    t_start = time.perf_counter()
+    if target_columns is None:
+        target_columns = SR_VOLUME_TARGET_COLUMNS
+
     try:
         fn_lower = str(filename).lower()
         is_csv = fn_lower.endswith(".csv")
         is_zip = fn_lower.endswith(".zip")
         is_excel = fn_lower.endswith(".xlsx") or fn_lower.endswith(".xls")
+        fmt = "CSV" if is_csv else ("ZIP" if is_zip else ("EXCEL" if is_excel else "AUTO"))
+
+        sr_logger.info(f"🔄 Ingesting raw file '{filename or 'payload'}' (format: {fmt}, projection: {bool(target_columns)})...")
 
         # Avoid duplicate byte buffering if already a BytesIO or raw bytes
         if isinstance(file_input, io.BytesIO):
@@ -257,6 +301,7 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
             sheet_names = get_excel_sheet_names(bytes_target)
             if len(sheet_names) > 1:
                 sheets_str = ", ".join(sheet_names)
+                sr_logger.warning(f"❌ Rejected file '{filename}': contains multiple sheets ({sheets_str}).")
                 return {
                     "success": False,
                     "error": f"Failed to read Excel file: File contains multiple sheets ({sheets_str}). Please upload an Excel file containing only 1 sheet.",
@@ -274,17 +319,17 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
             df = parse_zip_file(bytes_target)
             attempted_parsers.add("zip")
         elif is_csv:
-            df = parse_csv_file(bytes_target)
+            df = parse_csv_file(bytes_target, target_columns=target_columns)
             attempted_parsers.add("csv")
         elif is_excel:
-            df = parse_excel_raw(bytes_target)
+            df = parse_excel_raw(bytes_target, target_columns=target_columns, prefer_calamine=prefer_calamine)
             attempted_parsers.add("excel")
 
         # Fallback chain: only attempt parsers that have not been tried yet
         if df is None:
             fallback_sequence = [
-                ("excel", parse_excel_raw),
-                ("csv", parse_csv_file),
+                ("excel", lambda t: parse_excel_raw(t, target_columns=target_columns, prefer_calamine=prefer_calamine)),
+                ("csv", lambda t: parse_csv_file(t, target_columns=target_columns)),
                 ("zip", parse_zip_file),
             ]
             for parser_name, parser_fn in fallback_sequence:
@@ -297,13 +342,18 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
                         break
 
         if df is None or df.empty or len(df.columns) == 0:
+            sr_logger.error(f"❌ Failed to parse '{filename}': File is empty or unparseable.")
             return {
                 "success": False,
                 "error": "Failed to read Excel file: File is empty or unparseable.",
                 "missing_columns": [],
             }
 
+        elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        sr_logger.info(f"✅ Ingested '{filename or 'payload'}': {len(df):,} rows, {len(df.columns)} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
+
     except Exception as exc:
+        sr_logger.error(f"❌ Ingestion exception on '{filename}': {type(exc).__name__}: {str(exc)}", exc_info=True)
         return {
             "success": False,
             "error": f"Failed to read Excel file: {str(exc)}",
@@ -316,11 +366,14 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
 
     if missing_cols:
         missing_str = ", ".join(missing_cols)
+        sr_logger.warning(f"❌ Schema validation failed for '{filename}': Missing required columns: {missing_str}")
         return {
             "success": False,
             "error": f"Failed to read Excel file: Missing required Excel columns: {missing_str}",
             "missing_columns": missing_cols,
         }
+
+    sr_logger.info(f"✅ Schema validation passed: Mapped {len(col_map)} columns (Required: {len(REQUIRED_COLUMNS)}, Optional: {len(col_map) - len(REQUIRED_COLUMNS)})")
 
     # Extract mapped columns and rename to canonical required names
     df_subset = df[list(col_map.keys())].rename(columns=col_map)
@@ -348,12 +401,18 @@ def parse_file(file_input: Any, filename: str = "") -> dict[str, Any]:
         except Exception:
             pass
 
-    raw_records = df_subset.to_dict(orient="records")
-    clean_rows = [{k: _sanitize_cell(v) for k, v in record.items()} for record in raw_records]
+    row_count = len(df_subset)
+    # Only materialize clean_rows list of dicts for datasets <= 10,000 rows
+    # Large datasets (e.g. 100,000 rows) use vectorized df_subset directly in routes to save > 300MB RAM
+    if row_count <= 10000:
+        raw_records = df_subset.to_dict(orient="records")
+        clean_rows = [{k: _sanitize_cell(v) for k, v in record.items()} for record in raw_records]
+    else:
+        clean_rows = []
 
     return {
         "success": True,
         "rows": clean_rows,
-        "row_count": len(clean_rows),
+        "row_count": row_count,
         "df": df_subset,
     }

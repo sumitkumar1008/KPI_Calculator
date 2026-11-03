@@ -14,6 +14,11 @@ import openpyxl
 import pandas as pd
 
 logger = logging.getLogger("excel_parser")
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 if not logger.handlers:
     _handler = logging.StreamHandler(sys.stdout)
     _handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [EXCEL-PARSER] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
@@ -173,7 +178,16 @@ def _parse_with_calamine(target: Any, target_columns: list[str] | None = None) -
     RAM from ~410MB down to ~110MB on 240,000+ rows.
     """
     t_start = time.perf_counter()
-    target_upper = {str(c).strip().upper(): str(c).strip() for c in target_columns} if target_columns else None
+    import re
+    norm_re = re.compile(r"[\s_#()]+")
+    target_norm = {}
+    if target_columns:
+        for c in target_columns:
+            s = str(c).strip().upper()
+            target_norm[s] = str(c).strip()
+            target_norm[norm_re.sub("_", s)] = str(c).strip()
+            target_norm[norm_re.sub("", s)] = str(c).strip()
+
     logger.info(f"--> Attempting fast Excel parsing via python-calamine (projection: {bool(target_columns)})...")
 
     # Path A: Ultra-low-memory streaming via CalamineWorkbook.iter_rows()
@@ -202,35 +216,49 @@ def _parse_with_calamine(target: Any, target_columns: list[str] | None = None) -
             for row in row_iter:
                 if not row or not any(c is not None and str(c).strip() != "" for c in row):
                     continue
-                if target_upper:
-                    found = {
-                        i: target_upper[str(c).strip().upper()]
-                        for i, c in enumerate(row)
-                        if c is not None and str(c).strip().upper() in target_upper
-                    }
-                    if len(found) >= max(1, len(target_upper) // 2):
+                if target_norm:
+                    found = {}
+                    for i, c in enumerate(row):
+                        if c is not None:
+                            val_str = str(c).strip()
+                            val_upper = val_str.upper()
+                            val_norm = norm_re.sub("_", val_upper)
+                            val_bare = norm_re.sub("", val_upper)
+                            if val_upper in target_norm or val_norm in target_norm or val_bare in target_norm:
+                                found[i] = val_str
+                    min_matches = min(3, len(target_norm))
+                    if len(found) >= min_matches:
                         col_index_map = found
-                        cols_order = list(found.values())
+                        cols_order = list(found.keys())
                         break
-                else:
-                    col_index_map = {
-                        i: str(c).strip() if c is not None and str(c).strip() != "" else f"UNNAMED_{i}"
-                        for i, c in enumerate(row)
-                    }
-                    cols_order = list(col_index_map.values())
-                    break
+
+                # Fallback: extract all columns with de-duplicated header names
+                seen_names = {}
+                found = {}
+                for i, c in enumerate(row):
+                    raw_name = str(c).strip() if c is not None and str(c).strip() != "" else f"UNNAMED_{i}"
+                    if raw_name in seen_names:
+                        seen_names[raw_name] += 1
+                        name = f"{raw_name}_{seen_names[raw_name]}"
+                    else:
+                        seen_names[raw_name] = 0
+                        name = raw_name
+                    found[i] = name
+                col_index_map = found
+                cols_order = list(found.keys())
+                break
 
             if col_index_map:
-                data = {c: [] for c in cols_order}
+                data = {idx: [] for idx in cols_order}
                 for row in row_iter:
                     row_len = len(row)
-                    for idx, col in col_index_map.items():
+                    for idx in cols_order:
                         val = row[idx] if idx < row_len else None
                         if isinstance(val, float) and val.is_integer():
                             val = int(val)
-                        data[col].append(val)
+                        data[idx].append(val)
 
-                df = pd.DataFrame(data)
+                df = pd.DataFrame({col_index_map[idx]: data[idx] for idx in cols_order})
                 elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
                 logger.info(f"✅ Calamine (streaming iter_rows) succeeded: {len(df):,} rows, {len(df.columns)} cols in {elapsed_ms} ms ({elapsed_ms/1000:.2f}s)")
                 return df
@@ -493,15 +521,21 @@ def _parse_streaming_xlsx_xml(target: Any, target_columns: list[str]) -> pd.Data
         return None
 
 
-def parse_excel_raw(stream_or_path_or_bytes: Any, target_columns: list[str] | None = None) -> pd.DataFrame | None:
+def parse_excel_raw(
+    stream_or_path_or_bytes: Any,
+    target_columns: list[str] | None = None,
+    prefer_calamine: bool = True,
+) -> pd.DataFrame | None:
     """
     Parses Excel (.xlsx or .xls) binary files into a pandas DataFrame using multi-engine fallbacks.
-    For massive sheets with target_columns (Remedy), uses streaming XML SAX parsing (< 190MB RAM).
-    For standard sheets without target_columns (Namo), uses python-calamine (1.5s, 43MB RAM).
+    When prefer_calamine=True, uses python-calamine with column projection for maximum speed (sub-second to ~30s).
+    For massive sheets where Calamine would exceed container RAM (e.g. Remedy 240k rows), prefer_calamine=False
+    uses streaming XML SAX parsing (< 190MB RAM).
     
     Args:
         stream_or_path_or_bytes: BytesIO buffer, FileStorage stream, filepath string, or raw bytes.
         target_columns: Optional list of column names to project (drops all other columns to save RAM).
+        prefer_calamine: Whether to prioritize python-calamine Rust engine for parsing.
 
     Returns:
         pd.DataFrame if successfully parsed, or None if unparseable.
@@ -509,40 +543,44 @@ def parse_excel_raw(stream_or_path_or_bytes: Any, target_columns: list[str] | No
     target: Any = stream_or_path_or_bytes
     t_parse_start = time.perf_counter()
 
-    if target_columns:
-        # Case A: Massive sheet requiring column projection (Remedy: 240,000+ rows)
-        # CRITICAL: Calamine allocates 437MB decompressing sheet1.xml, which causes Render OOM.
-        # Instead, _parse_streaming_xlsx_xml streams via SAX iterparse with elem.clear() in < 190MB RAM.
+    if prefer_calamine:
+        # Attempt 1: Ultra-fast python-calamine Rust engine (supports target_columns projection)
+        df = _parse_with_calamine(target, target_columns=target_columns)
+        if df is not None and not df.empty:
+            return df
 
-        # Attempt 1: Ultra-low-memory streaming XML SAX parser (39s, < 190MB peak RAM)
+    if target_columns:
+        # Case A: Massive sheet fallback or prefer_calamine=False (Remedy: 240,000+ rows)
+        # Low-memory streaming XML SAX parser (elem.clear projection in < 190MB RAM)
         df = _parse_streaming_xlsx_xml(target, target_columns=target_columns)
         if df is not None and not df.empty:
             return df
 
-        # Attempt 2: openpyxl SAX read-only streaming parser (memory-safe fallback)
+        # openpyxl SAX read-only streaming parser
         df = _parse_read_only_openpyxl(target, target_columns=target_columns)
         if df is not None and not df.empty:
             return df
 
-        # Attempt 3: DuckDB C++ parser (if extension available)
+        # DuckDB C++ parser
         df = _parse_with_duckdb(target, target_columns=target_columns)
         if df is not None and not df.empty:
             return df
     else:
-        # Case B: Standard sheet without column projection (Namo: 6,097 rows)
-        # Attempt 1: Ultra-fast python-calamine Rust engine (1.5s, 43MB peak RAM)
-        df = _parse_with_calamine(target, target_columns=None)
-        if df is not None and not df.empty:
-            return df
+        # Case B: Standard sheet without column projection (when prefer_calamine is False or failed)
+        if not prefer_calamine:
+            df = _parse_with_calamine(target, target_columns=None)
+            if df is not None and not df.empty:
+                return df
 
-        # Attempt 2: openpyxl SAX streaming parser
+        # openpyxl SAX streaming parser
         df = _parse_read_only_openpyxl(target, target_columns=None)
         if df is not None and not df.empty:
             return df
 
-        # Attempt 3: DuckDB C++ parser
+        # DuckDB C++ parser
         df = _parse_with_duckdb(target, target_columns=None)
         if df is not None and not df.empty:
+            return df
             return df
 
     # Attempt 4: openpyxl standard pandas read_excel

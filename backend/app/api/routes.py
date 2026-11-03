@@ -93,14 +93,19 @@ def validate_kpi_file():
     If it does, immediately returns an error that the file contains multiple sheets.
     """
     if not request.files:
+        logger.warning("❌ [SR-VOLUME-API] Validation rejected: No file field in request.")
         return jsonify({"valid": False, "error": "No file field in request."}), 400
 
     file = request.files.get("file") or next(iter(request.files.values()), None)
     if not file or not file.filename:
+        logger.warning("❌ [SR-VOLUME-API] Validation rejected: No file selected or empty filename.")
         return jsonify({"valid": False, "error": "No file selected."}), 400
+
+    logger.info(f"📥 [SR-VOLUME-API] Validation Request Received: File: '{file.filename}'")
 
     filename = file.filename.lower()
     if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv") or filename.endswith(".zip")):
+        logger.warning(f"❌ [SR-VOLUME-API] Validation rejected: Invalid file format '{file.filename}'.")
         return jsonify({"valid": False, "error": "File must be an .xlsx, .xls, .csv, or .zip file."}), 400
 
     content = file.read()
@@ -111,6 +116,7 @@ def validate_kpi_file():
         sheet_names = get_excel_sheet_names(bytes_io)
         if len(sheet_names) > 1:
             sheets_str = ", ".join(sheet_names)
+            logger.warning(f"❌ [SR-VOLUME-API] Validation rejected: File contains multiple sheets ({sheets_str}).")
             return jsonify({
                 "valid": False,
                 "error": f"Failed to read Excel file: File contains multiple sheets ({sheets_str}). Please upload an Excel file containing only 1 sheet.",
@@ -121,6 +127,7 @@ def validate_kpi_file():
     bytes_io.seek(0)
     parse_result = parse_file(bytes_io, filename=file.filename)
     if not parse_result.get("success"):
+        logger.warning(f"❌ [SR-VOLUME-API] Validation failed for '{file.filename}': {parse_result.get('error')}")
         return jsonify({
             "valid": False,
             "error": parse_result.get("error", "Validation failed."),
@@ -129,10 +136,12 @@ def validate_kpi_file():
             "sheet_names": parse_result.get("sheet_names", []),
         }), 400
 
+    row_count = parse_result.get("row_count", 0)
+    logger.info(f"✅ [SR-VOLUME-API] Validation passed: File '{file.filename}' is valid ({row_count:,} data rows).")
     return jsonify({
         "valid": True,
         "message": "File is valid.",
-        "row_count": parse_result.get("row_count", 0),
+        "row_count": row_count,
     }), 200
 
 
@@ -142,49 +151,66 @@ def upload_kpi_excel():
     Excel Upload & KPI Calculation Endpoint (API 1)
     -----------------------------------------------
     Accepts: multipart/form-data upload containing an Excel file (.xlsx or .xls) under key 'file'.
-    Clocks execution response time and peak RAM usage for heavy Excel payloads.
+    Uses python-calamine with column projection for ultra-fast reading and minimal RAM usage.
     """
     start_time = time.perf_counter()
     start_ram = get_process_ram_mb()
     tracemalloc.start()
 
     logger.info("==================================================")
-    logger.info(f"📥 [API 1: UPLOAD INITIATED] Processing Excel upload. Start RAM: {start_ram:.2f} MB")
 
     try:
         # 1. Verify multipart form-data request contains file attachment
         if not request.files:
-            logger.warning("❌ [API 1: REJECTED] Request contains no multipart file attachment.")
+            logger.warning("❌ [SR-VOLUME-API: REJECTED] Request contains no multipart file attachment.")
             return jsonify({"error": "No file field in request. Ensure Body is set to form-data and a file is attached."}), 400
 
         # Auto-detect file attached under key 'file' (or pick first attached file for flexibility)
         file = request.files.get("file") or next(iter(request.files.values()), None)
         if not file or file.filename == "":
-            logger.warning("❌ [API 1: REJECTED] No file selected or empty filename.")
+            logger.warning("❌ [SR-VOLUME-API: REJECTED] No file selected or empty filename.")
             return jsonify({"error": "No file selected"}), 400
 
         filename = file.filename.lower()
-        logger.info(f"📄 [API 1: FILE RECEIVED] Filename: '{file.filename}'")
+        logger.info(
+            f"📥 [SR-VOLUME-API] Upload Request Received:\n"
+            f"  ├─ Filename:  '{file.filename}'\n"
+            f"  └─ Start RAM: {start_ram:.2f} MB"
+        )
 
         # 2. Validate file extension (.xlsx, .xls, .csv, .zip)
         if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv") or filename.endswith(".zip")):
-            logger.warning(f"❌ [API 1: INVALID FILE TYPE] Filename '{file.filename}' is not .xlsx, .xls, .csv, or .zip.")
+            logger.warning(f"❌ [SR-VOLUME-API: INVALID FILE TYPE] Filename '{file.filename}' is not .xlsx, .xls, .csv, or .zip.")
             return jsonify({"error": "File must be an .xlsx, .xls, .csv, or .zip file"}), 400
 
-        # 3. Parse file into normalized dictionary rows using multi-engine fallback
-        logger.info("🔄 [API 1: PARSING FILE] Ingesting headers and extracting data rows...")
-        parse_result = parse_file(file, filename=file.filename)
+        # Step 1: Parse file into normalized DataFrame using fast Calamine engine with column projection
+        step1_start = time.perf_counter()
+        logger.info(f"▶️ [START STEP 1/4: FILE INGESTION & FORMAT VALIDATION] Parsing '{file.filename}' via Calamine Rust engine...")
+        parse_result = parse_file(file, filename=file.filename, prefer_calamine=True)
         if not parse_result["success"]:
-            logger.error(f"❌ [API 1: PARSE ERROR] Excel parsing failed: {parse_result['error']}")
+            logger.error(f"❌ [FAILED STEP 1/4: FILE INGESTION] Parsing failed: {parse_result['error']}")
             return jsonify({"error": parse_result["error"]}), 400
 
+        ingest_ms = round((time.perf_counter() - step1_start) * 1000, 2)
         df = parse_result.get("df")
+        row_count = parse_result.get("row_count", 0)
+        logger.info(
+            f"✅ [DONE STEP 1/4: FILE INGESTION] Ingestion complete:\n"
+            f"  ├─ Rows Extracted: {row_count:,}\n"
+            f"  ├─ Columns Mapped: {len(df.columns) if df is not None else 0}\n"
+            f"  └─ Ingestion Time: {ingest_ms} ms ({ingest_ms / 1000:.2f} s)"
+        )
+
+        # Step 2: Schema validation & Column alignment
+        logger.info(f"▶️ [START STEP 2/4: SCHEMA VALIDATION & COLUMN MAPPING] Aligning mapped columns to canonical KPI definitions...")
         global_warnings: list[str] = []
 
         if df is not None and not df.empty:
+            # Step 3: Vectorized KPI computation
+            step3_start = time.perf_counter()
+            logger.info(f"▶️ [START STEP 3/4: VECTORIZED KPI COMPUTATION] Computing MTTI, MTTA, MTTAck, MTTR, MTTr across {row_count:,} records...")
             df_kpi, global_warnings = compute_df_kpis(df)
-            row_count = len(df_kpi)
-            df_kpi["row_index"] = list(range(2, row_count + 2))
+            kpi_ms = round((time.perf_counter() - step3_start) * 1000, 2)
 
             for col in ["SRNUMBER", "SRCREATIONTIME", "AUTOMATION_RCA_CONCLUSION", "AUTOMATION_RUN", "MEDIA", "ROSTER_ALLOCATION"]:
                 if col not in df_kpi.columns:
@@ -200,29 +226,51 @@ def upload_kpi_excel():
             if "warnings" not in df_kpi.columns:
                 df_kpi["warnings"] = [[] for _ in range(row_count)]
 
-            out_cols = [
-                "row_index",
-                "SRNUMBER",
-                "SRCREATIONTIME",
-                "AUTOMATION_RCA_CONCLUSION",
-                "AUTOMATION_RUN",
-                "MEDIA",
-                "ROSTER_ALLOCATION",
-                "MTTI",
-                "MTTA",
-                "MTTAck",
-                "MTTR",
-                "MTTr",
-                "warnings",
-            ]
-            
-            raw_records = df_kpi[out_cols].to_dict(orient="records")
+            total_warnings = sum(len(w or []) for w in df_kpi["warnings"])
+            logger.info(
+                f"✅ [DONE STEP 3/4: KPI COMPUTATION] Vectorized calculations complete:\n"
+                f"  ├─ Total Incidents: {row_count:,}\n"
+                f"  ├─ Total Warnings:  {total_warnings:,}\n"
+                f"  └─ Compute Time:    {kpi_ms} ms ({kpi_ms / 1000:.2f} s)"
+            )
+
+            # Step 4: Sanitization & Response Serialization (single pass avoiding duplicate dict copies)
+            step4_start = time.perf_counter()
+            logger.info(f"▶️ [START STEP 4/4: SANITIZATION & RESPONSE PREPARATION] Formatting records and updating cache...")
             processed_rows = [
-                {k: (v if k == "warnings" else _sanitize_cell(v)) for k, v in r.items()}
-                for r in raw_records
+                {
+                    "row_index": idx + 2,
+                    "SRNUMBER": sr,
+                    "SRCREATIONTIME": ct,
+                    "AUTOMATION_RCA_CONCLUSION": rca,
+                    "AUTOMATION_RUN": ar,
+                    "MEDIA": med,
+                    "ROSTER_ALLOCATION": ra,
+                    "MTTI": mtti,
+                    "MTTA": mtta,
+                    "MTTAck": mttack,
+                    "MTTR": mttr,
+                    "MTTr": mttr_c,
+                    "warnings": w,
+                }
+                for idx, (sr, ct, rca, ar, med, ra, mtti, mtta, mttack, mttr, mttr_c, w) in enumerate(
+                    zip(
+                        df_kpi["SRNUMBER"],
+                        df_kpi["SRCREATIONTIME"],
+                        df_kpi["AUTOMATION_RCA_CONCLUSION"],
+                        df_kpi["AUTOMATION_RUN"],
+                        df_kpi["MEDIA"],
+                        df_kpi["ROSTER_ALLOCATION"],
+                        df_kpi["MTTI"],
+                        df_kpi["MTTA"],
+                        df_kpi["MTTAck"],
+                        df_kpi["MTTR"],
+                        df_kpi["MTTr"],
+                        df_kpi["warnings"],
+                    )
+                )
             ]
-            total_warnings = sum(len(r.get("warnings") or []) for r in processed_rows)
-            del raw_records, df_kpi
+            del df_kpi
             if df is not None:
                 del df
             import gc
@@ -230,8 +278,6 @@ def upload_kpi_excel():
         else:
             raw_rows = parse_result["rows"]
             row_count = len(raw_rows)
-            logger.info(f"✅ [API 1: FILE PARSED SUCCESSFULLY] Extracted {row_count} data rows.")
-
             processed_rows = []
             total_warnings = 0
 
@@ -267,12 +313,43 @@ def upload_kpi_excel():
         end_ram = get_process_ram_mb()
         peak_ram_mb = peak_mem / (1024 * 1024)
 
-        logger.info(f"✅ [API 1: SUCCESS] Processed {len(processed_rows)} rows (Warnings: {total_warnings})")
         logger.info(
-            f"⏱️ [API 1 PERFORMANCE COUNTER] "
-            f"Response Time: {duration:.3f}s ({duration * 1000:.1f}ms) | "
-            f"Peak Python RAM Allocated: {peak_ram_mb:.2f} MB | "
-            f"Process RAM: {end_ram:.2f} MB"
+            f"✅ [DONE STEP 4/4: SUCCESS] Upload processed successfully:\n"
+            f"  ├─ Records Delivered: {len(processed_rows):,}\n"
+            f"  ├─ Response Time:     {duration:.3f} s ({duration * 1000:.1f} ms)\n"
+            f"  ├─ Peak Python RAM:   {peak_ram_mb:.2f} MB\n"
+            f"  └─ Process End RAM:   {end_ram:.2f} MB"
+        )
+        logger.info("==================================================")
+
+        upload_id = save_to_cache(processed_rows)
+
+        return (
+            jsonify(
+                {
+                    "upload_id": upload_id,
+                    "row_count": len(processed_rows),
+                    "rows": processed_rows,
+                    "global_warnings": global_warnings,
+                }
+            ),
+            200,
+        )
+
+    except HTTPException:
+        tracemalloc.stop()
+        raise
+    except Exception as exc:
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        duration = time.perf_counter() - start_time
+        end_ram = get_process_ram_mb()
+        peak_ram_mb = peak_mem / (1024 * 1024)
+
+        logger.error(
+            f"💥 [SR-VOLUME-API: CRITICAL ERROR] Exception after {duration:.3f}s (Peak RAM: {peak_ram_mb:.2f} MB): "
+            f"{type(exc).__name__}: {str(exc)}",
+            exc_info=True,
         )
 
         upload_id = save_to_cache(processed_rows)
