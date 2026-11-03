@@ -65,7 +65,7 @@ def read_raw_dataframe(
 
         # Try based on extension hint first if present
         if is_csv:
-            df = parse_csv_file(target)
+            df = parse_csv_file(target, target_columns=target_columns)
         elif is_excel:
             df = parse_excel_raw(target, target_columns=target_columns)
 
@@ -79,7 +79,7 @@ def read_raw_dataframe(
         if df is None:
             if hasattr(target, "seek"):
                 target.seek(0)
-            df = parse_csv_file(target)
+            df = parse_csv_file(target, target_columns=target_columns)
 
         if df is None or len(df.columns) == 0:
             logger.error(f"Failed to extract tabular data from '{filename}': empty or unsupported format.")

@@ -9,9 +9,10 @@ from typing import Any
 import pandas as pd
 
 
-def parse_csv_file(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
+def parse_csv_file(stream_or_path_or_bytes: Any, target_columns: list[str] | None = None) -> pd.DataFrame | None:
     """
     Parses CSV data into a pandas DataFrame using multi-encoding fallback detection.
+    Supports target_columns to prune unused columns during CSV read for low memory footprint.
     
     Supported Encodings:
     - utf-8 (Standard Unicode)
@@ -21,17 +22,25 @@ def parse_csv_file(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
     
     Args:
         stream_or_path_or_bytes: BytesIO buffer, FileStorage, filepath string, or raw bytes.
+        target_columns: Optional list of column names to project upfront.
         
     Returns:
         pd.DataFrame if successfully parsed, or None if unparseable/invalid.
     """
     encodings = ["utf-8", "latin1", "cp1252", "iso-8859-1"]
+    target_upper = {str(c).strip().upper() for c in target_columns} if target_columns else None
+
     for enc in encodings:
         try:
             if hasattr(stream_or_path_or_bytes, "seek"):
                 stream_or_path_or_bytes.seek(0)
             df = pd.read_csv(stream_or_path_or_bytes, encoding=enc, low_memory=False)
             if df is not None and len(df.columns) > 0:
+                if target_upper:
+                    matching_cols = [c for c in df.columns if str(c).strip().upper() in target_upper]
+                    # Only project if matching target columns exist; otherwise preserve all headers for validator diagnostics
+                    if len(matching_cols) >= max(1, len(target_upper) // 2):
+                        df = df[matching_cols]
                 return df
         except Exception:
             continue

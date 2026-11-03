@@ -27,7 +27,7 @@ function NsttCalculator({ fileFormat = 'all' }) {
   const inputRef1 = useRef(null)
   const inputRef2 = useRef(null)
 
-  const acceptedFormats = fileFormat === 'all' ? '.csv,.xls,.xlsx,.zip' : `.${fileFormat}`
+  const acceptedFormats = '.xlsx,.xls,.csv'
 
   const selectFile1 = (file) => {
     if (!file) return
@@ -259,6 +259,7 @@ function NsttCalculator({ fileFormat = 'all' }) {
                 <div className="upload-icon-wrap"><FileIcon compact /></div>
                 <h3>Upload Namo Report</h3>
                 <p>Drag &amp; drop file here</p>
+                <p className="nstt-format-hint" style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 8px' }}>Supports .xlsx and .csv</p>
                 <span className="or-divider"><span>or</span></span>
                 <label className="choose-button" htmlFor="nstt-file-input-1">Choose file</label>
               </div>
@@ -304,6 +305,7 @@ function NsttCalculator({ fileFormat = 'all' }) {
                 <div className="upload-icon-wrap"><FileIcon compact /></div>
                 <h3>Upload Remedy Report</h3>
                 <p>Drag &amp; drop file here</p>
+                <p className="nstt-format-hint" style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 8px' }}>Supports .xlsx and .csv</p>
                 <span className="or-divider"><span>or</span></span>
                 <label className="choose-button" htmlFor="nstt-file-input-2">Choose file</label>
               </div>
