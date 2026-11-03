@@ -34,12 +34,23 @@ def parse_csv_file(stream_or_path_or_bytes: Any, target_columns: list[str] | Non
         try:
             if hasattr(stream_or_path_or_bytes, "seek"):
                 stream_or_path_or_bytes.seek(0)
-            df = pd.read_csv(stream_or_path_or_bytes, encoding=enc, low_memory=False)
+
+            # Upfront column projection: peek first row without loading file body into RAM
+            usecols = None
+            if target_upper:
+                try:
+                    head = pd.read_csv(stream_or_path_or_bytes, nrows=0, encoding=enc)
+                    if hasattr(stream_or_path_or_bytes, "seek"):
+                        stream_or_path_or_bytes.seek(0)
+                    matching = [c for c in head.columns if str(c).strip().upper() in target_upper]
+                    if len(matching) >= min(3, max(1, len(target_upper) // 2)):
+                        usecols = matching
+                except Exception:
+                    if hasattr(stream_or_path_or_bytes, "seek"):
+                        stream_or_path_or_bytes.seek(0)
+
+            df = pd.read_csv(stream_or_path_or_bytes, encoding=enc, usecols=usecols, low_memory=False)
             if df is not None and len(df.columns) > 0:
-                if target_upper:
-                    matching_cols = [c for c in df.columns if str(c).strip().upper() in target_upper]
-                    if len(matching_cols) >= max(1, len(target_upper) // 2):
-                        df = df[matching_cols]
                 return df
         except Exception:
             continue

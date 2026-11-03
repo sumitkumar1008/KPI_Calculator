@@ -282,17 +282,12 @@ def parse_file(
 
         sr_logger.info(f"🔄 Ingesting raw file '{filename or 'payload'}' (format: {fmt}, projection: {bool(target_columns)})...")
 
-        # Avoid duplicate byte buffering if already a BytesIO or raw bytes
-        if isinstance(file_input, io.BytesIO):
+        # Avoid duplicate byte buffering if already a seekable stream or raw bytes
+        if hasattr(file_input, "seek") and hasattr(file_input, "read"):
             file_input.seek(0)
             bytes_target = file_input
-        elif isinstance(file_input, bytes):
+        elif isinstance(file_input, (bytes, bytearray)):
             bytes_target = io.BytesIO(file_input)
-        elif hasattr(file_input, "read"):
-            content = file_input.read()
-            if hasattr(file_input, "seek"):
-                file_input.seek(0)
-            bytes_target = io.BytesIO(content)
         else:
             bytes_target = file_input
 
