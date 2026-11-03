@@ -316,7 +316,7 @@ def parse_file(
         attempted_parsers: set[str] = set()
 
         if is_zip:
-            df = parse_zip_file(bytes_target)
+            df = parse_zip_file(bytes_target, target_columns=target_columns, prefer_calamine=prefer_calamine)
             attempted_parsers.add("zip")
         elif is_csv:
             df = parse_csv_file(bytes_target, target_columns=target_columns)
@@ -330,7 +330,7 @@ def parse_file(
             fallback_sequence = [
                 ("excel", lambda t: parse_excel_raw(t, target_columns=target_columns, prefer_calamine=prefer_calamine)),
                 ("csv", lambda t: parse_csv_file(t, target_columns=target_columns)),
-                ("zip", parse_zip_file),
+                ("zip", lambda t: parse_zip_file(t, target_columns=target_columns, prefer_calamine=prefer_calamine)),
             ]
             for parser_name, parser_fn in fallback_sequence:
                 if parser_name not in attempted_parsers:

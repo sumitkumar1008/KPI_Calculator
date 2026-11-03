@@ -8,6 +8,8 @@ Located in app/services/ zip_parser.py.
 
 import io
 import os
+import shutil
+import tempfile
 from typing import Any
 import zipfile
 import pandas as pd
@@ -16,50 +18,76 @@ from app.services.csv_parser import parse_csv_file
 from app.services.excel_parser import parse_excel_raw
 
 
-def _parse_member_file(file_bytes: bytes, filename: str) -> pd.DataFrame | None:
-    """Helper to parse raw bytes of an extracted zip file based on its extension/content."""
+def _parse_member_stream(
+    src_stream: Any,
+    filename: str,
+    target_columns: list[str] | None = None,
+    prefer_calamine: bool = True,
+) -> pd.DataFrame | None:
+    """
+    Streams an extracted ZIP member file directly to a temporary file on disk in 64KB chunks,
+    completely bypassing holding 80MB+ raw byte buffers in RAM.
+    """
     ext = os.path.splitext(filename)[1].lower()
-    bytes_io = io.BytesIO(file_bytes)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp_path = tmp.name
+            shutil.copyfileobj(src_stream, tmp, length=64 * 1024)
 
-    if ext == ".csv":
-        return parse_csv_file(bytes_io)
+        if ext == ".csv":
+            return parse_csv_file(tmp_path, target_columns=target_columns)
 
-    if ext in (".xlsx", ".xls"):
-        df = parse_excel_raw(bytes_io)
+        if ext in (".xlsx", ".xls"):
+            df = parse_excel_raw(tmp_path, target_columns=target_columns, prefer_calamine=prefer_calamine)
+            if df is not None and not df.empty:
+                return df
+
+        # Fallback: attempt CSV then Excel parsing regardless of extension
+        df = parse_csv_file(tmp_path, target_columns=target_columns)
         if df is not None and not df.empty:
             return df
 
-    # Fallback: attempt CSV then Excel parsing regardless of extension
-    df = parse_csv_file(bytes_io)
-    if df is not None and not df.empty:
-        return df
+        return parse_excel_raw(tmp_path, target_columns=target_columns, prefer_calamine=prefer_calamine)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
-    bytes_io.seek(0)
-    return parse_excel_raw(bytes_io)
 
-
-def parse_zip_file(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
+def parse_zip_file(
+    stream_or_path_or_bytes: Any,
+    target_columns: list[str] | None = None,
+    prefer_calamine: bool = True,
+) -> pd.DataFrame | None:
     """
     Parses a ZIP archive containing spreadsheet files (.csv, .xlsx, .xls).
-    
-    Reads all non-hidden CSV and Excel files contained within the ZIP (including nested subdirectories),
-    parses each into a DataFrame, and concatenates them into a single pandas DataFrame.
+    Streams member files directly to disk to prevent RAM spikes on memory-constrained servers (Render 512MB).
+    Supports target_columns projection and Calamine Rust parsing.
 
     Args:
         stream_or_path_or_bytes: BytesIO buffer, FileStorage, filepath string, or raw bytes.
+        target_columns: Optional list of column names to project (drops all other columns to save RAM).
+        prefer_calamine: Whether to prioritize python-calamine compiled Rust engine.
 
     Returns:
         pd.DataFrame if successfully parsed at least one file, or None if unparseable/empty.
     """
+    temp_zip_path = None
     try:
-        # Prepare ZipFile target
+        # Prepare ZipFile target without duplicating large buffers in RAM
         if isinstance(stream_or_path_or_bytes, bytes):
             zip_target: Any = io.BytesIO(stream_or_path_or_bytes)
         elif hasattr(stream_or_path_or_bytes, "read"):
-            content = stream_or_path_or_bytes.read()
-            if hasattr(stream_or_path_or_bytes, "seek"):
-                stream_or_path_or_bytes.seek(0)
-            zip_target = io.BytesIO(content)
+            # If large stream, write directly to temporary disk file to save RAM
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_z:
+                temp_zip_path = tmp_z.name
+                if hasattr(stream_or_path_or_bytes, "seek"):
+                    stream_or_path_or_bytes.seek(0)
+                shutil.copyfileobj(stream_or_path_or_bytes, tmp_z, length=64 * 1024)
+            zip_target = temp_zip_path
         else:
             zip_target = stream_or_path_or_bytes
 
@@ -76,10 +104,15 @@ def parse_zip_file(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
                 ext = os.path.splitext(basename)[1].lower()
                 if ext in (".csv", ".xlsx", ".xls", ".txt"):
                     try:
-                        file_bytes = zf.read(member_name)
-                        df = _parse_member_file(file_bytes, basename)
-                        if df is not None and not df.empty and len(df.columns) > 0:
-                            dfs.append(df)
+                        with zf.open(member_name) as member_stream:
+                            df = _parse_member_stream(
+                                member_stream,
+                                basename,
+                                target_columns=target_columns,
+                                prefer_calamine=prefer_calamine,
+                            )
+                            if df is not None and not df.empty and len(df.columns) > 0:
+                                dfs.append(df)
                     except Exception:
                         continue
 
@@ -90,5 +123,11 @@ def parse_zip_file(stream_or_path_or_bytes: Any) -> pd.DataFrame | None:
 
     except Exception:
         return None
+    finally:
+        if temp_zip_path and os.path.exists(temp_zip_path):
+            try:
+                os.remove(temp_zip_path)
+            except Exception:
+                pass
 
     return None
